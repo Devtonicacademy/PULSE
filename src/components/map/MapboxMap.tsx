@@ -206,6 +206,10 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const [is3dBuildingsEnabled, setIs3dBuildingsEnabled] = useState<boolean>(initialEnable3dBuildings);
     const [cameraMode, setCameraModeState] = useState<CameraMode>(initialCameraMode);
     const [isContinuousTracking, setIsContinuousTracking] = useState<boolean>(true);
+    const [isCameraTransitioning, setIsCameraTransitioning] = useState<boolean>(false);
+    const [cameraNotification, setCameraNotification] = useState<string | null>(null);
+    const [showEnvironmentMenu, setShowEnvironmentMenu] = useState<boolean>(false);
+    const cameraNoticeTimeoutRef = useRef<number | null>(null);
 
     // Navigation & Wayfinding State
     const [activeRoute, setActiveRoute] = useState<NavigationRoute | null>(null);
@@ -344,7 +348,10 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     }, []);
 
     /**
-     * Applies camera modes: FPV (85° pitch, 18.4 zoom), 3D Aerial (58° pitch, 16.0 zoom), 2D Overview (0° pitch)
+     * Applies camera modes with smooth, animated cinematic transitions:
+     * - FPV: Street level at 85° pitch, zoom 18.4, locked to avatar heading
+     * - 3D Aerial: Perspective bird's-eye at 58° pitch, zoom 16.2
+     * - 2D Overview: Tactical map at 0° pitch, zoom 15.0, true North
      */
     const applyCameraMode = useCallback(
       (mode: CameraMode, targetCenter?: [number, number], targetBearing?: number) => {
@@ -352,42 +359,65 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         if (!map) return;
 
         setCameraModeState(mode);
+        setIsCameraTransitioning(true);
 
         const currentCoords = targetCenter || (userCoords ? [userCoords.longitude, userCoords.latitude] : defaultCenter);
         const heading = targetBearing !== undefined ? targetBearing : userBearing;
 
+        let targetPitch = 0;
+        let targetZoom = 15.0;
+        let calculatedBearing = 0;
+        let notice = '';
+
         if (mode === 'fpv') {
-          // First-Person View: Street level at ~85° pitch, high zoom, camera aligned with bearing
-          map.easeTo({
-            center: currentCoords,
-            pitch: 85,
-            zoom: 18.4,
-            bearing: heading,
-            duration: 1200,
-            essential: true
-          });
+          // First-Person View: Street level at 85° pitch, high zoom, camera aligned with avatar heading
+          targetPitch = 85;
+          targetZoom = 18.4;
+          calculatedBearing = heading;
+          notice = '🎮 First-Person View (85° • Street Level)';
           setIsContinuousTracking(true);
         } else if (mode === 'aerial') {
           // 3D Perspective Aerial: 58° pitch, overview zoom
-          map.easeTo({
-            center: currentCoords,
-            pitch: 58,
-            zoom: 16.0,
-            bearing: heading || -18,
-            duration: 1200,
-            essential: true
-          });
+          targetPitch = 58;
+          targetZoom = 16.2;
+          calculatedBearing = heading !== undefined && heading !== 0 ? heading : -20;
+          notice = '🚁 3D Aerial Perspective (58° • Sky View)';
         } else {
-          // 2D Top-down Overview
-          map.easeTo({
-            center: currentCoords,
-            pitch: 0,
-            zoom: 15.0,
-            bearing: 0,
-            duration: 1200,
-            essential: true
-          });
+          // 2D Tactical Overview: 0° pitch, top-down north-up
+          targetPitch = 0;
+          targetZoom = 15.0;
+          calculatedBearing = 0;
+          notice = '🗺️ 2D Tactical Overview (0° • True North)';
         }
+
+        // Show cinematic HUD toast notification
+        setCameraNotification(notice);
+        if (cameraNoticeTimeoutRef.current) {
+          clearTimeout(cameraNoticeTimeoutRef.current);
+        }
+        cameraNoticeTimeoutRef.current = window.setTimeout(() => {
+          setCameraNotification(null);
+        }, 2400);
+
+        // Fluid, cinematic flyTo transition with custom arc curvature and smooth cubic bezier easing
+        map.flyTo({
+          center: currentCoords,
+          pitch: targetPitch,
+          zoom: targetZoom,
+          bearing: calculatedBearing,
+          curve: 1.42,
+          speed: 0.9,
+          screenSpeed: 0.9,
+          maxDuration: 2200,
+          essential: true,
+          easing: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+        });
+
+        const onMoveEnd = () => {
+          setIsCameraTransitioning(false);
+          map.off('moveend', onMoveEnd);
+        };
+        map.once('moveend', onMoveEnd);
       },
       [defaultCenter, userBearing, userCoords]
     );
@@ -1016,6 +1046,11 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         window.removeEventListener('deviceorientation', handleDeviceOrientation);
 
+        if (cameraNoticeTimeoutRef.current) {
+          clearTimeout(cameraNoticeTimeoutRef.current);
+          cameraNoticeTimeoutRef.current = null;
+        }
+
         if (userMarkerRef.current) {
           userMarkerRef.current.remove();
           userMarkerRef.current = null;
@@ -1252,99 +1287,137 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         )}
 
         {/* =========================================================================
-            IMMERSIVE 3D & CAMERA MODE FLOATING TOOLBAR
+            CONSOLIDATED CAMERA & ENVIRONMENT TOOLBAR CAPSULE
            ========================================================================= */}
         {hasToken && show3dControls && isMapLoaded && (
-          <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 pointer-events-auto">
-            {/* Camera View Mode Selector (FPV 85° vs 3D Aerial 58° vs 2D Flat) */}
-            <div className="flex items-center gap-1 p-1 rounded-2xl glass-panel border border-white/15 shadow-2xl backdrop-blur-xl">
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-auto">
+            {/* Unified Camera Mode Capsule */}
+            <div className="flex items-center gap-1 p-1 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl">
               {/* FPV Mode (85° pitch, high zoom, tracks live heading) */}
               <button
                 onClick={() => applyCameraMode('fpv')}
                 title="First-Person View (85° pitch at street level, continuous heading tracking)"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'fpv'
-                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white border border-rose-400/50 shadow-md shadow-rose-500/20'
+                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/30 ring-1 ring-white/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Eye className="w-3.5 h-3.5 text-rose-300" />
-                <span>FPV (85°)</span>
+                <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-rose-400'}`} />
+                <span>FPV 85°</span>
               </button>
 
               {/* 3D Aerial (58° pitch) */}
               <button
                 onClick={() => applyCameraMode('aerial')}
                 title="3D Aerial Perspective (58° pitch)"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'aerial'
-                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/50 shadow-lg shadow-cyan-500/20'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Box className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden sm:inline">3D Aerial</span>
+                <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-cyan-200' : 'text-cyan-400'}`} />
+                <span>3D Aerial</span>
               </button>
 
               {/* 2D Overview (0° pitch) */}
               <button
                 onClick={() => applyCameraMode('overview')}
-                title="2D Top-Down Map"
+                title="2D Tactical Overview (0° pitch)"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'overview'
-                    ? 'bg-slate-700 text-white border border-white/20'
+                    ? 'bg-white/20 text-white border border-white/30 shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <span>2D</span>
+                <span>2D Map</span>
               </button>
             </div>
 
-            {/* Dynamic Lighting Preset Selector */}
-            <div className="flex items-center gap-1 p-1 rounded-2xl glass-panel border border-white/15 shadow-2xl backdrop-blur-xl w-fit">
-              {(
-                [
-                  { id: 'night', label: 'Night', icon: Moon, color: 'text-cyan-400' },
-                  { id: 'dusk', label: 'Dusk', icon: Sunset, color: 'text-amber-400' },
-                  { id: 'dawn', label: 'Dawn', icon: Sunrise, color: 'text-rose-400' },
-                  { id: 'day', label: 'Day', icon: Sun, color: 'text-yellow-300' }
-                ] as const
-              ).map((preset) => {
-                const isActive = currentLightPreset === preset.id;
-                const Icon = preset.icon;
-
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      setCurrentLightPreset(preset.id);
-                      applyDynamicLighting(preset.id);
-                    }}
-                    title={`Dynamic lighting: ${preset.label}`}
-                    className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
-                      isActive
-                        ? 'bg-white/15 text-white border border-white/30 shadow-md shadow-white/5'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <Icon className={`w-3 h-3 ${preset.color}`} />
-                    <span className="hidden sm:inline">{preset.label}</span>
-                  </button>
-                );
-              })}
-
-              {/* 3D Buildings Extrusion Toggle */}
+            {/* Consolidated Environment & Atmosphere Flyout Menu */}
+            <div className="relative">
               <button
-                onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
-                title="Toggle 3D building extrusions"
-                className={`p-1.5 rounded-xl text-[10px] font-bold transition-all ${
-                  is3dBuildingsEnabled
-                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                onClick={() => setShowEnvironmentMenu((prev) => !prev)}
+                title="Atmosphere, Lighting & 3D Settings"
+                className={`flex items-center gap-1 p-2 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl transition-all ${
+                  showEnvironmentMenu ? 'bg-white/20 text-white border-white/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <Sparkles className="w-4 h-4 text-amber-400" />
               </button>
+
+              {showEnvironmentMenu && (
+                <div className="absolute top-full left-0 mt-2 p-2.5 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 min-w-[200px] z-30 animate-fade-in">
+                  <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider flex items-center justify-between">
+                    <span>Atmosphere Lighting</span>
+                    <span className="text-cyan-400 capitalize">{currentLightPreset}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        { id: 'night', label: 'Night', icon: Moon, color: 'text-cyan-400' },
+                        { id: 'dusk', label: 'Dusk', icon: Sunset, color: 'text-amber-400' },
+                        { id: 'dawn', label: 'Dawn', icon: Sunrise, color: 'text-rose-400' },
+                        { id: 'day', label: 'Day', icon: Sun, color: 'text-yellow-300' }
+                      ] as const
+                    ).map((preset) => {
+                      const isActive = currentLightPreset === preset.id;
+                      const Icon = preset.icon;
+
+                      return (
+                        <button
+                          key={preset.id}
+                          onClick={() => {
+                            setCurrentLightPreset(preset.id);
+                            applyDynamicLighting(preset.id);
+                          }}
+                          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
+                            isActive
+                              ? 'bg-white/15 text-white border border-white/30 shadow-sm'
+                              : 'text-slate-300 hover:text-white hover:bg-white/5'
+                          }`}
+                        >
+                          <Icon className={`w-3.5 h-3.5 ${preset.color}`} />
+                          <span>{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="border-t border-white/10 pt-2">
+                    <button
+                      onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                        is3dBuildingsEnabled
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          : 'text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>3D Buildings</span>
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
+                        is3dBuildingsEnabled ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/10 text-slate-400'
+                      }`}>
+                        {is3dBuildingsEnabled ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Cinematic Camera Transition Toast Notification */}
+        {cameraNotification && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none cinematic-badge-enter">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl glass-hud border border-cyan-400/40 text-white shadow-2xl backdrop-blur-2xl">
+              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 camera-lens-pulse" />
+              <span className="text-xs font-bold tracking-wide">{cameraNotification}</span>
             </div>
           </div>
         )}

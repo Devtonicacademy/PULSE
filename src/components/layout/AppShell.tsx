@@ -30,7 +30,8 @@ import {
   Download,
   Layers,
   Crosshair,
-  LogIn
+  LogIn,
+  SlidersHorizontal
 } from 'lucide-react';
 
 export const AppShell: React.FC = () => {
@@ -66,6 +67,7 @@ export const AppShell: React.FC = () => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
+  const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [mapEngine, setMapEngine] = useState<'activity' | 'mapbox'>('mapbox');
   const [navigationDestination, setNavigationDestination] = useState<{
     latitude: number;
@@ -164,12 +166,14 @@ export const AppShell: React.FC = () => {
 
   // Helper renderer for mobile/compact bottom navigation bar
   const renderBottomNav = () => (
-    <nav className="shrink-0 h-16 glass-panel border-t border-white/10 px-3 flex items-center justify-around z-30 pb-[env(safe-area-inset-bottom)]">
+    <nav className="shrink-0 h-16 glass-bottom-bar px-3 flex items-center justify-around z-30 pb-[env(safe-area-inset-bottom)]">
       {/* 1. MAP (Default) */}
       <button
         onClick={() => setActiveTab('map')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-          activeTab === 'map' ? 'text-rose-400 scale-105' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+          activeTab === 'map'
+            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <MapIcon className={`w-5 h-5 ${activeTab === 'map' ? 'stroke-[2.5]' : ''}`} />
@@ -179,8 +183,10 @@ export const AppShell: React.FC = () => {
       {/* 2. DISCOVER */}
       <button
         onClick={() => setActiveTab('discover')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-          activeTab === 'discover' ? 'text-rose-400 scale-105' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+          activeTab === 'discover'
+            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <Compass className={`w-5 h-5 ${activeTab === 'discover' ? 'stroke-[2.5]' : ''}`} />
@@ -202,8 +208,10 @@ export const AppShell: React.FC = () => {
       {/* 4. NOTIFICATIONS */}
       <button
         onClick={() => setActiveTab('notifications')}
-        className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-          activeTab === 'notifications' ? 'text-rose-400 scale-105' : 'text-slate-400 hover:text-slate-200'
+        className={`relative flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+          activeTab === 'notifications'
+            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <Bell className={`w-5 h-5 ${activeTab === 'notifications' ? 'stroke-[2.5]' : ''}`} />
@@ -218,8 +226,10 @@ export const AppShell: React.FC = () => {
       {/* 5. PROFILE / BIZ */}
       <button
         onClick={() => setActiveTab('profile')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-          activeTab === 'profile' ? 'text-rose-400 scale-105' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+          activeTab === 'profile'
+            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         {isBusinessMode ? (
@@ -352,7 +362,7 @@ export const AppShell: React.FC = () => {
            ========================================================================= */
         <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17]">
           {/* 1. DESKTOP SIDEBAR NAVIGATION (Visible on screens >= 1024px) */}
-          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 border-r border-white/10 bg-[#070A11]/95 backdrop-blur-2xl z-30 select-none p-4 justify-between">
+          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none p-4 justify-between relative overflow-y-auto">
             {/* Top Brand & Location */}
             <div className="space-y-4">
               {/* Brand Logo */}
@@ -373,7 +383,7 @@ export const AppShell: React.FC = () => {
 
               {/* Active Zone / Location Card */}
               <div className="relative">
-                <div className="p-3 rounded-2xl bg-slate-900/80 border border-white/10">
+                <div className="p-3 rounded-2xl glass-card-interactive border border-white/10">
                   <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
                     <span className="flex items-center gap-1 font-semibold">
                       <MapPin className="w-3 h-3 text-rose-400" /> Active Hub
@@ -501,74 +511,83 @@ export const AppShell: React.FC = () => {
               </nav>
             </div>
 
-            {/* Bottom Utilities & User Profile */}
-            <div className="space-y-3 pt-3 border-t border-white/10">
-              {/* Map Engine & Portal Switchers */}
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-white/5">
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map Engine
-                  </span>
-                  <button
-                    onClick={() => setMapEngine(mapEngine === 'activity' ? 'mapbox' : 'activity')}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[10px] font-bold border border-cyan-500/30 transition-colors"
-                  >
-                    {mapEngine === 'activity' ? 'MapLibre' : 'Mapbox 3D'}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-white/5">
-                  <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5 text-amber-400" /> Role
-                  </span>
+            {/* Bottom Consolidated Control Dock & User Profile */}
+            <div className="space-y-2.5 pt-3 border-t border-white/10">
+              {/* Consolidated Preferences Capsule */}
+              <div className="p-2.5 rounded-2xl glass-card space-y-2 text-xs">
+                {/* Segmented Mode & Engine Controls in Compact Dual Grid */}
+                <div className="grid grid-cols-2 gap-1.5">
                   <button
                     onClick={() => setIsBusinessMode(!isBusinessMode)}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-bold border border-amber-500/30 transition-colors"
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
+                      isBusinessMode
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
+                    }`}
+                    title="Toggle Merchant or Resident View"
                   >
-                    {isBusinessMode ? 'Merchant' : 'Resident'}
+                    <Briefcase className="w-3 h-3 text-amber-400" />
+                    <span>{isBusinessMode ? 'Merchant' : 'Resident'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setMapEngine(mapEngine === 'activity' ? 'mapbox' : 'activity')}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
+                      mapEngine === 'mapbox'
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
+                    }`}
+                    title="Toggle Map Engine"
+                  >
+                    <Layers className="w-3 h-3 text-cyan-400" />
+                    <span>{mapEngine === 'activity' ? 'Radar' : 'Mapbox 3D'}</span>
                   </button>
                 </div>
 
-                <button
-                  onClick={() => setIsMobileFrameMode(true)}
-                  className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-white/5 text-slate-300 text-[11px] transition-colors"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5 text-rose-400" /> Phone Simulator
-                  </span>
-                  <span className="text-[10px] text-slate-500">Preview</span>
-                </button>
-
-                {!isInstalled && (
+                {/* Auxiliary Utilities Row (Simulator, Install, Auth) */}
+                <div className="flex items-center gap-1 pt-0.5">
                   <button
-                    onClick={() => promptToInstall()}
-                    className="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[11px] font-bold transition-colors"
+                    onClick={() => setIsMobileFrameMode(true)}
+                    className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[10px] font-semibold transition-colors"
+                    title="Open Phone Simulator Preview"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Install PWA</span>
+                    <Smartphone className="w-3 h-3 text-rose-400" />
+                    <span>Simulator</span>
                   </button>
-                )}
 
-                {!isAuthenticated && (
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl bg-gradient-to-r from-rose-500/20 to-amber-500/20 hover:from-rose-500/30 hover:to-amber-500/30 text-rose-300 border border-rose-500/40 text-[11px] font-bold transition-all"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Sign In / Join</span>
-                  </button>
-                )}
+                  {!isInstalled && (
+                    <button
+                      onClick={() => promptToInstall()}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[10px] font-bold transition-colors"
+                      title="Install Progressive Web App"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>Install</span>
+                    </button>
+                  )}
+
+                  {!isAuthenticated && (
+                    <button
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-gradient-to-r from-rose-500/20 to-amber-500/20 hover:from-rose-500/30 hover:to-amber-500/30 text-rose-300 text-[10px] font-bold transition-all"
+                      title="Sign In or Create Account"
+                    >
+                      <LogIn className="w-3 h-3" />
+                      <span>Sign In</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* User Profile Footer Card */}
               <div
                 onClick={() => setActiveTab('profile')}
-                className="pt-2 border-t border-white/10 flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                className="p-2 rounded-2xl glass-card-interactive flex items-center gap-2.5 cursor-pointer"
               >
                 <img
                   src={userProfile.avatar}
                   alt={userProfile.username}
-                  className="w-9 h-9 rounded-xl object-cover border border-slate-700"
+                  className="w-9 h-9 rounded-xl object-cover border border-slate-700/60 shadow-sm"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-white truncate">@{userProfile.username}</div>
@@ -584,20 +603,15 @@ export const AppShell: React.FC = () => {
           {/* 2. MAIN APP CONTENT CONTAINER */}
           <div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden relative">
             {/* Mobile / Tablet Compact Top Header (Hidden on lg: desktop) */}
-            <header className="lg:hidden px-4 py-3 shrink-0 glass-panel border-b border-white/10 flex items-center justify-between z-30">
+            <header className="lg:hidden px-3.5 py-2.5 shrink-0 glass-header flex items-center justify-between z-30 relative">
               {/* Logo & Brand */}
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-rose-500/30">
                   P
                 </div>
-                <div>
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-rose-400 font-bold">
-                    Live Radar
-                  </span>
+                <div className="flex items-center gap-1.5 leading-none">
+                  <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
                 </div>
               </div>
 
@@ -605,10 +619,10 @@ export const AppShell: React.FC = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-white/10 hover:border-white/20 text-xs text-white shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-white/20 text-xs text-white shadow-sm transition-all"
                 >
                   <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span className="font-semibold truncate max-w-[110px] sm:max-w-[140px]">
+                  <span className="font-semibold truncate max-w-[100px] sm:max-w-[130px]">
                     {currentLocation.name.split(',')[0]}
                   </span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
@@ -653,43 +667,8 @@ export const AppShell: React.FC = () => {
                 )}
               </div>
 
-              {/* Quick Controls */}
+              {/* Consolidated Right Controls: Score + Preferences + Auth */}
               <div className="flex items-center gap-1.5 sm:gap-2">
-                {activeTab === 'map' && (
-                  <button
-                    onClick={() => setMapEngine((prev) => (prev === 'activity' ? 'mapbox' : 'activity'))}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-xl border text-[10px] font-bold transition-all ${
-                      mapEngine === 'mapbox'
-                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
-                        : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-white/10'
-                    }`}
-                    title={`Current map: ${mapEngine === 'activity' ? 'Live Radar (MapLibre)' : 'Mapbox GL'}. Click to toggle.`}
-                  >
-                    <Layers className="w-3 h-3 text-cyan-400" />
-                    <span>{mapEngine === 'activity' ? 'Radar' : 'Mapbox 3D'}</span>
-                  </button>
-                )}
-
-                {!isInstalled && (
-                  <button
-                    onClick={() => setForceShowInstallPrompt(true)}
-                    className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 text-rose-400 transition-colors"
-                    title="Install Pulse App"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                )}
-
-                {!isAuthenticated && (
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold transition-all shadow-sm"
-                  >
-                    <LogIn className="w-3 h-3" />
-                    <span className="hidden sm:inline">Sign In</span>
-                  </button>
-                )}
-
                 <div
                   onClick={() => setActiveTab('discover')}
                   className="cursor-pointer px-2.5 py-1 rounded-full bg-gradient-to-r from-rose-500/20 to-amber-500/20 border border-rose-500/30 flex items-center gap-1"
@@ -698,6 +677,24 @@ export const AppShell: React.FC = () => {
                   <span className="text-xs">⚡</span>
                   <span className="text-xs font-black text-rose-300">{currentPulseScore}</span>
                 </div>
+
+                {!isAuthenticated && (
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[10px] font-bold shadow-sm transition-all"
+                  >
+                    <LogIn className="w-3 h-3" />
+                    <span>Join</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowQuickSettings(true)}
+                  className="p-1.5 rounded-xl glass-hud border border-white/15 text-slate-300 hover:text-white hover:border-cyan-400/40 transition-all shadow-sm"
+                  title="App Preferences & Settings"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+                </button>
               </div>
             </header>
 
@@ -769,6 +766,114 @@ export const AppShell: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* Consolidated Quick Settings & Preferences Modal (Mobile & Tablet) */}
+      {showQuickSettings && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl glass-panel border border-white/15 shadow-2xl p-5 text-white space-y-4 animate-slide-up">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-sm font-bold text-white">App Preferences</h3>
+              </div>
+              <button
+                onClick={() => setShowQuickSettings(false)}
+                className="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Setting 1: Map Engine */}
+            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map Engine
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {mapEngine === 'mapbox' ? 'Mapbox Standard 3D' : 'MapLibre 2D Radar'}
+                </div>
+              </div>
+              <button
+                onClick={() => setMapEngine((prev) => (prev === 'activity' ? 'mapbox' : 'activity'))}
+                className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold"
+              >
+                {mapEngine === 'mapbox' ? 'Mapbox 3D' : 'MapLibre'}
+              </button>
+            </div>
+
+            {/* Setting 2: Portal Role */}
+            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-amber-400" /> Portal Role
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {isBusinessMode ? 'Merchant / Business Admin' : 'Resident & Explorer'}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBusinessMode(!isBusinessMode)}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold"
+              >
+                {isBusinessMode ? 'Merchant' : 'Resident'}
+              </button>
+            </div>
+
+            {/* Setting 3: Phone Simulator */}
+            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-rose-400" /> Phone Simulator
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Test simulated device viewport</div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsMobileFrameMode(true);
+                  setShowQuickSettings(false);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold"
+              >
+                Launch
+              </button>
+            </div>
+
+            {/* Setting 4: PWA Install (if applicable) */}
+            {!isInstalled && (
+              <button
+                onClick={() => {
+                  setShowQuickSettings(false);
+                  promptToInstall();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all"
+              >
+                <Download className="w-4 h-4" />
+                <span>Install Pulse App (PWA)</span>
+              </button>
+            )}
+
+            {/* Setting 5: Authentication */}
+            {!isAuthenticated ? (
+              <button
+                onClick={() => {
+                  setShowQuickSettings(false);
+                  setIsAuthModalOpen(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg shadow-rose-500/25"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Sign In / Create Account</span>
+              </button>
+            ) : (
+              <div className="pt-1 text-center text-xs text-slate-400">
+                Signed in as <span className="font-bold text-white">@{userProfile.username}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
