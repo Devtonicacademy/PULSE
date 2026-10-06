@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "express": "^5.2.1",
     "firebase": "^12.19.0",
     "lucide-react": "^1.16.0",
     "mapbox-gl": "^3.32.0",
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "@types/express": "^5.0.6",
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^22.13.9",
     "@types/react": "^18.3.18",
