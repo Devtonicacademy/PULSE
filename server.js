@@ -21,7 +21,8 @@ app.use(express.static(path.join(__dirname, 'dist'), {
 }));
 
 // SPA Fallback: Any unmatched route serves index.html for client-side routing
-app.get('*', (req, res) => {
+// Express 5 compatible middleware fallback
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
