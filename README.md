@@ -14,13 +14,13 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-FF4757?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Deployed on Railway](https://img.shields.io/badge/Railway-Live_Deploy-0B0D0E?logo=railway&logoColor=white)](https://pulse-production-2015.up.railway.app)
 [![Firebase](https://img.shields.io/badge/Firebase-quizapp--project--c5e0e-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Mapbox GL](https://img.shields.io/badge/Mapbox_GL-Standard_3D-4264FB?logo=mapbox&logoColor=white)](https://mapbox.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-5.2-243B55?logo=maplibre&logoColor=white)](https://maplibre.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
 🌐 **Live Production App**: [https://pulse-production-2015.up.railway.app](https://pulse-production-2015.up.railway.app)
 
-[Features](#-feature-breakdown) • [PWA Installation](#-progressive-web-app-pwa-features) • [Firebase Cloud](#-firebase--cloud-sync) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [Directory Structure](#-directory-structure)
+[Vision](#-core-vision) • [Mapbox 3D & FPV](#-mapbox-standard-3d-fpv-85-camera--wayfinding-navigation) • [Glassmorphism & Layout](#-modern-dark-glassmorphism--consolidated-layout) • [Firebase Cloud](#-firebase-cloud--authentication-quizapp-project-c5e0e) • [PWA Features](#-progressive-web-app-pwa-features) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [Directory Structure](#-directory-structure)
 
 </div>
 
@@ -39,10 +39,90 @@ Traditional social networks are organized around friends, permanent follower gra
 The product experience feels like **Google Maps + Yik Yak + Citizen + Eventbrite** engineered into a real-time social radar for local discovery.
 
 When a user opens Pulse, they instantly know:
-1. **Where people are gathering right now** (via the Live Activity Heatmap).
+1. **Where people are gathering right now** (via the Live Activity Heatmap or Mapbox 3D extruded urban map).
 2. **What the neighborhood pulse is** (via algorithmic **Pulse Scores** like *Victoria Island ⚡92*, *Lekki ⚡82*, *Yaba ⚡74*).
 3. **What is trending near them** (via the **AI Local Radar** executive summary).
 4. **What alerts, food deals, and events exist within their chosen radius** (`1km` to `25km`).
+5. **How to navigate to live hotspots** with first-person street-level wayfinding guidance cues.
+
+---
+
+## 🎮 Mapbox Standard 3D, FPV 85° Camera & Wayfinding Navigation
+
+Pulse features a cutting-edge dual map engine, headlined by a hardware-accelerated **Mapbox GL Standard 3D** implementation ([`src/components/map/MapboxMap.tsx`](src/components/map/MapboxMap.tsx)):
+
+### 1. Mapbox Standard Style with 3D Extrusions & Dynamic Lighting
+- **3D Building Extrusions**: Realistic urban density with extruded building heights, procedural textures, and ambient depth occlusion.
+- **Dynamic Atmosphere & Lighting Presets**: Switchable on-the-fly across 4 atmospheric presets:
+  - 🌙 **Night**: Deep cybernetic indigo and neon street luminescence.
+  - 🌇 **Dusk**: Warm amber twilight horizon with directional sunset shadows.
+  - 🌅 **Dawn**: Soft rose-gold morning light.
+  - ☀️ **Day**: High-contrast solar illumination for daytime clarity.
+
+### 2. First-Person View (FPV 85° Pitch) & Live Heading Tracking
+- **Street-Level Immersion**: The camera swoops down to street level, elevating pitch to **85°** (at maximum physical tilt) and setting zoom to **18.4** for an authentic first-person perspective.
+- **Continuous Live Heading Tracking**: The camera's bearing and focal center continuously track the user's live coordinates and device heading direction (`watchPosition` + compass orientation).
+- **Smooth Cinematic Camera Transitions**:
+  - **FPV (85°)**: Street-level immersive perspective locked to user movement.
+  - **3D Aerial (58°)**: Panoramic skyline perspective showcasing extruded 3D architecture.
+  - **2D Overview (0°)**: Tactical neighborhood overview oriented to True North.
+  - **Flight Physics**: Powered by `map.flyTo` (`curve: 1.42`, `speed: 0.9`, custom cubic bezier easing) with temporary HUD toast badges indicating the active camera mode.
+
+### 3. Street-Level Wayfinding & Game-Style Guidance Cues
+- **Game-Style Waypoint Markers**: When a user selects a destination moment, Pulse renders animated floating neon chevron markers along the route at street level to guide their avatar toward the venue.
+- **Dynamic Route Line**: Glowing gradient polyline connecting the user's live position to the target location.
+- **Navigation HUD Card**: Displays active distance counter (`320m away`), target venue name, category badge, and 1-tap "End Route" action.
+- **Pulsing Arrival Beacon**: Destination hotspot marked with a 3D animated beacon ring that pulses upon arrival.
+
+---
+
+## ✨ Modern Dark Glassmorphism & Consolidated Layout
+
+Pulse features a sleek, obsidian dark theme with semi-transparent glassmorphism and a clutter-free interface designed for one-handed thumb navigation:
+
+### 1. Glassmorphic Design Tokens ([`src/index.css`](src/index.css))
+- **`.glass-sidebar`**: Translucent obsidian base (`rgba(9, 13, 23, 0.75)`), ultra-deep 24px backdrop blur, subtle luminous micro-borders (`1px solid rgba(255, 255, 255, 0.08)`), and inset lighting highlights.
+- **`.glass-header`**: Streamlined mobile and tablet topbar with silky backdrop blur.
+- **`.glass-bottom-bar`**: Elevated mobile dock with glowing active tab indicators.
+- **`.glass-hud`**: Floating HUD action capsules with depth and drop shadows.
+- **`.glass-card` & `.glass-card-interactive`**: GPU-accelerated cards with micro-glow hover states and inner rim reflections.
+- **`.glass-dropdown`**: 24px blurred crystalline menus with deep obsidian contrast.
+
+### 2. Consolidated Controls & Reduced Visible Dashboard Elements
+- **Unified Camera & Environment Capsule ([`src/components/map/MapboxMap.tsx`](src/components/map/MapboxMap.tsx))**:
+  - Replaced 2 separate multi-button toolbars (8 buttons) with a single floating capsule: `[ 🎮 FPV 85° | 🚁 3D Aerial | 🗺️ 2D Map ]` plus a compact `✨` atmosphere & lighting flyout menu, freeing up over 70% of map canvas space.
+- **Consolidated 2D Radar Controls ([`src/components/map/LiveActivityMap.tsx`](src/components/map/LiveActivityMap.tsx))**:
+  - Replaced 5 vertically stacked floating buttons with a consolidated horizontal action dock: `[ 🎯 GPS | 🎨 Layers ]`.
+  - The `Layers` button opens an integrated dropdown containing Density Heatmap toggle, Business Offers toggle, 2x2 activity color legend, and local alert simulation trigger.
+  - Replaced the wide horizontal radius chip list with a compact `[ RADAR 5km ▾ ]` pill with an animated glass dropdown.
+- **Consolidated Discover Feed ([`src/components/feed/DiscoverFeed.tsx`](src/components/feed/DiscoverFeed.tsx))**:
+  - Replaced multi-row sticky headers with a unified search field and a compact filter pill `[ ⚡ {radius}km • {sort} ▾ ]` that expands into a glass drawer only when tapped.
+  - Converted the AI Local Radar summary into a compact, collapsible banner to prioritize live moments.
+- **Consolidated System & Cloud Status Dock ([`src/components/profile/GamificationProfile.tsx`](src/components/profile/GamificationProfile.tsx))**:
+  - Consolidated 3 separate full-width stacked status banners (PWA Install, Firebase Sync, and Guest Upgrade) into a unified, compact glass status capsule (`⚡ Firebase Live Sync • 📱 Mobile Web | Install App | Save Rank`), eliminating over 200px of scrolling clutter.
+- **Consolidated App Shell Controls ([`src/components/layout/AppShell.tsx`](src/components/layout/AppShell.tsx))**:
+  - **Desktop**: Segmented dual-pill controls (`[ Resident | Merchant ]`, `[ Radar | Mapbox 3D ]`) and compact utility icons (`Simulator`, `Install`, `Sign In`).
+  - **Mobile**: Top header with location selector, score pill (`⚡ 84`), and a Quick Preferences modal (`SlidersHorizontal`) housing secondary controls off the primary viewport.
+
+---
+
+## 🔥 Firebase Cloud & Authentication (`quizapp-project-c5e0e`)
+
+PULSE is integrated with Google Cloud Firebase for real-time data sync and identity management:
+- **Project ID**: `quizapp-project-c5e0e`
+- **Auth Domain**: `quizapp-project-c5e0e.firebaseapp.com`
+- **Storage Bucket**: `quizapp-project-c5e0e.firebasestorage.app`
+- **Authentication Providers**:
+  - 📧 **Email & Password**: Account registration and login with client validation, password reveal toggle, and password reset flows.
+  - 🌐 **Google Sign-In**: 1-click Google authentication with popup flow and auto-provisioned Scout profile.
+  - ⚡ **Anonymous Guest Scout Mode**: Immediate friction-free onboarding allowing users to explore the live map and chat immediately before converting to a permanent account.
+  - 🔒 **Persistent Session**: Synchronized with `onAuthStateChanged` and Firestore `users/{uid}` collection.
+- **Real-Time Collections**:
+  - `moments`: Synchronizes live moments, geographic coordinates, privacy blur flags, and expiration timestamps.
+  - `comments`: Real-time threaded replies and discussion counters.
+  - `reactions`: Real-time increments for helpful, trending, and confirmed activity counts.
+  - `users`: User profile badges, reputation scores, and scout bios.
+- **Offline / Zero-Setup Fallback**: If `VITE_FIREBASE_API_KEY` is omitted, PULSE gracefully continues operating in local reactive demo mode without network exceptions or crashes.
 
 ---
 
@@ -51,12 +131,12 @@ When a user opens Pulse, they instantly know:
 PULSE is a **fully installable Progressive Web App** configured for both mobile devices (iOS & Android) and modern desktop browsers:
 
 ### 1. Smart Installation Prompting
-- **Automatic Install Banner**: Greets new users with a non-intrusive floating neon glass card highlighting the native app benefits (*1-tap launch*, *Real-time proximity alerts*, *Edge-to-edge full map view*).
+- **Automatic Install Banner**: Greets new users with a non-intrusive floating neon glass card highlighting native app benefits (*1-tap launch*, *Real-time proximity alerts*, *Edge-to-edge full map view*).
 - **Native 1-Click Install (Android, Chrome, Edge)**: Directly hooks into the browser's `beforeinstallprompt` event.
-- **Interactive iOS Safari Guide**: Because iOS Safari does not support automated prompt events, Pulse automatically detects iOS devices and presents an intuitive 2-step graphic instruction:
+- **Interactive iOS Safari Guide**: Because iOS Safari does not support automated prompt events, Pulse detects iOS devices and presents an intuitive 2-step graphic instruction:
   1. Tap Safari's **Share** button (`⎙`)
   2. Tap **"Add to Home Screen"** (`➕`)
-- **Always Accessible**: If dismissed, users can re-trigger installation anytime from the **Header Install Button** or the **Profile PWA Card**.
+- **Always Accessible**: Users can re-trigger installation anytime from the **Desktop Control Dock**, **Quick Preferences Modal**, or **Profile Status Capsule**.
 
 ### 2. Standalone App Experience
 - Runs in `display: standalone` mode, removing browser URL search bars and bottom controls for a 100% native feel.
@@ -75,44 +155,27 @@ PULSE is a **fully installable Progressive Web App** configured for both mobile 
 - Employs a **stale-while-revalidate** caching strategy for instant subsequent launches.
 - Uses network-first caching with cached fallbacks for map tiles and media assets.
 
-## 🔥 Firebase Cloud & Authentication (`quizapp-project-c5e0e`)
-
-PULSE is integrated with Google Cloud Firebase for real-time data sync and identity management:
-- **Project ID**: `quizapp-project-c5e0e`
-- **Auth Domain**: `quizapp-project-c5e0e.firebaseapp.com`
-- **Storage Bucket**: `quizapp-project-c5e0e.firebasestorage.app`
-- **Authentication Providers**:
-  - 📧 **Email & Password**: Smooth account creation and login with client validation, password reveal toggle, and password reset flows.
-  - 🌐 **Google Sign-In**: 1-click Google authentication with popup flow and auto-provisioned Scout profile.
-  - ⚡ **Anonymous Guest Scout Mode**: Immediate friction-free onboarding allowing users to explore the live map and chat immediately before converting to a permanent account.
-  - 🔒 **Persistent Session**: Synchronized with `onAuthStateChanged` and Firestore `users/{uid}` collection.
-- **Real-Time Collections**:
-  - `moments`: Synchronizes live moments, geographic coordinates, privacy blur flags, and expiration timestamps.
-  - `comments`: Real-time threaded replies and discussion counters.
-  - `reactions`: Real-time increments for helpful, trending, and confirmed activity counts.
-  - `users`: User profile badges, reputation scores, and scout bios.
-- **Offline / Zero-Setup Fallback**: If `VITE_FIREBASE_API_KEY` is omitted, PULSE gracefully continues operating in local reactive demo mode without network exceptions or crashes.
-
 ---
 
 ## 🚀 Feature Breakdown
 
 | # | Feature | Highlights |
 | :---: | :--- | :--- |
-| **1** | **Live Activity Map** | The default homepage. MapLibre GL hardware-accelerated dark map with dynamic Heatmap layer: <br>🔵 **Blue**: Low Activity • 🟡 **Yellow**: Medium • 🟠 **Orange**: High • 🔴 **Red**: Trending Hotspot.<br>Interactive pins, cluster badges, and hotspot zones. |
-| **2** | **Dynamic Radius Feed** | Instant radius selection chips: **1km, 2km, 5km, 10km, 25km**. Feed auto-refreshes when the user changes GPS coordinates or switches radius. |
-| **3** | **Moments** | Replaces static social posts with real-world Moments across 8 categories: `🎉 Events`, `🚨 Alerts`, `🍔 Food & Drinks`, `🔍 Lost & Found`, `💡 Recommendations`, `🏃 Activities`, `🛍 Deals`, `💬 Community`. |
-| **4** | **Moment Expiration** | **24-hour default lifespan** (optional 48h). High engagement grants automatic freshness extensions (+30m per surge). Expired moments cleanly move to user archives. |
-| **5** | **Activity Pulse Score** | Algorithmic 0–100 score engine calculating live moment density, reaction velocity, comment volume, and views (e.g. *Victoria Island: 92*, *Lekki: 82*, *Yaba: 74*). |
-| **6** | **AI Local Summary** | Executive bullet summary generated in real-time ("Trending near you: Food Festival at Freedom Park, Heavy Traffic on Ozumba Mbadiwe, Coffee Shop Grand Opening..."). |
-| **7** | **Reactions** | 5 micro-animated reactions: `👍 Helpful`, `🔥 Trending`, `✅ Confirmed`, `❤️ Interested`, `🎉 Going`. |
-| **8** | **Threaded Discussions** | Multi-level comments with `@username` mentions, nested reply chains, and comment likes. |
-| **9** | **Temporary Communities** | Auto-generated pop-up channels around events and campuses (*Freedom Park Tonight*, *University of Lagos Today*). Ephemeral live stream chat automatically dissolves when the moment expires. |
-| **10** | **Business Accounts** | Verified golden checkmark badges. Drop **Live Pins** (`Happy Hour`, `Food Truck Location`, `Flash Sales`, `Limited Offers`) with real-time analytics (Views, Reach, Clicks, Engagement). |
-| **11** | **Gamification & Badges** | Reputation score engine with level progress bar and unlockable badge shelf: `Local Scout`, `Trailblazer`, `Food Hunter`, `Community Hero`, `Safety Reporter`, `Local Legend`. |
-| **12** | **Trust & Safety** | GPS proximity validation (broadcasts must originate near current location), anti-spam rate limiting, duplicate detection, and dedicated reporting modal (`Spam`, `Harassment`, `False Info`, `Danger`). |
-| **13** | **Privacy by Design** | Random coordinate blurring (`±180m` jitter) protects private residential addresses while preserving neighborhood utility. |
-| **14** | **Proximity Alerts** | In-app notification center and real-time floating toast alert banners with 1-click jump to map. Built-in alert test simulator. |
+| **1** | **Mapbox Standard 3D Map** | 3D extruded buildings, dynamic atmosphere presets (`Night`, `Dusk`, `Dawn`, `Day`), 85° FPV street-level mode, live heading tracking, and game-style wayfinding navigation markers. |
+| **2** | **Live Activity Radar (2D)** | Hardware-accelerated MapLibre GL dark map with dynamic Heatmap layer: 🔵 Blue (Low), 🟡 Yellow (Medium), 🟠 Orange (High), 🔴 Red (Trending Hotspot). Consolidated layer & legend menu. |
+| **3** | **Dynamic Radius Feed** | Instant radius selection: **1km, 2km, 5km, 10km, 25km**. Feed auto-refreshes when the user changes GPS coordinates or switches radius. |
+| **4** | **Moments** | Replaces static social posts with real-world Moments across 8 categories: `🎉 Events`, `🚨 Alerts`, `🍔 Food & Drinks`, `🔍 Lost & Found`, `💡 Recommendations`, `🏃 Activities`, `🛍 Deals`, `💬 Community`. |
+| **5** | **Moment Expiration** | **24-hour default lifespan** (optional 48h). High engagement grants automatic freshness extensions (+30m per surge). Expired moments cleanly move to user archives. |
+| **6** | **Activity Pulse Score** | Algorithmic 0–100 score engine calculating live moment density, reaction velocity, comment volume, and views (e.g. *Victoria Island: 92*, *Lekki: 82*, *Yaba: 74*). |
+| **7** | **AI Local Summary** | Executive bullet summary generated in real-time with collapsible card design ("Trending near you: Food Festival at Freedom Park, Heavy Traffic on Ozumba Mbadiwe..."). |
+| **8** | **Reactions** | 5 micro-animated reactions: `👍 Helpful`, `🔥 Trending`, `✅ Confirmed`, `❤️ Interested`, `🎉 Going`. |
+| **9** | **Threaded Discussions** | Multi-level comments with `@username` mentions, nested reply chains, and comment likes. |
+| **10** | **Temporary Communities** | Auto-generated pop-up channels around events and campuses (*Freedom Park Tonight*, *University of Lagos Today*). Ephemeral live stream chat automatically dissolves when the moment expires. |
+| **11** | **Business Accounts** | Verified golden checkmark badges. Drop **Live Pins** (`Happy Hour`, `Food Truck Location`, `Flash Sales`, `Limited Offers`) with real-time analytics (Views, Reach, Clicks, Engagement). |
+| **12** | **Gamification & Badges** | Reputation score engine with level progress bar and unlockable badge shelf: `Local Scout`, `Trailblazer`, `Food Hunter`, `Community Hero`, `Safety Reporter`, `Local Legend`. |
+| **13** | **Trust & Safety** | GPS proximity validation (broadcasts must originate near current location), anti-spam rate limiting, duplicate detection, and dedicated reporting modal (`Spam`, `Harassment`, `False Info`, `Danger`). |
+| **14** | **Privacy by Design** | Random coordinate blurring (`±180m` jitter) protects private residential addresses while preserving neighborhood utility. |
+| **15** | **Proximity Alerts** | In-app notification center and real-time floating toast alert banners with 1-click jump to map. Built-in alert test simulator. |
 
 ---
 
@@ -128,27 +191,29 @@ PULSE is integrated with Google Cloud Firebase for real-time data sync and ident
           │                                             │                                             │
           ▼                                             ▼                                             ▼
 ┌───────────────────┐                         ┌───────────────────┐                         ┌───────────────────┐
-│   Map Engine      │                         │  PWA & Mobile UX  │                         │ State & Offline   │
-│  (MapLibre GL)    │                         │  (5 Core Views)   │                         │ Reactive Engine   │
+│   Dual Map Engine │                         │  PWA & Mobile UX  │                         │ State & Offline   │
+│ Mapbox 3D/MapLibre│                         │  (5 Core Views)   │                         │ Reactive Engine   │
 ├───────────────────┤                         ├───────────────────┤                         ├───────────────────┤
-│• 4-Color Heatmap  │                         │1. Map (Default)   │                         │• Local Storage    │
-│• Dynamic Radius   │                         │2. Discover Feed   │                         │• Distance Engine  │
-│• Category Pins    │                         │3. Broadcast Modal │                         │• Algorithmic Score│
-│• Hotspot Badges   │                         │4. Proximity Alerts│                         │• Service Worker   │
-│• Glass Drawer     │                         │5. Profile / Biz   │                         │• PWA Install Hook │
-└───────────────────┘                         └───────────────────┘                         └─────────┬─────────┘
-                                                                                                      │
-                                                        ┌─────────────────────────────────────────────┘
-                                                        ▼
-                                          ┌───────────────────────────┐
-                                          │     Supabase Backend      │
-                                          │   PostgreSQL + PostGIS    │
-                                          ├───────────────────────────┤
-                                          │• ST_DWithin Radius Query  │
-                                          │• Spatial Point Indexing   │
-                                          │• Realtime Channels        │
-                                          │• Row Level Security (RLS) │
-                                          └───────────────────────────┘
+│• Mapbox 3D Bldgs  │                         │1. Map (Default)   │                         │• Local Storage    │
+│• FPV 85° Tracking │                         │2. Discover Feed   │                         │• Distance Engine  │
+│• Wayfinding Cues  │                         │3. Broadcast Modal │                         │• Algorithmic Score│
+│• 4-Color Heatmap  │                         │4. Proximity Alerts│                         │• Service Worker   │
+│• Dynamic Radius   │                         │5. Profile / Biz   │                         │• PWA Install Hook │
+└─────────┬─────────┘                         └───────────────────┘                         └─────────┬─────────┘
+          │                                                                                           │
+          └─────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                                        │
+                        ┌───────────────────────────────┴───────────────────────────────┐
+                        ▼                                                               ▼
+          ┌───────────────────────────┐                                   ┌───────────────────────────┐
+          │    Firebase Cloud Sync    │                                   │     Supabase Backend      │
+          │  Auth + Firestore NoSQL   │                                   │   PostgreSQL + PostGIS    │
+          ├───────────────────────────┤                                   ├───────────────────────────┤
+          │• Email / Google / Guest   │                                   │• ST_DWithin Radius Query  │
+          │• Realtime moments sync    │                                   │• Spatial Point Indexing   │
+          │• Realtime comments sync   │                                   │• Realtime Channels        │
+          │• Security Rules enforced  │                                   │• Row Level Security (RLS) │
+          └───────────────────────────┘                                   └───────────────────────────┘
 ```
 
 ---
@@ -161,8 +226,8 @@ PULSE is integrated with Google Cloud Firebase for real-time data sync and ident
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/your-username/pulse.git
-cd pulse
+git clone https://github.com/Devtonicacademy/PULSE.git
+cd PULSE
 npm install
 ```
 
@@ -173,16 +238,25 @@ cp .env.example .env
 ```
 
 ```env
+# Mapbox Access Token (Optional - falls back to MapLibre GL CartoDB Dark Matter if omitted)
+VITE_MAPBOX_TOKEN=your-mapbox-token-here
+
+# Firebase Configuration (quizapp-project-c5e0e)
+VITE_FIREBASE_API_KEY=your-firebase-api-key
+VITE_FIREBASE_AUTH_DOMAIN=quizapp-project-c5e0e.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=quizapp-project-c5e0e
+VITE_FIREBASE_STORAGE_BUCKET=quizapp-project-c5e0e.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=489428029645
+VITE_FIREBASE_APP_ID=1:489428029645:web:8991f28257e3a2f83bd984
+VITE_FIREBASE_MEASUREMENT_ID=G-QWLVXQ9DBX
+
 # Supabase Configuration (Optional - falls back to offline reactive demo mode if omitted)
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
-
-# Mapbox Access Token (Optional - falls back to MapLibre GL CartoDB Dark Matter if omitted)
-VITE_MAPBOX_TOKEN=
 ```
 
 > [!NOTE]
-> Pulse is **zero-setup ready**: if you don't provide Supabase or Mapbox keys, it runs out of the box in interactive offline demo mode with rich pre-seeded data!
+> Pulse is **zero-setup ready**: if you don't provide Mapbox, Firebase, or Supabase keys, it automatically runs in interactive offline demo mode with rich pre-seeded data!
 
 ### 3. Start Development Server
 ```bash
@@ -199,42 +273,6 @@ The compiled, minified production assets will be output to the `dist/` folder.
 ### 5. Preview Production Build
 ```bash
 npm run preview
-```
-
----
-
-## 🗄 Database Schema & PostGIS
-
-Pulse is built for **PostgreSQL 15+** with the **PostGIS** spatial extension. The complete SQL DDL migration is provided in:
-
-📂 [`supabase/migrations/20261006_init_pulse_schema.sql`](supabase/migrations/20261006_init_pulse_schema.sql)
-
-### Core Database Tables:
-- **`users`**: User identity, avatar, bio, reputation score, and earned badge arrays.
-- **`moments`**: Core broadcast units with `GEOGRAPHY(Point, 4326)` coordinates, category enums, 24h expiration timestamp, and privacy blurring flag.
-- **`reactions`**: Real-time reaction records (`helpful`, `trending`, `confirmed`, `interested`, `going`) with unique compound keys.
-- **`comments`**: Multi-level threaded discussions with parent references and author metadata.
-- **`businesses`**: Business profiles, verification status, categories, and subscription tiers.
-- **`business_posts`**: Live Pins (`Happy Hour`, `Flash Sale`, `Food Truck`, `Limited Offer`) with engagement metrics.
-- **`activity_zones`**: High-density zones with dynamic Pulse Scores (e.g. Victoria Island, Lekki, Yaba).
-- **`temporary_communities`**: Pop-up ephemeral groups linked to events with auto-expiration timestamps.
-- **`reports`**: Community moderation queue for trust & safety reports.
-
-### Spatial Query Example:
-```sql
--- Query active Moments within user's dynamic radius using PostGIS ST_DWithin
-SELECT 
-  id, title, category, latitude, longitude, photo_url,
-  ST_Distance(geom, ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography) AS distance_meters
-FROM moments
-WHERE is_archived = FALSE
-  AND expires_at > NOW()
-  AND ST_DWithin(
-    geom,
-    ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography,
-    5000 -- 5km radius
-  )
-ORDER BY engagement_score DESC, created_at DESC;
 ```
 
 ---
@@ -265,18 +303,20 @@ PULSE/
 │   │   ├── create/
 │   │   │   └── CreateMomentModal.tsx       # 24h moment creator with privacy blurring
 │   │   ├── feed/
-│   │   │   └── DiscoverFeed.tsx            # Radius feed & AI local radar summary
+│   │   │   └── DiscoverFeed.tsx            # Consolidated radius feed & AI local radar summary
 │   │   ├── layout/
-│   │   │   └── AppShell.tsx                # Bottom nav, header, mobile frame toggle
+│   │   │   └── AppShell.tsx                # Glassmorphic shell, control dock & quick preferences
 │   │   ├── map/
-│   │   │   ├── LiveActivityMap.tsx         # Heatmap canvas & interactive markers
-│   │   │   └── HotspotBottomSheet.tsx      # Moment glass drawer & reactions
+│   │   │   ├── MapboxMap.tsx               # Mapbox Standard 3D, FPV 85°, lighting & wayfinding
+│   │   │   ├── LiveActivityMap.tsx         # MapLibre 2D heatmap & consolidated layers dock
+│   │   │   ├── HotspotBottomSheet.tsx      # Moment glass drawer, reactions & navigate CTA
+│   │   │   └── index.ts                    # Map module exports
 │   │   ├── modals/
 │   │   │   └── ReportModal.tsx             # Trust & safety reporting dialog
 │   │   ├── notifications/
 │   │   │   └── NotificationsDrawer.tsx     # Proximity alerts & notifications
 │   │   ├── profile/
-│   │   │   └── GamificationProfile.tsx     # Reputation points & badge shelf
+│   │   │   └── GamificationProfile.tsx     # Reputation points, badges & system status dock
 │   │   └── pwa/
 │   │       └── PWAInstallBanner.tsx        # Smart PWA install prompt & iOS guide
 │   ├── context/
@@ -295,7 +335,7 @@ PULSE/
 │   ├── utils/
 │   │   └── geoUtils.ts                     # Haversine distance & privacy blur jitter
 │   ├── App.tsx                             # App entry point
-│   ├── index.css                           # Tailwind CSS & glass styling
+│   ├── index.css                           # Glassmorphic CSS design tokens & animations
 │   ├── main.tsx                            # Root mount & Service Worker registration
 │   └── vite-env.d.ts                       # Environment variable typings
 ├── .firebaserc                             # Firebase project alias (quizapp-project-c5e0e)
@@ -304,7 +344,7 @@ PULSE/
 ├── supabase/
 │   └── migrations/
 │       └── 20261006_init_pulse_schema.sql  # PostGIS schema migration
-├── .env                                    # Environment variables (Mapbox, Firebase, Supabase)
+├── .env                                    # Environment variables
 ├── .env.example                            # Example environment variables template
 ├── index.html                              # HTML template with PWA meta tags
 ├── package.json                            # Dependencies & scripts
@@ -317,17 +357,17 @@ PULSE/
 
 ## 🎨 UI Style & Design System
 
-- **Dark Obsidian Aesthetics**: Dominant background `#0A0E17`, card surfaces `#121927`.
+- **Dark Obsidian Aesthetics**: Dominant background `#070A11`, card surfaces `#0A0E17`, borders `rgba(255, 255, 255, 0.08)`.
 - **Accent Signals**:
   - 💥 **Pulse Coral**: `#FF4757`
   - 📡 **Radar Cyan**: `#00F2FE`
   - ⚡ **Electric Amber**: `#FFA502`
   - 🟢 **Emerald Live**: `#10B981`
-- **Glassmorphism**: `backdrop-blur-md` panels with delicate `rgba(255, 255, 255, 0.08)` borders.
+- **Glassmorphism**: `backdrop-blur-2xl` panels with luminous inset borders and translucent obsidian depths.
 - **Mobile-First Responsive Layout**:
-  - Displays inside a smartphone frame on desktop with notch/dynamic island styling.
-  - One-click toggle in top bar to switch to Expanded Full-Width Web View.
+  - Phone simulator option for rapid testing of mobile hardware viewports.
   - Native 100% viewport experience on mobile touch devices.
+  - Consolidated executive desktop layout with compact control docks.
 
 ---
 
