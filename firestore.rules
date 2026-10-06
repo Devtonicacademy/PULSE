@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pulse moments collection
+    match /moments/{momentId} {
+      allow read: if true;
+      allow create: if request.resource.data.title is string
+                    && request.resource.data.category is string;
+      allow update, delete: if true;
+    }
+
+    // Comments subcollection or collection
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create, update: if true;
+    }
+
+    // User profiles & reputations
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Default match
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
