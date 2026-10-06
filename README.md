@@ -12,10 +12,13 @@
 [![Vite 6](https://img.shields.io/badge/Vite-6.2-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-FF4757?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![Deployed on Railway](https://img.shields.io/badge/Railway-Live_Deploy-0B0D0E?logo=railway&logoColor=white)](https://pulse-production-2015.up.railway.app)
 [![Firebase](https://img.shields.io/badge/Firebase-quizapp--project--c5e0e-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Mapbox GL](https://img.shields.io/badge/Mapbox_GL-Standard_3D-4264FB?logo=mapbox&logoColor=white)](https://mapbox.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-5.2-243B55?logo=maplibre&logoColor=white)](https://maplibre.org/)
+
+🌐 **Live Production App**: [https://pulse-production-2015.up.railway.app](https://pulse-production-2015.up.railway.app)
 
 [Features](#-feature-breakdown) • [PWA Installation](#-progressive-web-app-pwa-features) • [Firebase Cloud](#-firebase--cloud-sync) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [Directory Structure](#-directory-structure)
 
