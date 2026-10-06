@@ -251,8 +251,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div className="flex items-center gap-3 pt-1">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                  or with email
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                  <span>or email & password</span>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-normal">Active</span>
                 </span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
@@ -261,9 +262,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Error Banner */}
           {activeError && (
-            <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-              <div className="flex-1 text-[11px] leading-relaxed">{activeError}</div>
+            <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2 animate-shake">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <div className="flex-1 text-[11px] leading-relaxed">{activeError}</div>
+              </div>
+              {(activeError.includes('Firebase Console') || activeError.includes('Authorized domains') || activeError.includes('disabled')) && (
+                <div className="pt-1.5 border-t border-rose-500/20 flex flex-wrap gap-2 text-[10px]">
+                  <a
+                    href="https://console.firebase.google.com/project/quizapp-project-c5e0e/authentication/providers"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold"
+                  >
+                    Enable in Console ↗
+                  </a>
+                  <a
+                    href="https://console.firebase.google.com/project/quizapp-project-c5e0e/authentication/settings"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold"
+                  >
+                    Authorized Domains ↗
+                  </a>
+                </div>
+              )}
             </div>
           )}
 

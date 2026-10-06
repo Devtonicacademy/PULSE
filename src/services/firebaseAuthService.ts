@@ -224,31 +224,41 @@ export async function signInWithGoogle(): Promise<UserProfile> {
  * Sign in as Anonymous Guest Scout
  */
 export async function signInAsGuest(): Promise<UserProfile> {
+  const guestNumber = Math.floor(1000 + Math.random() * 9000);
+  const fallbackGuestProfile: UserProfile = {
+    id: `guest-${guestNumber}`,
+    username: `Guest_Scout_${guestNumber}`,
+    email: `guest_${guestNumber}@pulseapp.io`,
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    bio: 'Roaming anonymous Pulse Scout exploring live city hotspots ⚡',
+    reputation: 60,
+    points: 50,
+    badges: ['Local Scout'],
+    isVerifiedBusiness: false,
+    createdMomentsCount: 0,
+    confirmedAlertsCount: 0,
+    isAnonymous: true,
+    providerId: 'anonymous'
+  };
+
   if (!isFirebaseConfigured || !auth) {
-    console.log('[PULSE Firebase Auth] Demo Guest sign-in simulation.');
-    await new Promise((r) => setTimeout(r, 300));
-    const guestNumber = Math.floor(1000 + Math.random() * 9000);
-    const guestProfile: UserProfile = {
-      id: `guest-${guestNumber}`,
-      username: `Guest_Scout_${guestNumber}`,
-      email: `guest_${guestNumber}@pulseapp.io`,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      bio: 'Roaming anonymous Pulse Scout exploring live city hotspots ⚡',
-      reputation: 60,
-      points: 50,
-      badges: ['Local Scout'],
-      isVerifiedBusiness: false,
-      createdMomentsCount: 0,
-      confirmedAlertsCount: 0,
-      isAnonymous: true,
-      providerId: 'anonymous'
-    };
-    localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(guestProfile));
-    return guestProfile;
+    console.log('[PULSE Firebase Auth] Guest sign-in session (offline/demo mode).');
+    await new Promise((r) => setTimeout(r, 200));
+    localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(fallbackGuestProfile));
+    return fallbackGuestProfile;
   }
 
-  const userCredential = await signInAnonymously(auth);
-  return await getOrCreateUserProfile(userCredential.user);
+  try {
+    const userCredential = await signInAnonymously(auth);
+    return await getOrCreateUserProfile(userCredential.user);
+  } catch (err: any) {
+    console.warn(
+      '[PULSE Firebase Auth] Firebase anonymous auth is disabled or restricted in Firebase Console (ADMIN_ONLY_OPERATION). Falling back to local guest scout profile so user is not blocked:',
+      err
+    );
+    localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(fallbackGuestProfile));
+    return fallbackGuestProfile;
+  }
 }
 
 /**
@@ -322,8 +332,14 @@ export function subscribeToAuthState(
 export function formatAuthErrorMessage(error: any): string {
   if (!error) return 'An unexpected error occurred. Please try again.';
   const code = error.code || '';
+  const message = error.message || '';
 
   switch (code) {
+    case 'auth/operation-not-allowed':
+    case 'auth/admin-restricted-operation':
+      return 'This sign-in provider is disabled in Firebase Console. You can sign in immediately using Email & Password, or enable Google / Anonymous under Authentication > Sign-in method in Firebase Console.';
+    case 'auth/unauthorized-domain':
+      return `This web domain (${typeof window !== 'undefined' ? window.location.hostname : 'current domain'}) is not authorized in Firebase. Add it in Firebase Console under Authentication > Settings > Authorized domains.`;
     case 'auth/invalid-email':
       return 'Please enter a valid email address.';
     case 'auth/user-disabled':
@@ -340,12 +356,20 @@ export function formatAuthErrorMessage(error: any): string {
     case 'auth/too-many-requests':
       return 'Too many unsuccessful attempts. Access is temporarily locked. Please try again later.';
     case 'auth/popup-closed-by-user':
-      return 'Sign-in window closed before completing. Please try again.';
+      return 'Google sign-in window was closed before completing. Please try again.';
     case 'auth/popup-blocked':
       return 'Sign-in popup was blocked by your browser. Please allow popups for this site.';
+    case 'auth/cancelled-popup-request':
+      return 'Sign-in was cancelled because another popup was initiated.';
     case 'auth/network-request-failed':
       return 'Network connection issue. Please check your internet connection.';
     default:
+      if (message.includes('ADMIN_ONLY_OPERATION') || message.includes('operation-not-allowed')) {
+        return 'This sign-in provider is disabled in Firebase Console. You can sign in immediately with Email & Password, or enable this provider under Authentication > Sign-in method.';
+      }
+      if (message.includes('unauthorized-domain')) {
+        return `This domain (${typeof window !== 'undefined' ? window.location.hostname : 'current domain'}) is not authorized in Firebase Console > Authentication > Settings > Authorized domains.`;
+      }
       return error.message || 'Authentication failed. Please try again.';
   }
 }
