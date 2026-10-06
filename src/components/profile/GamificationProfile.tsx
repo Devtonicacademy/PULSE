@@ -188,72 +188,50 @@ export const GamificationProfile: React.FC = () => {
           </div>
         </div>
 
-        {/* PWA App Status Banner */}
-        <div className="mt-4 p-3.5 rounded-2xl bg-slate-900/80 border border-rose-500/20 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-rose-500/20 to-amber-500/20 text-rose-400 border border-rose-500/30">
-              <Smartphone className="w-4 h-4" />
+        {/* Consolidated System, Cloud Sync & Install Dock */}
+        <div className="mt-4 p-3 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Cloud Sync Status */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] font-semibold text-slate-300">
+                {isFirebaseConfigured ? 'Firebase Live Sync' : 'Project Linked'}
+              </span>
             </div>
-            <div>
-              <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>PULSE Mobile App</span>
-                {isInstalled && (
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Installed
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-400">
-                {isInstalled
-                  ? 'Running as standalone progressive web app'
-                  : 'Install to your Home Screen for instant alerts & full map'}
-              </p>
+
+            <span className="text-slate-600 hidden sm:inline">•</span>
+
+            {/* PWA / App Status */}
+            <div className="flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[11px] text-slate-400">
+                {isInstalled ? 'Installed App' : 'Mobile Web'}
+              </span>
             </div>
           </div>
 
-          {!isInstalled && (
-            <button
-              onClick={() => promptToInstall()}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold text-[11px] flex items-center gap-1 shadow-md shadow-rose-500/20 shrink-0"
-            >
-              <Download className="w-3 h-3" />
-              <span>Install</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {!isInstalled && (
+              <button
+                onClick={() => promptToInstall()}
+                className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-colors border border-white/10"
+              >
+                <Download className="w-3 h-3 text-rose-400" />
+                <span>Install App</span>
+              </button>
+            )}
+
+            {!isAuthenticated && (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-md shadow-rose-500/20 active:scale-95 transition-all"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>Save Rank</span>
+              </button>
+            )}
+          </div>
         </div>
-
-        {/* Firebase Cloud Sync Status */}
-        <div className="mt-3 p-3 rounded-2xl bg-slate-900/60 border border-white/5 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-slate-300 font-semibold">Firebase Cloud</span>
-            <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">(quizapp-project-c5e0e)</span>
-          </div>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            {isFirebaseConfigured ? 'Live Sync Active' : 'Project Linked (quizapp-project-c5e0e)'}
-          </span>
-        </div>
-
-        {/* Guest Scout Upgrade Banner */}
-        {!isAuthenticated && (
-          <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-cyan-500/10 border border-rose-500/30 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
-              <div>
-                <div className="text-xs font-bold text-white">Keep Your Reputation & Moments</div>
-                <div className="text-[10px] text-slate-300">
-                  You are roaming as a guest scout. Create an account or sign in to save your rank permanently!
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/20 active:scale-95 transition-all"
-            >
-              Sign In or Join
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Tabs */}

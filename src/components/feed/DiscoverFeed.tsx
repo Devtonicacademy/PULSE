@@ -16,7 +16,10 @@ import {
   ArrowRight,
   BadgeCheck,
   Tag,
-  Navigation
+  Navigation,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -63,6 +66,8 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
   } = usePulse();
 
   const [feedSort, setFeedSort] = useState<'trending' | 'newest' | 'expiring'>('trending');
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  const [isAiSummaryExpanded, setIsAiSummaryExpanded] = useState(false);
 
   // AI Local Summary
   const aiSummary = generateLocalAISummary(filteredMoments, radiusKm, currentZoneName);
@@ -80,65 +85,89 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-y-auto pb-24 text-slate-100">
-      {/* Sticky Header with Search & Radius */}
+      {/* Sticky Consolidated Header with Search, Filter Pill & Categories */}
       <div className="sticky top-0 z-20 glass-panel border-b border-white/10 p-3 sm:p-4 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto w-full space-y-3">
-          {/* Search Input Bar */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search moments, events, food in ${currentZoneName}...`}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/40 transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          {/* Dynamic Radius Chips (Feature 2) */}
-          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pb-0.5">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[11px] font-semibold text-slate-400">Radius:</span>
-              {([1, 2, 5, 10, 25] as RadiusKm[]).map((r) => (
+        <div className="max-w-7xl mx-auto w-full space-y-2.5">
+          {/* Row 1: Search Bar & Consolidated Filter Pill */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search moments, events, food in ${currentZoneName}...`}
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/40 transition-all"
+              />
+              {searchQuery && (
                 <button
-                  key={r}
-                  onClick={() => setRadiusKm(r)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-                    radiusKm === r
-                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
-                  }`}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
                 >
-                  {r}km
+                  Clear
                 </button>
-              ))}
+              )}
             </div>
 
-            {/* Sort Switcher */}
-            <div className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0 ml-auto">
-              <Filter className="w-3 h-3 text-slate-500" />
-              <select
-                value={feedSort}
-                onChange={(e) => setFeedSort(e.target.value as any)}
-                className="bg-slate-900 border border-white/10 rounded-lg px-2 py-1 text-slate-300 text-[11px] focus:outline-none"
-              >
-                <option value="trending">🔥 Trending</option>
-                <option value="newest">⚡ Newest</option>
-                <option value="expiring">⏳ Expiring Soon</option>
-              </select>
-            </div>
+            {/* Consolidated Filter Pill */}
+            <button
+              onClick={() => setShowFilterDrawer((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0 ${
+                showFilterDrawer
+                  ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/25'
+                  : 'glass-card border-white/10 text-slate-300 hover:text-white'
+              }`}
+              title="Filter Radius and Sort Order"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-rose-400" />
+              <span>{radiusKm}km</span>
+              <span className="text-slate-500">•</span>
+              <span className="capitalize">{feedSort}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showFilterDrawer ? 'rotate-180' : ''}`} />
+            </button>
           </div>
 
-          {/* Category Horizontal Filter Carousel */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+          {/* Expandable Glass Filter Drawer */}
+          {showFilterDrawer && (
+            <div className="p-3 rounded-2xl glass-dropdown border border-white/15 space-y-2 animate-fade-in text-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                {/* Radius selector chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-semibold text-slate-400">Radius:</span>
+                  {([1, 2, 5, 10, 25] as RadiusKm[]).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRadiusKm(r)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                        radiusKm === r
+                          ? 'bg-rose-500 text-white shadow-sm'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      {r}km
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sort switcher */}
+                <div className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
+                  <Filter className="w-3 h-3 text-slate-500" />
+                  <select
+                    value={feedSort}
+                    onChange={(e) => setFeedSort(e.target.value as any)}
+                    className="bg-slate-900 border border-white/10 rounded-lg px-2 py-1 text-slate-300 text-[11px] focus:outline-none"
+                  >
+                    <option value="trending">🔥 Trending</option>
+                    <option value="newest">⚡ Newest</option>
+                    <option value="expiring">⏳ Expiring Soon</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Row 2: Category Horizontal Filter Carousel */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
             {CATEGORIES.map((cat) => {
               const isSelected = selectedCategory === cat.id;
               const isBiz = cat.id === 'business_pins';
@@ -168,43 +197,50 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
         </div>
       </div>
 
-      <div className="p-3 sm:p-5 space-y-5 max-w-7xl mx-auto w-full">
-        {/* Feature 6: AI LOCAL RADAR SUMMARY CARD */}
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-rose-950/40 via-slate-900/90 to-purple-950/30 border border-rose-500/20 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
-          
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                <Sparkles className="w-4 h-4 animate-pulse" />
+      <div className="p-3 sm:p-5 space-y-4 max-w-7xl mx-auto w-full">
+        {/* Feature 6: AI LOCAL RADAR SUMMARY CARD (Collapsible & Compact) */}
+        <div className="rounded-2xl p-3 sm:p-4 glass-card border border-rose-500/20 shadow-xl relative overflow-hidden">
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setIsAiSummaryExpanded(!isAiSummaryExpanded)}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                <Sparkles className="w-3.5 h-3.5 animate-pulse" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-300">
-                AI Local Radar
-              </span>
+              <div className="truncate">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                    AI Radar
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    {aiSummary.vibeTag}
+                  </span>
+                </div>
+                <h3 className="text-xs font-semibold text-slate-200 truncate mt-0.5">
+                  {aiSummary.headline}
+                </h3>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                {aiSummary.vibeTag}
-              </span>
-              <span className="text-[10px] text-slate-400">{aiSummary.timestamp}</span>
-            </div>
+
+            <button className="p-1 rounded-full text-slate-400 hover:text-white shrink-0 ml-2">
+              {isAiSummaryExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
           </div>
 
-          <h3 className="text-xs sm:text-sm font-semibold text-slate-200 mb-2">
-            {aiSummary.headline}
-          </h3>
-
-          <ul className="space-y-1.5">
-            {aiSummary.bullets.map((bullet, idx) => (
-              <li
-                key={idx}
-                className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed"
-              >
-                <span className="text-rose-400 font-bold shrink-0">•</span>
-                <span>{bullet}</span>
-              </li>
-            ))}
-          </ul>
+          {isAiSummaryExpanded && (
+            <ul className="mt-3 pt-3 border-t border-white/10 space-y-1.5 animate-fade-in">
+              {aiSummary.bullets.map((bullet, idx) => (
+                <li
+                  key={idx}
+                  className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed"
+                >
+                  <span className="text-rose-400 font-bold shrink-0">•</span>
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Feature 9: TEMPORARY COMMUNITIES CAROUSEL */}

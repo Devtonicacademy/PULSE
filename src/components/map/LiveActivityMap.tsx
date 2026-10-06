@@ -10,7 +10,8 @@ import {
   MapPin,
   TrendingUp,
   AlertTriangle,
-  Info
+  Info,
+  ChevronDown
 } from 'lucide-react';
 
 interface LiveActivityMapProps {
@@ -81,7 +82,8 @@ export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
 
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showBusinessPins, setShowBusinessPins] = useState(true);
-  const [showLegend, setShowLegend] = useState(false);
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
+  const [showRadiusDropdown, setShowRadiusDropdown] = useState(false);
 
   // Initialize MapLibre GL
   useEffect(() => {
@@ -503,107 +505,165 @@ export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
           </div>
         </div>
 
-        {/* Radius selector quick chips */}
-        <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/80 backdrop-blur-md p-1 rounded-full border border-white/10 shadow-xl">
-          {([1, 2, 5, 10, 25] as RadiusKm[]).map((r) => (
+        {/* Consolidated Radius Quick Pill */}
+        <div className="pointer-events-auto relative">
+          <button
+            onClick={() => setShowRadiusDropdown((prev) => !prev)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-hud border border-white/15 text-xs text-white shadow-xl hover:border-white/30 transition-all"
+            title="Radar Search Radius"
+          >
+            <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">Radar</span>
+            <span className="font-extrabold text-white">{radiusKm}km</span>
+            <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showRadiusDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showRadiusDropdown && (
+            <div className="absolute top-10 right-0 z-30 glass-dropdown p-1.5 rounded-2xl border border-white/15 shadow-2xl flex flex-col gap-1 min-w-[120px] animate-fade-in text-xs">
+              <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
+                Radius Range
+              </div>
+              {([1, 2, 5, 10, 25] as RadiusKm[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => {
+                    setRadiusKm(r);
+                    setShowRadiusDropdown(false);
+                  }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-xl font-semibold transition-all flex items-center justify-between ${
+                    radiusKm === r
+                      ? 'bg-rose-500/25 text-rose-300 font-bold'
+                      : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span>{r} km</span>
+                  {radiusKm === r && <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* =========================================================================
+          CONSOLIDATED FLOATING ACTION DOCK (Top-Right)
+         ========================================================================= */}
+      <div className="absolute top-14 right-3 z-20 flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1 p-1 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl">
+          {/* Recenter to User GPS */}
+          <button
+            onClick={useBrowserLocation}
+            disabled={isLocating}
+            title="Detect & Recenter Current GPS Location"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold text-cyan-300 hover:text-white hover:bg-white/5 transition-all disabled:opacity-50"
+          >
+            <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isLocating ? 'Locating...' : 'GPS'}</span>
+          </button>
+
+          {/* Toggle Layers & Display Menu */}
+          <button
+            onClick={() => setShowLayerMenu((prev) => !prev)}
+            title="Map Layers & Display Preferences"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              showLayerMenu
+                ? 'bg-white/20 text-white border border-white/30 shadow-md'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Layers</span>
+          </button>
+        </div>
+
+        {/* Expandable Glass Layer Options & Legend Menu */}
+        {showLayerMenu && (
+          <div className="absolute top-full right-0 mt-2 p-3 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2.5 w-64 z-30 animate-fade-in text-xs">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between pb-1 border-b border-white/10">
+              <span>Display Layers</span>
+              <span className="text-rose-400 font-bold">Radar 2D</span>
+            </div>
+
+            {/* Toggle Heatmap */}
             <button
-              key={r}
-              onClick={() => setRadiusKm(r)}
-              className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-all ${
-                radiusKm === r
-                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                showHeatmap
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:bg-white/5'
               }`}
             >
-              {r}km
+              <span className="flex items-center gap-2">
+                <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                <span>Density Heatmap</span>
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                showHeatmap ? 'bg-amber-400/20 text-amber-300' : 'bg-white/10 text-slate-400'
+              }`}>
+                {showHeatmap ? 'ON' : 'OFF'}
+              </span>
             </button>
-          ))}
-        </div>
+
+            {/* Toggle Business Pins */}
+            <button
+              onClick={() => setShowBusinessPins(!showBusinessPins)}
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                showBusinessPins
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  : 'text-slate-400 hover:bg-white/5'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Business Offers</span>
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                showBusinessPins ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/10 text-slate-400'
+              }`}>
+                {showBusinessPins ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {/* Heatmap Legend Collapsible/Integrated */}
+            <div className="pt-2 border-t border-white/10 space-y-1.5">
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Activity Legend
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></span>
+                  <span>Low activity</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0"></span>
+                  <span>Moderate</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0"></span>
+                  <span>Active</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+                  <span>Hotspot</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Simulation trigger inside menu */}
+            <div className="pt-2 border-t border-white/10">
+              <button
+                onClick={() => {
+                  simulateIncomingMomentAlert();
+                  setShowLayerMenu(false);
+                }}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[11px] font-bold border border-rose-500/30 transition-all"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Simulate Local Alert</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Floating Controls (Right Side) */}
-      <div className="absolute top-16 right-3 flex flex-col gap-2 z-10">
-        {/* Recenter to User GPS */}
-        <button
-          onClick={useBrowserLocation}
-          disabled={isLocating}
-          title="Detect Current GPS Location"
-          className="p-2.5 rounded-full glass-panel hover:bg-slate-800 text-cyan-300 border border-white/10 shadow-xl active:scale-95 transition-transform"
-        >
-          <Crosshair className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} />
-        </button>
-
-        {/* Toggle Heatmap */}
-        <button
-          onClick={() => setShowHeatmap(!showHeatmap)}
-          title={showHeatmap ? 'Disable Heatmap' : 'Enable Heatmap'}
-          className={`p-2.5 rounded-full glass-panel border border-white/10 shadow-xl active:scale-95 transition-transform ${
-            showHeatmap ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-        </button>
-
-        {/* Toggle Business Pins */}
-        <button
-          onClick={() => setShowBusinessPins(!showBusinessPins)}
-          title={showBusinessPins ? 'Hide Business Pins' : 'Show Business Pins'}
-          className={`p-2.5 rounded-full glass-panel border border-white/10 shadow-xl active:scale-95 transition-transform ${
-            showBusinessPins ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-        </button>
-
-        {/* Legend / Info button */}
-        <button
-          onClick={() => setShowLegend(!showLegend)}
-          title="Heatmap Legend"
-          className="p-2.5 rounded-full glass-panel hover:bg-slate-800 text-slate-300 border border-white/10 shadow-xl active:scale-95 transition-transform"
-        >
-          <Info className="w-4 h-4" />
-        </button>
-
-        {/* Test Alert Simulator */}
-        <button
-          onClick={simulateIncomingMomentAlert}
-          title="Simulate Real-time Alert"
-          className="p-2.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 shadow-xl active:scale-95 transition-transform"
-        >
-          <AlertTriangle className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Heatmap Legend Dropdown Modal */}
-      {showLegend && (
-        <div className="absolute top-16 right-14 z-20 glass-dropdown p-3 rounded-2xl w-56 shadow-2xl animate-fade-in border border-white/10 text-xs">
-          <div className="font-bold text-white mb-2 flex items-center justify-between">
-            <span>Heatmap Activity</span>
-            <span className="text-[10px] text-slate-400">Live Pulse</span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-              <span className="text-slate-300">Blue: Low Activity</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
-              <span className="text-slate-300">Yellow: Medium Activity</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-orange-500"></span>
-              <span className="text-slate-300">Orange: High Activity</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500"></span>
-              <span className="text-slate-300">Red: Trending Hotspot</span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-white/10 text-[10px] text-slate-400">
-            Tapping any marker opens live moments, community reactions, and directions.
-          </div>
-        </div>
-      )}
 
       {/* Hotspot Bottom Sheet Drawer for Selected Moment or Zone */}
       <HotspotBottomSheet
