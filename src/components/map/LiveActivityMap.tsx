@@ -16,6 +16,7 @@ import {
 interface LiveActivityMapProps {
   onOpenComments: (momentId: string) => void;
   onOpenReport: (momentId: string) => void;
+  onStartNavigation?: (moment: Moment) => void;
 }
 
 const CATEGORY_ICONS: Record<MomentCategory, string> = {
@@ -55,7 +56,8 @@ function createGeoJSONCircle(center: [number, number], radiusInKm: number, point
 
 export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
   onOpenComments,
-  onOpenReport
+  onOpenReport,
+  onStartNavigation
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -607,6 +609,7 @@ export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
       <HotspotBottomSheet
         onOpenComments={onOpenComments}
         onOpenReport={onOpenReport}
+        onStartNavigation={onStartNavigation}
       />
     </div>
   );

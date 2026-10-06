@@ -15,7 +15,8 @@ import {
   Compass,
   ArrowRight,
   BadgeCheck,
-  Tag
+  Tag,
+  Navigation
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -23,6 +24,7 @@ interface DiscoverFeedProps {
   onOpenComments: (momentId: string) => void;
   onOpenReport: (momentId: string) => void;
   onSelectCommunity: (communityId: string) => void;
+  onNavigateMoment?: (moment: Moment) => void;
 }
 
 const CATEGORIES: { id: FeedCategoryFilter; label: string; icon: string; isSpecial?: boolean }[] = [
@@ -41,7 +43,8 @@ const CATEGORIES: { id: FeedCategoryFilter; label: string; icon: string; isSpeci
 export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
   onOpenComments,
   onOpenReport,
-  onSelectCommunity
+  onSelectCommunity,
+  onNavigateMoment
 }) => {
   const {
     currentLocation,
@@ -471,6 +474,16 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
                       {/* Comment & Report buttons */}
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {onNavigateMoment && (
+                          <button
+                            onClick={() => onNavigateMoment(moment)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all shadow-sm active:scale-95"
+                            title="Walk There in 3D (FPV)"
+                          >
+                            <Navigation className="w-3 h-3 text-cyan-400" />
+                            <span className="text-[10px]">3D Walk</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => onOpenComments(moment.id)}
                           className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"

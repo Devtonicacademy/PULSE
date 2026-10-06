@@ -91,3 +91,102 @@
 .radar-ring {
   animation: radarPulse 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
 }
+
+/* =========================================================================
+   STREET-LEVEL WAYFINDING NAVIGATION MARKERS (GAME CUES & FPV)
+   ========================================================================= */
+
+@keyframes floatBob {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.05);
+  }
+}
+
+@keyframes chevronShimmer {
+  0% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 4px #00F2FE);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 14px #00F2FE) drop-shadow(0 0 20px rgba(0, 242, 254, 0.6));
+  }
+  100% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 4px #00F2FE);
+  }
+}
+
+@keyframes beaconBeam {
+  0% {
+    opacity: 0.65;
+    height: 120px;
+  }
+  50% {
+    opacity: 0.95;
+    height: 150px;
+  }
+  100% {
+    opacity: 0.65;
+    height: 120px;
+  }
+}
+
+@keyframes groundShockwave {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.pulse-waypoint-cue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pulse-waypoint-cue .chevron-container {
+  animation: floatBob 2.2s ease-in-out infinite, chevronShimmer 1.8s ease-in-out infinite;
+}
+
+.pulse-destination-beacon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pulse-destination-beacon .beacon-beam {
+  animation: beaconBeam 2.5s ease-in-out infinite;
+}
+
+.pulse-destination-beacon .beacon-wave {
+  animation: groundShockwave 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+/* Avatar Cone of Vision / Heading Light Beam */
+.pulse-avatar-heading-cone {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 180px;
+  transform-origin: 50% 0%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 0%, rgba(0, 242, 254, 0.45) 0%, rgba(0, 242, 254, 0.15) 45%, transparent 75%);
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  filter: blur(1.5px);
+  z-index: 1;
+}
+

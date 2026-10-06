@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { LiveActivityMap } from '../map/LiveActivityMap';
 import { MapboxMap } from '../map/MapboxMap';
+import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
 import { MomentCommentsDrawer } from '../comments/MomentCommentsDrawer';
@@ -65,7 +66,13 @@ export const AppShell: React.FC = () => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
-  const [mapEngine, setMapEngine] = useState<'activity' | 'mapbox'>('activity');
+  const [mapEngine, setMapEngine] = useState<'activity' | 'mapbox'>('mapbox');
+  const [navigationDestination, setNavigationDestination] = useState<{
+    latitude: number;
+    longitude: number;
+    title: string;
+    category?: string;
+  } | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -85,13 +92,19 @@ export const AppShell: React.FC = () => {
           <LiveActivityMap
             onOpenComments={(id) => setActiveCommentMomentId(id)}
             onOpenReport={(id) => setActiveReportMomentId(id)}
+            onStartNavigation={(moment) => {
+              setNavigationDestination(moment);
+              setMapEngine('mapbox');
+              setActiveTab('map');
+            }}
           />
         ) : (
           <MapboxMap
             defaultCenter={[currentLocation.longitude, currentLocation.latitude]}
-            defaultZoom={15.5}
-            pitch={58}
-            bearing={-18}
+            defaultZoom={18.2}
+            pitch={85}
+            bearing={0}
+            initialCameraMode="fpv"
             mapStyle="mapbox://styles/mapbox/standard"
             lightPreset="night"
             enable3dBuildings={true}
@@ -103,8 +116,20 @@ export const AppShell: React.FC = () => {
             show3dControls={true}
             moments={filteredMoments}
             onSelectMoment={(moment) => setSelectedMoment(moment)}
+            navigationDestination={navigationDestination}
+            onClearNavigation={() => setNavigationDestination(null)}
             className="h-full"
-          />
+          >
+            <HotspotBottomSheet
+              onOpenComments={(id) => setActiveCommentMomentId(id)}
+              onOpenReport={(id) => setActiveReportMomentId(id)}
+              onStartNavigation={(moment) => {
+                setNavigationDestination(moment);
+                setMapEngine('mapbox');
+                setActiveTab('map');
+              }}
+            />
+          </MapboxMap>
         );
       case 'discover':
         return (
@@ -112,6 +137,11 @@ export const AppShell: React.FC = () => {
             onOpenComments={(id) => setActiveCommentMomentId(id)}
             onOpenReport={(id) => setActiveReportMomentId(id)}
             onSelectCommunity={(id) => setActiveCommunityId(id)}
+            onNavigateMoment={(moment) => {
+              setNavigationDestination(moment);
+              setMapEngine('mapbox');
+              setActiveTab('map');
+            }}
           />
         );
       case 'notifications':

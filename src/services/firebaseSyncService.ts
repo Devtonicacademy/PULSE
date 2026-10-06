@@ -5,6 +5,7 @@ import {
   updateDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   increment,
   Unsubscribe
@@ -154,3 +155,54 @@ export async function saveCommentToFirebase(comment: Comment): Promise<boolean> 
     return false;
   }
 }
+
+/**
+ * Subscribes to real-time comments for a specific moment from Firestore
+ */
+export function subscribeToFirebaseComments(
+  momentId: string,
+  onCommentsUpdate: (comments: Comment[]) => void
+): Unsubscribe | null {
+  if (!db || !isFirebaseConfigured) {
+    return null;
+  }
+
+  try {
+    const q = query(
+      collection(db, COMMENTS_COLLECTION),
+      where('momentId', '==', momentId)
+    );
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const liveComments: Comment[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            userId: data.userId || 'scout',
+            userName: data.userName || 'Pulse Scout',
+            userAvatar: data.userAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+            momentId: data.momentId,
+            parentId: data.parentId,
+            content: data.content || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            likesCount: data.likesCount || 0,
+            userLiked: Boolean(data.userLiked)
+          };
+        });
+
+        // Sort chronologically in memory
+        liveComments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        onCommentsUpdate(liveComments);
+      },
+      (err) => {
+        console.warn('[PULSE Firebase] Error in comments subscription:', err);
+      }
+    );
+  } catch (err) {
+    console.warn('[PULSE Firebase] Could not set up comments subscription:', err);
+    return null;
+  }
+}
+

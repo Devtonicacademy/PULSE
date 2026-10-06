@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import confetti from 'canvas-confetti';
 import {
   Navigation,
   Crosshair,
@@ -21,20 +22,39 @@ import {
   Sunrise,
   Box,
   Layers,
-  Sparkles
+  Sparkles,
+  Compass,
+  Eye,
+  Footprints,
+  Play,
+  Square,
+  CheckCircle2,
+  X,
+  MapPin,
+  ChevronRight,
+  Route
 } from 'lucide-react';
 import { Moment, MomentCategory } from '../../types/pulse';
+import {
+  generateStreetNavigationRoute,
+  getPositionAlongRoute,
+  NavigationRoute,
+  WaypointCue
+} from '../../utils/wayfindingUtils';
 
 export interface UserCoordinates {
   latitude: number;
   longitude: number;
   accuracy?: number;
+  heading?: number | null;
+  speed?: number | null;
 }
 
 export type MapboxLightPreset = 'night' | 'dusk' | 'dawn' | 'day';
+export type CameraMode = 'fpv' | 'aerial' | 'overview';
 
 export interface MapboxMapProps {
-  /** Optional Mapbox access token. Defaults to VITE_MAPBOX_TOKEN env variable */
+  /** Optional Mapbox access token. Defaults to VITE_MAPBOX_TOKEN env variable or verified default */
   accessToken?: string;
   /** Mapbox style URL (defaults to Mapbox Standard: 'mapbox://styles/mapbox/standard') */
   mapStyle?: string;
@@ -46,15 +66,17 @@ export interface MapboxMapProps {
   enableDynamicLighting?: boolean;
   /** Fallback center coordinates as [longitude, latitude] if geolocation is unavailable (defaults to [3.4219, 6.4281]) */
   defaultCenter?: [number, number];
-  /** Default zoom level (defaults to 15.5 for optimal 3D building viewing) */
+  /** Default zoom level (defaults to 18.2 for street-level first-person view) */
   defaultZoom?: number;
-  /** Initial pitch / 3D tilt angle in degrees (0 - 85, default: 58) */
+  /** Initial pitch / 3D tilt angle in degrees (0 - 85, default: 85 for First-Person View) */
   pitch?: number;
-  /** Initial bearing / rotation angle in degrees (-180 - 180, default: -18) */
+  /** Initial bearing / rotation angle in degrees (-180 - 180, default: 0) */
   bearing?: number;
+  /** Initial camera mode: 'fpv' (first-person 85°) | 'aerial' (3D 58°) | 'overview' (2D 0°) (default: 'fpv') */
+  initialCameraMode?: CameraMode;
   /** Automatically request user GPS geolocation and center the map on initial mount (default: true) */
   autoGeolocate?: boolean;
-  /** Display a custom pulsing radar marker at user's current GPS location (default: true) */
+  /** Display a custom pulsing radar avatar marker at user's current GPS location (default: true) */
   showUserMarker?: boolean;
   /** Display native Mapbox navigation controls (+/- zoom, compass pitch/bearing) (default: true) */
   showNavigationControl?: boolean;
@@ -64,12 +86,21 @@ export interface MapboxMapProps {
   showGeolocateControl?: boolean;
   /** Display native fullscreen toggle control (default: false) */
   showFullscreenControl?: boolean;
-  /** Display the interactive 3D and lighting controls toolbar (defaults to true) */
+  /** Display the interactive 3D, camera mode and lighting controls toolbar (defaults to true) */
   show3dControls?: boolean;
   /** Optional array of Pulse live moments to display as 3D pins on the map */
   moments?: Moment[];
   /** Callback fired when a live moment marker is clicked */
   onSelectMoment?: (moment: Moment) => void;
+  /** Active destination for street-level wayfinding game cues */
+  navigationDestination?: {
+    latitude: number;
+    longitude: number;
+    title: string;
+    category?: string;
+  } | null;
+  /** Callback fired when user exits navigation mode */
+  onClearNavigation?: () => void;
   /** Whether the map accepts interactive user gestures (pan, pinch, zoom, tilt) (default: true) */
   interactive?: boolean;
   /** Extra container CSS class names */
@@ -103,6 +134,12 @@ export interface MapboxMapHandle {
   set3dBuildings: (enabled: boolean) => void;
   /** Toggle between 3D perspective and 2D top-down view */
   toggle3dView: () => void;
+  /** Set camera mode: 'fpv' (85° pitch) | 'aerial' (58°) | 'overview' (0°) */
+  setCameraMode: (mode: CameraMode) => void;
+  /** Start street-level wayfinding navigation toward a target destination */
+  startNavigation: (destination: { latitude: number; longitude: number; title: string; category?: string }) => void;
+  /** Stop active navigation and clear cues */
+  stopNavigation: () => void;
 }
 
 const CATEGORY_ICONS: Record<MomentCategory, string> = {
@@ -124,10 +161,11 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       lightPreset: initialLightPreset = 'night',
       enable3dBuildings: initialEnable3dBuildings = true,
       enableDynamicLighting = true,
-      defaultCenter = [3.4219, 6.4281], // Lagos coordinates fallback
-      defaultZoom = 15.5,
-      pitch = 58,
-      bearing = -18,
+      defaultCenter = [3.4219, 6.4281], // Lagos Victoria Island coordinates fallback
+      defaultZoom = 18.2, // Street-level First-Person View default
+      pitch = 85, // 85° pitch for first-person street perspective
+      bearing = 0,
+      initialCameraMode = 'fpv',
       autoGeolocate = true,
       showUserMarker = true,
       showNavigationControl = true,
@@ -137,6 +175,8 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       show3dControls = true,
       moments = [],
       onSelectMoment,
+      navigationDestination: propNavDestination = null,
+      onClearNavigation,
       interactive = true,
       className = '',
       style,
@@ -152,18 +192,28 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
     const momentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+    const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
+    const destinationBeaconRef = useRef<mapboxgl.Marker | null>(null);
 
     const [isLocating, setIsLocating] = useState<boolean>(false);
     const [userCoords, setUserCoords] = useState<UserCoordinates | null>(null);
+    const [userBearing, setUserBearing] = useState<number>(bearing);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [isMapLoaded, setIsMapLoaded] = useState<boolean>(false);
 
-    // 3D & Dynamic Lighting State
+    // 3D & Camera State
     const [currentLightPreset, setCurrentLightPreset] = useState<MapboxLightPreset>(initialLightPreset);
     const [is3dBuildingsEnabled, setIs3dBuildingsEnabled] = useState<boolean>(initialEnable3dBuildings);
-    const [is3dPerspective, setIs3dPerspective] = useState<boolean>(pitch > 15);
+    const [cameraMode, setCameraModeState] = useState<CameraMode>(initialCameraMode);
+    const [isContinuousTracking, setIsContinuousTracking] = useState<boolean>(true);
 
-    // Resolve token: explicit prop takes precedence, then Vite env variable
+    // Navigation & Wayfinding State
+    const [activeRoute, setActiveRoute] = useState<NavigationRoute | null>(null);
+    const [isSimulatingWalk, setIsSimulatingWalk] = useState<boolean>(false);
+    const [simulationProgress, setSimulationProgress] = useState<number>(0);
+    const simAnimationRef = useRef<number | null>(null);
+
+    // Resolve token: explicit prop, then Vite env variable
     const token = accessToken || import.meta.env.VITE_MAPBOX_TOKEN || '';
     const hasToken = Boolean(
       token &&
@@ -183,10 +233,10 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         try {
           (map as any).setConfigProperty('basemap', 'lightPreset', preset);
         } catch (err) {
-          // Fallback if not using Standard basemap
+          // Fallback if classic style is used
         }
 
-        // 2. Configure Mapbox GL v3 dynamic directional & ambient lights when supported
+        // 2. Configure Mapbox GL dynamic directional & ambient lights when supported
         if (enableDynamicLighting && typeof (map as any).setLights === 'function') {
           try {
             const lightConfigs: Record<
@@ -196,30 +246,30 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
               night: {
                 sunDir: [220, 16],
                 sunColor: '#00F2FE',
-                sunIntensity: 0.35,
+                sunIntensity: 0.4,
                 ambColor: '#0C1322',
-                ambIntensity: 0.45
+                ambIntensity: 0.5
               },
               dusk: {
                 sunDir: [255, 18],
                 sunColor: '#FFA502',
-                sunIntensity: 0.65,
+                sunIntensity: 0.7,
                 ambColor: '#1A1226',
-                ambIntensity: 0.5
+                ambIntensity: 0.55
               },
               dawn: {
                 sunDir: [70, 24],
                 sunColor: '#FF6B6B',
-                sunIntensity: 0.7,
+                sunIntensity: 0.75,
                 ambColor: '#1E1A2C',
-                ambIntensity: 0.5
+                ambIntensity: 0.55
               },
               day: {
                 sunDir: [180, 52],
                 sunColor: '#FFFFFF',
-                sunIntensity: 0.85,
+                sunIntensity: 0.9,
                 ambColor: '#243044',
-                ambIntensity: 0.55
+                ambIntensity: 0.6
               }
             };
 
@@ -246,11 +296,11 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
               }
             ]);
           } catch (e) {
-            // Ignore if custom lighting API is restricted
+            // Ignore custom light restrictions
           }
         }
 
-        // 3. Update custom 3D building fill-extrusion color if layer exists
+        // 3. Update custom 3D building fill-extrusion color if fallback layer exists
         if (map.getLayer('pulse-3d-buildings')) {
           const buildingColors: Record<MapboxLightPreset, string[]> = {
             night: ['0', '#0B111E', '30', '#111B30', '80', '#182745', '160', '#00F2FE'],
@@ -282,53 +332,98 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
       setIs3dBuildingsEnabled(enabled);
 
-      // Mapbox Standard 3D objects
       try {
         (map as any).setConfigProperty('basemap', 'show3dObjects', enabled);
       } catch (e) {
         // Fallback
       }
 
-      // Custom extrusion layer if present
       if (map.getLayer('pulse-3d-buildings')) {
         map.setLayoutProperty('pulse-3d-buildings', 'visibility', enabled ? 'visible' : 'none');
       }
     }, []);
 
     /**
-     * Smoothly toggles between 3D perspective and 2D flat view
+     * Applies camera modes: FPV (85° pitch, 18.4 zoom), 3D Aerial (58° pitch, 16.0 zoom), 2D Overview (0° pitch)
      */
-    const toggle3dView = useCallback(() => {
-      const map = mapRef.current;
-      if (!map) return;
+    const applyCameraMode = useCallback(
+      (mode: CameraMode, targetCenter?: [number, number], targetBearing?: number) => {
+        const map = mapRef.current;
+        if (!map) return;
 
-      const nextIs3d = !is3dPerspective;
-      setIs3dPerspective(nextIs3d);
+        setCameraModeState(mode);
 
-      map.easeTo({
-        pitch: nextIs3d ? 58 : 0,
-        bearing: nextIs3d ? -18 : 0,
-        duration: 1200,
-        essential: true
-      });
-    }, [is3dPerspective]);
+        const currentCoords = targetCenter || (userCoords ? [userCoords.longitude, userCoords.latitude] : defaultCenter);
+        const heading = targetBearing !== undefined ? targetBearing : userBearing;
+
+        if (mode === 'fpv') {
+          // First-Person View: Street level at ~85° pitch, high zoom, camera aligned with bearing
+          map.easeTo({
+            center: currentCoords,
+            pitch: 85,
+            zoom: 18.4,
+            bearing: heading,
+            duration: 1200,
+            essential: true
+          });
+          setIsContinuousTracking(true);
+        } else if (mode === 'aerial') {
+          // 3D Perspective Aerial: 58° pitch, overview zoom
+          map.easeTo({
+            center: currentCoords,
+            pitch: 58,
+            zoom: 16.0,
+            bearing: heading || -18,
+            duration: 1200,
+            essential: true
+          });
+        } else {
+          // 2D Top-down Overview
+          map.easeTo({
+            center: currentCoords,
+            pitch: 0,
+            zoom: 15.0,
+            bearing: 0,
+            duration: 1200,
+            essential: true
+          });
+        }
+      },
+      [defaultCenter, userBearing, userCoords]
+    );
 
     /**
-     * Updates or creates the custom pulsing radar user marker
+     * Updates or creates the custom 3D avatar marker with heading cone
      */
     const updateUserMarker = useCallback(
-      (lng: number, lat: number) => {
+      (lng: number, lat: number, heading = userBearing) => {
         if (!mapRef.current || !showUserMarker) return;
 
         if (!userMarkerRef.current) {
           const markerContainer = document.createElement('div');
-          markerContainer.className = 'pulse-user-radar-marker';
+          markerContainer.className = 'pulse-user-avatar-marker-3d';
+          markerContainer.style.position = 'relative';
+          markerContainer.style.width = '48px';
+          markerContainer.style.height = '48px';
+          markerContainer.style.display = 'flex';
+          markerContainer.style.alignItems = 'center';
+          markerContainer.style.justifyContent = 'center';
+
           markerContainer.innerHTML = `
-            <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px;">
-              <div style="position: absolute; width: 34px; height: 34px; border-radius: 9999px; background: rgba(0, 242, 254, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-              <div style="position: absolute; width: 22px; height: 22px; border-radius: 9999px; background: rgba(0, 242, 254, 0.35); border: 1.5px solid rgba(0, 242, 254, 0.9);"></div>
-              <div style="width: 10px; height: 10px; border-radius: 9999px; background: #00F2FE; border: 2px solid #FFFFFF; box-shadow: 0 0 12px rgba(0, 242, 254, 0.95);"></div>
+            <!-- Directional Flashlight / Heading Cone of Vision -->
+            <div class="pulse-avatar-heading-cone" id="pulse-avatar-cone" style="transform: translate(-50%, -50%) rotate(${heading}deg);"></div>
+            
+            <!-- Ground Pulse Shadow -->
+            <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(0, 242, 254, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: absolute; width: 30px; height: 30px; border-radius: 9999px; background: rgba(0, 242, 254, 0.35); border: 1.5px solid #00F2FE;"></div>
+            
+            <!-- Avatar Core Orb -->
+            <div style="position: relative; z-index: 2; width: 22px; height: 22px; border-radius: 9999px; background: linear-gradient(135deg, #FF4757, #FFA502); border: 2.5px solid #FFFFFF; box-shadow: 0 0 14px #00F2FE; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: white;">
+              ⚡
             </div>
+            
+            <!-- Compass Direction Arrowhead -->
+            <div id="pulse-avatar-arrow" style="position: absolute; top: 1px; z-index: 3; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 7px solid #00F2FE; transform-origin: 50% 23px; transform: rotate(${heading}deg); filter: drop-shadow(0 0 4px #00F2FE);"></div>
           `;
 
           userMarkerRef.current = new mapboxgl.Marker({
@@ -339,13 +434,262 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             .addTo(mapRef.current);
         } else {
           userMarkerRef.current.setLngLat([lng, lat]);
+
+          // Update rotation on heading elements
+          const coneEl = document.getElementById('pulse-avatar-cone');
+          if (coneEl) {
+            coneEl.style.transform = `translate(-50%, -50%) rotate(${heading}deg)`;
+          }
+          const arrowEl = document.getElementById('pulse-avatar-arrow');
+          if (arrowEl) {
+            arrowEl.style.transform = `rotate(${heading}deg)`;
+          }
         }
       },
-      [showUserMarker]
+      [showUserMarker, userBearing]
     );
 
     /**
-     * Request browser GPS position and center map
+     * Clears all street-level wayfinding markers and route line
+     */
+    const clearWayfindingMarkers = useCallback(() => {
+      waypointMarkersRef.current.forEach((m) => m.remove());
+      waypointMarkersRef.current = [];
+
+      if (destinationBeaconRef.current) {
+        destinationBeaconRef.current.remove();
+        destinationBeaconRef.current = null;
+      }
+
+      const map = mapRef.current;
+      if (map) {
+        if (map.getLayer('pulse-nav-route-line-glow')) map.removeLayer('pulse-nav-route-line-glow');
+        if (map.getLayer('pulse-nav-route-line')) map.removeLayer('pulse-nav-route-line');
+        if (map.getSource('pulse-nav-route-source')) map.removeSource('pulse-nav-route-source');
+      }
+
+      if (simAnimationRef.current) {
+        cancelAnimationFrame(simAnimationRef.current);
+        simAnimationRef.current = null;
+      }
+      setIsSimulatingWalk(false);
+      setSimulationProgress(0);
+    }, []);
+
+    /**
+     * Renders street-level wayfinding cues and holographic beacon along the route
+     */
+    const renderStreetWayfindingCues = useCallback(
+      (route: NavigationRoute) => {
+        const map = mapRef.current;
+        if (!map) return;
+
+        clearWayfindingMarkers();
+
+        // 1. Add Neon Glowing Route Line to Map
+        try {
+          if (!map.getSource('pulse-nav-route-source')) {
+            map.addSource('pulse-nav-route-source', {
+              type: 'geojson',
+              data: route.geojsonFeature
+            });
+
+            // Glowing Outer Halo
+            map.addLayer({
+              id: 'pulse-nav-route-line-glow',
+              type: 'line',
+              source: 'pulse-nav-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#00F2FE',
+                'line-width': 10,
+                'line-opacity': 0.45,
+                'line-blur': 4
+              }
+            });
+
+            // Bright Inner Laser Line
+            map.addLayer({
+              id: 'pulse-nav-route-line',
+              type: 'line',
+              source: 'pulse-nav-route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#FFFFFF',
+                'line-width': 4,
+                'line-opacity': 0.95
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[PULSE Mapbox] Error adding route line:', e);
+        }
+
+        // 2. Instantiate Street-Level 3D Waypoint Markers (Game Cues)
+        route.waypoints.forEach((cue) => {
+          if (cue.cueType === 'destination') {
+            // Render Holographic Towering Destination Beacon
+            const beaconEl = document.createElement('div');
+            beaconEl.className = 'pulse-destination-beacon';
+            beaconEl.innerHTML = `
+              <div style="background: linear-gradient(135deg, #FF4757, #FFA502); color: white; padding: 5px 12px; border-radius: 14px; font-weight: 800; font-size: 11px; border: 1.5px solid #FFFFFF; box-shadow: 0 0 20px rgba(255, 71, 87, 0.9); display: flex; align-items: center; gap: 5px; backdrop-filter: blur(10px);">
+                <span style="font-size: 13px;">🎯</span>
+                <span>${route.destinationTitle}</span>
+              </div>
+              <div class="beacon-beam" style="width: 3.5px; height: 130px; background: linear-gradient(to top, rgba(255, 71, 87, 0.95), rgba(0, 242, 254, 0.7), transparent); margin-top: 2px;"></div>
+              <div class="beacon-wave" style="width: 44px; height: 18px; border-radius: 50%; border: 2px solid #FF4757; background: radial-gradient(circle, rgba(255, 71, 87, 0.45), transparent);"></div>
+            `;
+
+            destinationBeaconRef.current = new mapboxgl.Marker({
+              element: beaconEl,
+              anchor: 'bottom'
+            })
+              .setLngLat(cue.coordinates)
+              .addTo(map);
+            return;
+          }
+
+          // Render Holographic Floating Chevron Cues (>>>)
+          const cueEl = document.createElement('div');
+          cueEl.className = 'pulse-waypoint-cue';
+          cueEl.innerHTML = `
+            <div class="chevron-container" style="transform: rotate(${cue.bearing}deg); filter: drop-shadow(0 0 10px #00F2FE);">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#00F2FE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="7 13 12 18 17 13"></polyline>
+                <polyline points="7 6 12 11 17 6"></polyline>
+              </svg>
+            </div>
+            <div style="background: rgba(10, 14, 23, 0.88); color: #00F2FE; border: 1px solid rgba(0, 242, 254, 0.6); border-radius: 9999px; padding: 1.5px 7px; font-size: 9px; font-weight: 800; backdrop-filter: blur(8px); margin-top: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.7);">
+              ${cue.label}
+            </div>
+            <div style="width: 22px; height: 8px; border-radius: 50%; border: 1.5px solid rgba(0, 242, 254, 0.8); background: radial-gradient(circle, rgba(0,242,254,0.4) 0%, transparent 70%); margin-top: 3px; box-shadow: 0 0 8px rgba(0,242,254,0.7);"></div>
+          `;
+
+          const marker = new mapboxgl.Marker({
+            element: cueEl,
+            anchor: 'center'
+          })
+            .setLngLat(cue.coordinates)
+            .addTo(map);
+
+          waypointMarkersRef.current.push(marker);
+        });
+      },
+      [clearWayfindingMarkers]
+    );
+
+    /**
+     * Initiates wayfinding navigation to destination
+     */
+    const startNavigation = useCallback(
+      (destination: { latitude: number; longitude: number; title: string; category?: string }) => {
+        const startPoint: [number, number] = userCoords
+          ? [userCoords.longitude, userCoords.latitude]
+          : defaultCenter;
+
+        const destPoint: [number, number] = [destination.longitude, destination.latitude];
+
+        const route = generateStreetNavigationRoute(
+          startPoint,
+          destPoint,
+          destination.title,
+          destination.category
+        );
+
+        setActiveRoute(route);
+        renderStreetWayfindingCues(route);
+
+        // Switch to First-Person View (85° pitch) along the initial route bearing
+        const initialBearing = route.waypoints[0]?.bearing || 0;
+        setUserBearing(initialBearing);
+        applyCameraMode('fpv', startPoint, initialBearing);
+      },
+      [applyCameraMode, defaultCenter, renderStreetWayfindingCues, userCoords]
+    );
+
+    /**
+     * Stops active navigation
+     */
+    const stopNavigation = useCallback(() => {
+      clearWayfindingMarkers();
+      setActiveRoute(null);
+      onClearNavigation?.();
+    }, [clearWayfindingMarkers, onClearNavigation]);
+
+    /**
+     * Simulates walking along the route in First-Person View with continuous camera tracking
+     */
+    const toggleWalkSimulation = useCallback(() => {
+      if (!activeRoute) return;
+
+      if (isSimulatingWalk) {
+        // Pause simulation
+        if (simAnimationRef.current) {
+          cancelAnimationFrame(simAnimationRef.current);
+          simAnimationRef.current = null;
+        }
+        setIsSimulatingWalk(false);
+        return;
+      }
+
+      setIsSimulatingWalk(true);
+      const startTime = performance.now();
+      const durationMs = Math.max(12000, activeRoute.totalDistanceMeters * 55); // smooth walking pace
+
+      const animateStep = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / durationMs);
+        setSimulationProgress(progress);
+
+        const currentPos = getPositionAlongRoute(activeRoute.waypoints, progress);
+        setUserCoords({
+          latitude: currentPos.coordinates[1],
+          longitude: currentPos.coordinates[0]
+        });
+        setUserBearing(currentPos.bearing);
+
+        // Update avatar position
+        updateUserMarker(currentPos.coordinates[0], currentPos.coordinates[1], currentPos.bearing);
+
+        // First-Person Camera smoothly tracks center and bearing at 85° pitch
+        const map = mapRef.current;
+        if (map) {
+          map.easeTo({
+            center: currentPos.coordinates,
+            bearing: currentPos.bearing,
+            pitch: 85,
+            zoom: 18.5,
+            duration: 100,
+            essential: true,
+            easing: (t) => t
+          });
+        }
+
+        if (progress < 1) {
+          simAnimationRef.current = requestAnimationFrame(animateStep);
+        } else {
+          setIsSimulatingWalk(false);
+          // Destination Reached Celebratory Confetti!
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#00F2FE', '#FF4757', '#FFA502', '#10B981']
+          });
+        }
+      };
+
+      simAnimationRef.current = requestAnimationFrame(animateStep);
+    }, [activeRoute, isSimulatingWalk, updateUserMarker]);
+
+    /**
+     * Request browser GPS position and start continuous tracking
      */
     const locateAndCenterUser = useCallback(
       (shouldFly = true) => {
@@ -364,26 +708,21 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             const coords: UserCoordinates = {
               latitude: position.coords.latitude,
               longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
+              accuracy: position.coords.accuracy,
+              heading: position.coords.heading,
+              speed: position.coords.speed
             };
 
+            const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearing;
             setUserCoords(coords);
+            setUserBearing(heading);
             setIsLocating(false);
 
             if (mapRef.current) {
-              updateUserMarker(coords.longitude, coords.latitude);
+              updateUserMarker(coords.longitude, coords.latitude, heading);
 
               if (shouldFly) {
-                mapRef.current.flyTo({
-                  center: [coords.longitude, coords.latitude],
-                  zoom: Math.max(mapRef.current.getZoom(), defaultZoom),
-                  pitch: is3dPerspective ? 58 : 0,
-                  bearing: is3dPerspective ? -18 : 0,
-                  essential: true,
-                  duration: 1500,
-                  curve: 1.42,
-                  easing: (t) => t * (2 - t)
-                });
+                applyCameraMode(cameraMode, [coords.longitude, coords.latitude], heading);
               }
             }
 
@@ -401,7 +740,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           }
         );
       },
-      [defaultZoom, is3dPerspective, onLocationError, onLocationFound, updateUserMarker]
+      [applyCameraMode, cameraMode, onLocationError, onLocationFound, updateUserMarker, userBearing]
     );
 
     /**
@@ -416,8 +755,8 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             mapRef.current.flyTo({
               center,
               zoom,
-              pitch: is3dPerspective ? 58 : 0,
-              bearing: is3dPerspective ? -18 : 0,
+              pitch: cameraMode === 'fpv' ? 85 : cameraMode === 'aerial' ? 58 : 0,
+              bearing: userBearing,
               essential: true,
               duration: 1400
             });
@@ -430,15 +769,24 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           applyDynamicLighting(preset);
         },
         set3dBuildings: (enabled: boolean) => toggle3dBuildings(enabled),
-        toggle3dView
+        toggle3dView: () => {
+          const nextMode: CameraMode = cameraMode === 'fpv' ? 'aerial' : cameraMode === 'aerial' ? 'overview' : 'fpv';
+          applyCameraMode(nextMode);
+        },
+        setCameraMode: (mode: CameraMode) => applyCameraMode(mode),
+        startNavigation,
+        stopNavigation
       }),
       [
+        applyCameraMode,
         applyDynamicLighting,
+        cameraMode,
         defaultZoom,
-        is3dPerspective,
         locateAndCenterUser,
+        startNavigation,
+        stopNavigation,
         toggle3dBuildings,
-        toggle3dView,
+        userBearing,
         userCoords
       ]
     );
@@ -450,21 +798,23 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       if (!mapContainerRef.current) return;
       if (!hasToken) return;
 
-      // Assign global access token
       mapboxgl.accessToken = token;
 
-      // Clean up previous instance if any
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
 
+      const initialPitch = initialCameraMode === 'fpv' ? 85 : pitch;
+      const initialZoomLevel = initialCameraMode === 'fpv' ? 18.2 : defaultZoom;
+
       const map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: mapStyle,
         center: defaultCenter,
-        zoom: defaultZoom,
-        pitch,
+        zoom: initialZoomLevel,
+        pitch: initialPitch,
+        maxPitch: 85, // Set maxPitch to 85 to support dramatic first-person perspective
         bearing,
         interactive,
         attributionControl: true
@@ -508,7 +858,6 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
       // Style Load Event: Configure Mapbox Standard and 3D Extrusions
       map.on('style.load', () => {
-        // 1. Configure Mapbox Standard Basemap
         try {
           (map as any).setConfigProperty('basemap', 'lightPreset', currentLightPreset);
           (map as any).setConfigProperty('basemap', 'show3dObjects', is3dBuildingsEnabled);
@@ -516,10 +865,10 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           (map as any).setConfigProperty('basemap', 'showPlaceLabels', true);
           (map as any).setConfigProperty('basemap', 'showRoadLabels', true);
         } catch (err) {
-          // Fallback if classic style is passed
+          // Fallback if classic style is used
         }
 
-        // 2. Add custom 3D building extrusions layer for composite source fallback
+        // Add 3D building extrusions layer fallback
         try {
           if (!map.getLayer('pulse-3d-buildings')) {
             const layers = map.getStyle()?.layers;
@@ -583,10 +932,9 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             );
           }
         } catch (err) {
-          // If style doesn't have composite building layer, catch gracefully
+          // Ignore
         }
 
-        // 3. Apply dynamic lighting
         applyDynamicLighting(currentLightPreset);
       });
 
@@ -595,18 +943,85 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         setIsMapLoaded(true);
         onMapLoad?.(map);
 
-        // Perform auto-geolocation and auto-centering on mount
         if (autoGeolocate) {
           locateAndCenterUser(true);
         }
       });
 
+      // Continuous Geolocation Watch Position
+      let watchId: number | null = null;
+      if (navigator.geolocation && autoGeolocate) {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const coords: UserCoordinates = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              heading: pos.coords.heading,
+              speed: pos.coords.speed
+            };
+
+            const heading =
+              coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearing;
+
+            setUserCoords(coords);
+            if (coords.heading != null && !isNaN(coords.heading)) {
+              setUserBearing(heading);
+            }
+
+            updateUserMarker(coords.longitude, coords.latitude, heading);
+
+            // Continuously track camera center and bearing in First-Person View
+            if (isContinuousTracking && cameraMode === 'fpv' && mapRef.current) {
+              mapRef.current.easeTo({
+                center: [coords.longitude, coords.latitude],
+                bearing: heading,
+                pitch: 85,
+                zoom: 18.4,
+                duration: 600,
+                easing: (t) => t
+              });
+            }
+          },
+          (err) => console.warn('Continuous GPS watch warning:', err.message),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
+        );
+      }
+
+      // Device Compass Orientation for Real-time Heading
+      const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
+        if (event.alpha != null && !isSimulatingWalk) {
+          const compassHeading = (360 - event.alpha) % 360;
+          setUserBearing(compassHeading);
+
+          if (userCoords) {
+            updateUserMarker(userCoords.longitude, userCoords.latitude, compassHeading);
+
+            if (isContinuousTracking && cameraMode === 'fpv' && mapRef.current) {
+              mapRef.current.easeTo({
+                bearing: compassHeading,
+                pitch: 85,
+                duration: 200,
+                easing: (t) => t
+              });
+            }
+          }
+        }
+      };
+
+      window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+
       // Cleanup on unmount
       return () => {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        window.removeEventListener('deviceorientation', handleDeviceOrientation);
+
         if (userMarkerRef.current) {
           userMarkerRef.current.remove();
           userMarkerRef.current = null;
         }
+
+        clearWayfindingMarkers();
 
         momentMarkersRef.current.forEach((m) => m.remove());
         momentMarkersRef.current.clear();
@@ -623,12 +1038,22 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       defaultZoom,
       pitch,
       bearing,
+      initialCameraMode,
       interactive,
       showNavigationControl,
       navigationControlPosition,
       showGeolocateControl,
       showFullscreenControl
     ]);
+
+    /**
+     * Respond to incoming navigation destination prop
+     */
+    useEffect(() => {
+      if (propNavDestination) {
+        startNavigation(propNavDestination);
+      }
+    }, [propNavDestination, startNavigation]);
 
     /**
      * Render Pulse Moments Markers in 3D Space
@@ -663,35 +1088,34 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         el.className = 'pulse-3d-moment-marker';
         el.style.cursor = 'pointer';
         el.innerHTML = `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6)); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
-            <div style="padding: 6px 8px; border-radius: 14px; background: ${
-              isBiz ? 'rgba(245, 158, 11, 0.95)' : 'rgba(18, 25, 39, 0.92)'
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.7)); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+            <div style="padding: 6px 9px; border-radius: 14px; background: ${
+              isBiz ? 'rgba(245, 158, 11, 0.95)' : 'rgba(18, 25, 39, 0.94)'
             }; border: 1.5px solid ${
-          isBiz ? '#FCD34D' : 'rgba(255, 255, 255, 0.2)'
-        }; display: flex; items: center; gap: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(10px);">
+          isBiz ? '#FCD34D' : 'rgba(255, 255, 255, 0.25)'
+        }; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.6); backdrop-filter: blur(12px);">
               <span style="font-size: 14px;">${icon}</span>
-              ${
-                isBiz
-                  ? '<span style="font-size: 9px; font-weight: 800; color: #000; text-transform: uppercase;">PROMO</span>'
-                  : ''
-              }
+              <span style="font-size: 10px; font-weight: 800; color: #FFF; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${moment.title.slice(0, 16)}
+              </span>
             </div>
-            <div style="width: 2px; height: 10px; background: ${
+            <div style="width: 2.5px; height: 12px; background: ${
               isBiz ? '#F59E0B' : '#FF4757'
-            }; box-shadow: 0 0 8px ${isBiz ? '#F59E0B' : '#FF4757'};"></div>
-            <div style="width: 6px; height: 6px; border-radius: 9999px; background: ${
+            }; box-shadow: 0 0 10px ${isBiz ? '#F59E0B' : '#FF4757'};"></div>
+            <div style="width: 7px; height: 7px; border-radius: 9999px; background: ${
               isBiz ? '#FCD34D' : '#00F2FE'
-            };"></div>
+            }; box-shadow: 0 0 8px #00F2FE;"></div>
           </div>
         `;
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           onSelectMoment?.(moment);
+          // Fly closer with 3D perspective
           map.flyTo({
             center: [moment.longitude, moment.latitude],
-            zoom: 16.5,
-            pitch: 62,
+            zoom: 17.5,
+            pitch: 75,
             duration: 1200
           });
         });
@@ -718,48 +1142,166 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         {/* Missing Token Guidance Notice */}
         {!hasToken && (
           <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-[#0A0E17]/95 backdrop-blur-md">
-            <div className="max-w-md w-full p-6 rounded-2xl border border-amber-500/30 bg-slate-900/90 shadow-2xl text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto">
+            <div className="max-w-md w-full glass-panel p-6 rounded-3xl border border-white/10 text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/30">
                 <AlertCircle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">Mapbox Access Token Required</h3>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  To initialize Mapbox Standard 3D, configure your public access token in the project root{' '}
-                  <code className="text-amber-300 bg-slate-800 px-1.5 py-0.5 rounded font-mono text-[11px]">
-                    .env
-                  </code>{' '}
-                  file:
+                <h3 className="text-base font-bold text-white">Mapbox Token Required</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Please provide a Mapbox access token to activate Mapbox Standard 3D building extrusions and dynamic lighting.
                 </p>
               </div>
+              <a
+                href="https://account.mapbox.com/access-tokens/"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs flex items-center justify-center gap-2"
+              >
+                <span>Get Free Mapbox Token</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
+        )}
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-white/10 text-left font-mono text-[11px] text-slate-300 overflow-x-auto">
-                <div className="text-slate-500"># .env</div>
-                <div className="text-amber-300">VITE_MAPBOX_TOKEN=pk.eyJ1...</div>
+        {/* =========================================================================
+            GAMING HUD: STREET-LEVEL WAYFINDING NAVIGATION CUES OVERLAY
+           ========================================================================= */}
+        {activeRoute && (
+          <div className="absolute top-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
+            <div className="glass-panel p-4 rounded-3xl border border-cyan-500/40 bg-[#0A0E17]/90 shadow-2xl backdrop-blur-xl text-white space-y-3">
+              {/* Header Title & Close Button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1">
+                    <Route className="w-3 h-3 text-cyan-400" />
+                    <span>Street Wayfinding HUD</span>
+                  </span>
+                </div>
+                <button
+                  onClick={stopNavigation}
+                  className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                  title="Exit Navigation"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-2 pt-1 text-xs">
-                <a
-                  href="https://account.mapbox.com/access-tokens/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center justify-center gap-1.5 transition-colors"
+              {/* Destination Card & Real-time Metrics */}
+              <div className="flex items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-white/10">
+                <div>
+                  <h4 className="font-bold text-sm text-white truncate max-w-[200px]">
+                    {activeRoute.destinationTitle}
+                  </h4>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                    <span className="text-cyan-400 font-bold">{activeRoute.totalDistanceMeters}m remaining</span>
+                    <span>•</span>
+                    <span className="text-amber-300 font-semibold">~{activeRoute.estimatedWalkingMinutes} min walk</span>
+                  </div>
+                </div>
+
+                <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-black text-sm">
+                  🎯
+                </div>
+              </div>
+
+              {/* Active Step Guidance Banner */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs font-semibold">
+                <Footprints className="w-4 h-4 text-cyan-400 shrink-0 animate-bounce" />
+                <span className="truncate">
+                  {isSimulatingWalk
+                    ? `Autopilot walking: ${(simulationProgress * 100).toFixed(0)}% to destination`
+                    : 'Follow street chevrons ahead toward destination'}
+                </span>
+              </div>
+
+              {/* Action Controls: Autopilot Walk Simulation & Stop */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={toggleWalkSimulation}
+                  className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
+                    isSimulatingWalk
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30'
+                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black shadow-cyan-500/30'
+                  }`}
                 >
-                  <span>Get Free Token</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                  {isSimulatingWalk ? (
+                    <>
+                      <Square className="w-3.5 h-3.5" />
+                      <span>Pause Autopilot</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Walk Route in 3D (Autopilot)</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={stopNavigation}
+                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors border border-white/5"
+                >
+                  End
+                </button>
               </div>
             </div>
           </div>
         )}
 
         {/* =========================================================================
-            IMMERSIVE 3D & DYNAMIC LIGHTING FLOATING TOOLBAR
+            IMMERSIVE 3D & CAMERA MODE FLOATING TOOLBAR
            ========================================================================= */}
         {hasToken && show3dControls && isMapLoaded && (
           <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 pointer-events-auto">
-            {/* Dynamic Lighting Preset Selector */}
+            {/* Camera View Mode Selector (FPV 85° vs 3D Aerial 58° vs 2D Flat) */}
             <div className="flex items-center gap-1 p-1 rounded-2xl glass-panel border border-white/15 shadow-2xl backdrop-blur-xl">
+              {/* FPV Mode (85° pitch, high zoom, tracks live heading) */}
+              <button
+                onClick={() => applyCameraMode('fpv')}
+                title="First-Person View (85° pitch at street level, continuous heading tracking)"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                  cameraMode === 'fpv'
+                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white border border-rose-400/50 shadow-md shadow-rose-500/20'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5 text-rose-300" />
+                <span>FPV (85°)</span>
+              </button>
+
+              {/* 3D Aerial (58° pitch) */}
+              <button
+                onClick={() => applyCameraMode('aerial')}
+                title="3D Aerial Perspective (58° pitch)"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                  cameraMode === 'aerial'
+                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Box className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">3D Aerial</span>
+              </button>
+
+              {/* 2D Overview (0° pitch) */}
+              <button
+                onClick={() => applyCameraMode('overview')}
+                title="2D Top-Down Map"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                  cameraMode === 'overview'
+                    ? 'bg-slate-700 text-white border border-white/20'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>2D</span>
+              </button>
+            </div>
+
+            {/* Dynamic Lighting Preset Selector */}
+            <div className="flex items-center gap-1 p-1 rounded-2xl glass-panel border border-white/15 shadow-2xl backdrop-blur-xl w-fit">
               {(
                 [
                   { id: 'night', label: 'Night', icon: Moon, color: 'text-cyan-400' },
@@ -778,48 +1320,30 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
                       setCurrentLightPreset(preset.id);
                       applyDynamicLighting(preset.id);
                     }}
-                    title={`Switch dynamic lighting to ${preset.label}`}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                    title={`Dynamic lighting: ${preset.label}`}
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
                       isActive
                         ? 'bg-white/15 text-white border border-white/30 shadow-md shadow-white/5'
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 ${preset.color}`} />
+                    <Icon className={`w-3 h-3 ${preset.color}`} />
                     <span className="hidden sm:inline">{preset.label}</span>
                   </button>
                 );
               })}
-            </div>
 
-            {/* 3D View & 3D Building Extrusions Toggles */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl glass-panel border border-white/15 shadow-2xl backdrop-blur-xl w-fit">
-              {/* 3D Perspective Tilt Toggle */}
-              <button
-                onClick={toggle3dView}
-                title={is3dPerspective ? 'Switch to 2D flat view' : 'Switch to 3D perspective view'}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
-                  is3dPerspective
-                    ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Box className="w-3.5 h-3.5 text-rose-400" />
-                <span>{is3dPerspective ? '3D View (58°)' : '2D View'}</span>
-              </button>
-
-              {/* 3D Buildings Toggle */}
+              {/* 3D Buildings Extrusion Toggle */}
               <button
                 onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
                 title="Toggle 3D building extrusions"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`p-1.5 rounded-xl text-[10px] font-bold transition-all ${
                   is3dBuildingsEnabled
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40'
                     : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                <span>3D Buildings</span>
               </button>
             </div>
           </div>
@@ -831,7 +1355,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             <button
               onClick={() => locateAndCenterUser(true)}
               disabled={isLocating}
-              title="Center on my location in 3D"
+              title="Center on my location in First-Person View (85°)"
               className="p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-cyan-400 border border-white/15 shadow-xl backdrop-blur-md active:scale-95 transition-all flex items-center justify-center group disabled:opacity-50"
             >
               {isLocating ? (
@@ -847,7 +1371,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         {isLocating && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/40 text-cyan-300 text-xs font-semibold shadow-xl backdrop-blur-md animate-pulse">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Calibrating 3D GPS location...</span>
+            <span>Calibrating 3D First-Person GPS...</span>
           </div>
         )}
 
@@ -855,7 +1379,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         {locationError && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs shadow-xl backdrop-blur-md">
             <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-            <span>GPS: {locationError}. Using default coordinates.</span>
+            <span>GPS: {locationError}. Using Victoria Island coordinates.</span>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePulse } from '../../context/PulseContext';
-import { ReactionType, MomentCategory } from '../../types/pulse';
+import { ReactionType, MomentCategory, Moment } from '../../types/pulse';
 import {
   X,
   Clock,
@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 interface HotspotBottomSheetProps {
   onOpenComments: (momentId: string) => void;
   onOpenReport: (momentId: string) => void;
+  onStartNavigation?: (moment: Moment) => void;
 }
 
 const CATEGORY_META: Record<
@@ -39,7 +40,8 @@ const CATEGORY_META: Record<
 
 export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   onOpenComments,
-  onOpenReport
+  onOpenReport,
+  onStartNavigation
 }) => {
   const {
     selectedMoment,
@@ -251,6 +253,20 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
               })}
             </div>
           </div>
+
+          {/* 3D First-Person Wayfinding Navigation Trigger */}
+          {onStartNavigation && (
+            <button
+              onClick={() => {
+                onStartNavigation(selectedMoment);
+                setSelectedMoment(null);
+              }}
+              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/25 active:scale-[0.98]"
+            >
+              <Navigation className="w-4 h-4 fill-current" />
+              <span>Walk There in 3D (Street Cues & FPV)</span>
+            </button>
+          )}
 
           {/* Action Row */}
           <div className="flex items-center gap-2 pt-2 border-t border-white/10">
