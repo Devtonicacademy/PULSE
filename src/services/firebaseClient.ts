@@ -31,9 +31,7 @@ try {
   app = getApps().length > 0 ? getApp() : ({} as FirebaseApp);
 }
 
-export const isFirebaseConfigured = Boolean(
-  firebaseConfig.apiKey &&
-  firebaseConfig.projectId === 'quizapp-project-c5e0e'
-);
+// Configured means the SDK actually initialized, whichever project the env points at
+export const isFirebaseConfigured = Boolean(db && auth);
 
 export { app, db, auth, storage, firebaseConfig };

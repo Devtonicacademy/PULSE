@@ -127,6 +127,79 @@ interface PulseContextType {
 
 const PulseContext = createContext<PulseContextType | undefined>(undefined);
 
+type ReactionState = Pick<Moment, 'reactions' | 'userReaction'>;
+
+const DEFAULT_BUSINESS_REACTIONS: Moment['reactions'] = {
+  helpful: 24,
+  trending: 48,
+  confirmed: 19,
+  interested: 62,
+  going: 29
+};
+
+// Business live pins are shown alongside moments as verified "deals"
+function businessPostToMoment(bp: BusinessPost, reactionState?: ReactionState): Moment {
+  return {
+    id: bp.id,
+    userId: bp.businessId,
+    userName: bp.businessName,
+    userAvatar: bp.businessAvatar,
+    userReputation: 99,
+    title: `${bp.livePinType}: ${bp.title}`,
+    description: bp.offer,
+    category: 'deals',
+    latitude: bp.latitude,
+    longitude: bp.longitude,
+    createdAt: bp.createdAt,
+    expiresAt: bp.expiresAt,
+    engagementScore: 92,
+    viewsCount: bp.views,
+    isArchived: false,
+    approxAddress: `${bp.businessName} (Verified Partner)`,
+    reactions: reactionState?.reactions ?? DEFAULT_BUSINESS_REACTIONS,
+    userReaction: reactionState?.userReaction,
+    commentCount: 6,
+    isBusiness: true,
+    businessName: bp.businessName
+  };
+}
+
+// Tapping your current reaction removes it; tapping another one switches to it
+function applyReactionToggle(m: Moment, reactionType: ReactionType): Moment {
+  const newReactions = { ...m.reactions };
+
+  if (m.userReaction === reactionType) {
+    newReactions[reactionType] = Math.max(0, newReactions[reactionType] - 1);
+    return {
+      ...m,
+      reactions: newReactions,
+      userReaction: undefined,
+      engagementScore: Math.max(10, m.engagementScore - 2)
+    };
+  }
+
+  // If had another reaction previously, decrement that one
+  if (m.userReaction) {
+    newReactions[m.userReaction] = Math.max(0, newReactions[m.userReaction] - 1);
+  }
+  newReactions[reactionType] = newReactions[reactionType] + 1;
+
+  // Extend expiration slightly for highly trending moments (Feature 4)
+  let newExpiresAt = m.expiresAt;
+  if (reactionType === 'trending' || reactionType === 'confirmed') {
+    const currentExp = new Date(m.expiresAt).getTime();
+    newExpiresAt = new Date(currentExp + 30 * 60 * 1000).toISOString(); // +30 mins bonus
+  }
+
+  return {
+    ...m,
+    reactions: newReactions,
+    userReaction: reactionType,
+    expiresAt: newExpiresAt,
+    engagementScore: Math.min(100, m.engagementScore + 4)
+  };
+}
+
 export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // 1. Location state
   const [currentLocation, setCurrentLocation] = useState(DEFAULT_COORDS);
@@ -145,7 +218,15 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 3. Domain states
   const [moments, setMoments] = useState<Moment[]>(() => {
     const saved = localStorage.getItem('pulse_moments');
-    return saved ? JSON.parse(saved) : INITIAL_MOMENTS;
+    if (!saved) return INITIAL_MOMENTS;
+    // Seed moments are demo content timed relative to page load; re-time them on every
+    // load so returning visitors don't get a permanently empty map once they expire.
+    // User-created moments keep their real expiry.
+    const freshSeeds = new Map(INITIAL_MOMENTS.map((m) => [m.id, m]));
+    return (JSON.parse(saved) as Moment[]).map((m) => {
+      const seed = freshSeeds.get(m.id);
+      return seed ? { ...m, createdAt: seed.createdAt, expiresAt: seed.expiresAt } : m;
+    });
   });
 
   const [comments, setComments] = useState<Comment[]>(() => {
@@ -156,6 +237,8 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activityZones, setActivityZones] = useState<ActivityZone[]>(INITIAL_ZONES);
   const [businesses, setBusinesses] = useState<Business[]>(INITIAL_BUSINESSES);
   const [businessPosts, setBusinessPosts] = useState<BusinessPost[]>(INITIAL_BUSINESS_POSTS);
+  // Business pins aren't in `moments` (or Firestore), so their reactions are tracked locally here
+  const [businessReactions, setBusinessReactions] = useState<Record<string, ReactionState>>({});
   const [temporaryCommunities, setTemporaryCommunities] = useState<TemporaryCommunity[]>(INITIAL_COMMUNITIES);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
 
@@ -273,28 +356,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     businessPosts.forEach((bp) => {
       if (!allCandidateMoments.some((m) => m.id === bp.id)) {
-        allCandidateMoments.push({
-          id: bp.id,
-          userId: bp.businessId,
-          userName: bp.businessName,
-          userAvatar: bp.businessAvatar,
-          userReputation: 99,
-          title: `${bp.livePinType}: ${bp.title}`,
-          description: bp.offer,
-          category: 'deals',
-          latitude: bp.latitude,
-          longitude: bp.longitude,
-          createdAt: bp.createdAt,
-          expiresAt: bp.expiresAt,
-          engagementScore: 92,
-          viewsCount: bp.views,
-          isArchived: false,
-          approxAddress: `${bp.businessName} (Verified Partner)`,
-          reactions: { helpful: 24, trending: 48, confirmed: 19, interested: 62, going: 29 },
-          commentCount: 6,
-          isBusiness: true,
-          businessName: bp.businessName
-        });
+        allCandidateMoments.push(businessPostToMoment(bp, businessReactions[bp.id]));
       }
     });
 
@@ -336,7 +398,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return true;
       })
       .sort((a, b) => b.engagementScore - a.engagementScore);
-  }, [moments, businessPosts, currentLocation, radiusKm, selectedCategory, searchQuery]);
+  }, [moments, businessPosts, businessReactions, currentLocation, radiusKm, selectedCategory, searchQuery]);
 
   const selectedMoment = useMemo(() => {
     if (!selectedMomentRef) return null;
@@ -486,7 +548,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `notif-${Date.now()}`,
       type: 'event',
       title: '🎉 Moment Live!',
-      message: `Your Moment "${newMoment.title}" is now broadcasting to everyone within 25km.`,
+      message: `Your Moment "${newMoment.title}" is now broadcasting to everyone within ${radiusKm}km.`,
       momentId: newMoment.id,
       distanceKm: 0,
       createdAt: new Date().toISOString(),
@@ -499,46 +561,18 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleReaction = (momentId: string, reactionType: ReactionType) => {
-    setMoments((prev) =>
-      prev.map((m) => {
-        if (m.id !== momentId) return m;
+    const businessPost = moments.some((m) => m.id === momentId)
+      ? undefined
+      : businessPosts.find((bp) => bp.id === momentId);
 
-        const isCurrent = m.userReaction === reactionType;
-        const newReactions = { ...m.reactions };
-
-        if (isCurrent) {
-          // Remove reaction
-          newReactions[reactionType] = Math.max(0, newReactions[reactionType] - 1);
-          return {
-            ...m,
-            reactions: newReactions,
-            userReaction: undefined,
-            engagementScore: Math.max(10, m.engagementScore - 2)
-          };
-        } else {
-          // If had another reaction previously, decrement that one
-          if (m.userReaction) {
-            newReactions[m.userReaction] = Math.max(0, newReactions[m.userReaction] - 1);
-          }
-          newReactions[reactionType] = newReactions[reactionType] + 1;
-
-          // Extend expiration slightly for highly trending moments (Feature 4)
-          let newExpiresAt = m.expiresAt;
-          if (reactionType === 'trending' || reactionType === 'confirmed') {
-            const currentExp = new Date(m.expiresAt).getTime();
-            newExpiresAt = new Date(currentExp + 30 * 60 * 1000).toISOString(); // +30 mins bonus
-          }
-
-          return {
-            ...m,
-            reactions: newReactions,
-            userReaction: reactionType,
-            expiresAt: newExpiresAt,
-            engagementScore: Math.min(100, m.engagementScore + 4)
-          };
-        }
-      })
-    );
+    if (businessPost) {
+      setBusinessReactions((prev) => {
+        const next = applyReactionToggle(businessPostToMoment(businessPost, prev[momentId]), reactionType);
+        return { ...prev, [momentId]: { reactions: next.reactions, userReaction: next.userReaction } };
+      });
+    } else {
+      setMoments((prev) => prev.map((m) => (m.id === momentId ? applyReactionToggle(m, reactionType) : m)));
+    }
 
     // Reward points
     setUserProfile((prev) => ({
@@ -548,7 +582,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Sync to Firebase Firestore if configured. Mirror the local transition exactly:
     // switching reactions must also decrement the previous one.
-    if (isFirebaseConfigured) {
+    if (isFirebaseConfigured && !businessPost) {
       const previous = moments.find((m) => m.id === momentId)?.userReaction;
       const deltas: [ReactionType, number][] =
         previous === reactionType
