@@ -20,17 +20,29 @@ type FrameCallback = (deltaSeconds: number, elapsedSeconds: number) => void;
 export type LightPreset = 'night' | 'dusk' | 'dawn' | 'day';
 
 const NIGHT_SKY = 0x05070d;
+const BLOOM_STRENGTH = 0.85;
+const BLOOM_THRESHOLD = 0.62;
 const FOG_DENSITY = 0.0011;
+
+// Ground surface colours at night and in full daylight (blended by preset daylight)
+const SURFACE_COLORS = {
+  land: [0x0b111d, 0x56595b],
+  road: [0x0d1424, 0x3d4148],
+  green: [0x0b2418, 0x4e7a3c],
+  sand: [0x221d14, 0xcbb68c],
+  water: [0x0b3156, 0x2e6e98],
+  ground: [0x05080f, 0x7d8388]
+} as const;
 
 // Atmosphere per MapboxMap light preset. Windows switch off in daylight.
 const LIGHT_PRESETS: Record<
   LightPreset,
-  { sky: number; fog: number; hemiSky: number; hemiGround: number; hemi: number; sun: number; sunColor: number; windows: number; exposure: number }
+  { sky: number; fog: number; hemiSky: number; hemiGround: number; hemi: number; sun: number; sunColor: number; windows: number; exposure: number; daylight: number }
 > = {
-  night: { sky: NIGHT_SKY, fog: FOG_DENSITY, hemiSky: 0x5a6ea8, hemiGround: 0x0a0d18, hemi: 1.5, sun: 1.3, sunColor: 0xa9bcff, windows: 2.0, exposure: 1.05 },
-  dusk: { sky: 0x2a1530, fog: 0.0009, hemiSky: 0xff9a6a, hemiGround: 0x1a1020, hemi: 1.6, sun: 1.6, sunColor: 0xffa070, windows: 1.4, exposure: 1.0 },
-  dawn: { sky: 0x3a2a40, fog: 0.0009, hemiSky: 0xffb6c8, hemiGround: 0x1a1a28, hemi: 1.7, sun: 1.8, sunColor: 0xffc0a0, windows: 0.8, exposure: 1.0 },
-  day: { sky: 0x8fb4d9, fog: 0.0006, hemiSky: 0xdfeaff, hemiGround: 0x3a4250, hemi: 2.4, sun: 2.6, sunColor: 0xffffff, windows: 0, exposure: 0.9 }
+  night: { sky: NIGHT_SKY, fog: FOG_DENSITY, hemiSky: 0x5a6ea8, hemiGround: 0x0a0d18, hemi: 1.5, sun: 1.3, sunColor: 0xa9bcff, windows: 2.0, exposure: 1.05, daylight: 0 },
+  dusk: { sky: 0x2a1530, fog: 0.0009, hemiSky: 0xff9a6a, hemiGround: 0x1a1020, hemi: 1.2, sun: 1.3, sunColor: 0xffa070, windows: 1.4, exposure: 1.0, daylight: 0.45 },
+  dawn: { sky: 0x3a2a40, fog: 0.0009, hemiSky: 0xffb6c8, hemiGround: 0x1a1a28, hemi: 1.25, sun: 1.4, sunColor: 0xffc0a0, windows: 0.8, exposure: 1.0, daylight: 0.55 },
+  day: { sky: 0x8fb4d9, fog: 0.0006, hemiSky: 0xcfdcf0, hemiGround: 0x3a4250, hemi: 1.15, sun: 1.7, sunColor: 0xfff4e0, windows: 0, exposure: 0.72, daylight: 1 }
 };
 
 /**
@@ -111,7 +123,7 @@ export class PulseScene {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     if (options.bloom ?? true) {
-      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0.85, 0.45, 0.62);
+      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), BLOOM_STRENGTH, 0.45, BLOOM_THRESHOLD);
       this.composer.addPass(this.bloomPass);
     }
     this.composer.addPass(new OutputPass());
@@ -140,6 +152,19 @@ export class PulseScene {
     this.sunLight.intensity = p.sun;
     this.materials.uniforms.uWindowIntensity.value = p.windows;
     this.renderer.toneMappingExposure = p.exposure;
+    // Facades switch to plaster/concrete colours and the ground lightens with daylight
+    this.materials.uniforms.uDay.value = p.daylight;
+    // Bloom is for neon at night; in daylight it would just haze bright plaster walls
+    if (this.bloomPass) {
+      this.bloomPass.strength = BLOOM_STRENGTH * (1 - p.daylight * 0.85);
+      this.bloomPass.threshold = BLOOM_THRESHOLD + p.daylight * 0.3;
+    }
+    const night = new THREE.Color();
+    const day = new THREE.Color();
+    (Object.keys(SURFACE_COLORS) as (keyof typeof SURFACE_COLORS)[]).forEach((key) => {
+      const [nightHex, dayHex] = SURFACE_COLORS[key];
+      this.materials[key].color.copy(night.setHex(nightHex)).lerp(day.setHex(dayHex), p.daylight);
+    });
   }
 
   /** Thins the fog as the camera rises so overview shots aren't washed out */
