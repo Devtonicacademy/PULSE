@@ -31,3 +31,6 @@ lerna-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+
+# OpenStreetMap download cache (scripts/build-map-tiles.mjs)
+.cache/
