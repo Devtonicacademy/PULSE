@@ -2,29 +2,62 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Pulse moments collection
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // True when an update touches only the listed fields
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function isBoundedString(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function isValidCategory(category) {
+      return category in [
+        'events', 'alerts', 'food_drinks', 'lost_found',
+        'recommendations', 'activities', 'deals', 'community'
+      ];
+    }
+
+    // Live moments: public to read; authors own them; any signed-in user may
+    // bump the shared engagement counters (reactions, comment count).
     match /moments/{momentId} {
       allow read: if true;
-      allow create: if request.resource.data.title is string
-                    && request.resource.data.category is string;
-      allow update, delete: if true;
+      allow create: if isUser(request.resource.data.userId)
+                    && isBoundedString(request.resource.data.title, 150)
+                    && isBoundedString(request.resource.data.description, 2000)
+                    && isValidCategory(request.resource.data.category);
+      allow update: if (isUser(resource.data.userId)
+                        && request.resource.data.userId == resource.data.userId)
+                    || (signedIn()
+                        && onlyChanges(['reactions', 'engagementScore', 'commentCount', 'updatedAt']));
+      allow delete: if isUser(resource.data.userId);
     }
 
-    // Comments subcollection or collection
+    // Comments: public to read; authors own them; anyone signed in may like.
     match /comments/{commentId} {
       allow read: if true;
-      allow create, update: if true;
+      allow create: if isUser(request.resource.data.userId)
+                    && isBoundedString(request.resource.data.content, 1000)
+                    && request.resource.data.momentId is string;
+      allow update: if (isUser(resource.data.userId)
+                        && request.resource.data.userId == resource.data.userId)
+                    || (signedIn() && onlyChanges(['likesCount', 'updatedAt']));
+      allow delete: if isUser(resource.data.userId);
     }
 
-    // User profiles & reputations
+    // Profiles hold email addresses, so only the owner can read or write them.
     match /users/{userId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if isUser(userId);
     }
 
-    // Default match
-    match /{document=**} {
-      allow read, write: if true;
-    }
+    // Everything else is closed.
   }
 }

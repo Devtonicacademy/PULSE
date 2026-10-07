@@ -10,11 +10,19 @@ import {
   increment,
   Unsubscribe
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './firebaseClient';
+import { db, auth, isFirebaseConfigured } from './firebaseClient';
 import { Moment, Comment, ReactionType } from '../types/pulse';
 
 const MOMENTS_COLLECTION = 'moments';
 const COMMENTS_COLLECTION = 'comments';
+
+/**
+ * Security rules only accept writes from a Firebase-authenticated user. Local guest /
+ * demo profiles have no Firebase session, so skip the round trip instead of failing.
+ */
+function canWrite(): boolean {
+  return Boolean(db && isFirebaseConfigured && auth?.currentUser);
+}
 
 /**
  * Firestore rejects `undefined` field values, so drop those keys before writing
@@ -94,7 +102,7 @@ export function subscribeToFirebaseMoments(
  * Saves a new live Moment to Firestore
  */
 export async function saveMomentToFirebase(moment: Moment): Promise<boolean> {
-  if (!db || !isFirebaseConfigured) {
+  if (!db || !canWrite()) {
     return false;
   }
 
@@ -122,7 +130,7 @@ export async function updateFirebaseReaction(
   reaction: ReactionType,
   incrementBy = 1
 ): Promise<boolean> {
-  if (!db || !isFirebaseConfigured) {
+  if (!db || !canWrite()) {
     return false;
   }
 
@@ -143,7 +151,7 @@ export async function updateFirebaseReaction(
  * Saves a comment to Firestore
  */
 export async function saveCommentToFirebase(comment: Comment): Promise<boolean> {
-  if (!db || !isFirebaseConfigured) {
+  if (!db || !canWrite()) {
     return false;
   }
 

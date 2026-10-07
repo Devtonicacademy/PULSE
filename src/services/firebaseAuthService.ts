@@ -117,7 +117,8 @@ export async function getOrCreateUserProfile(user: User): Promise<UserProfile> {
  * Saves updated UserProfile to Firestore
  */
 export async function updateUserProfileInFirestore(profile: UserProfile): Promise<boolean> {
-  if (!db || !isFirebaseConfigured) {
+  // Rules only let a signed-in user write their own profile doc
+  if (!db || !isFirebaseConfigured || auth?.currentUser?.uid !== profile.id) {
     localStorage.setItem(LOCAL_AUTH_STORAGE_KEY, JSON.stringify(profile));
     return true;
   }
