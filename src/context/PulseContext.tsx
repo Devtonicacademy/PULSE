@@ -338,11 +338,10 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsLocating(false);
       },
       (err) => {
-        console.warn('Geolocation error:', err.message);
+        console.info('[PULSE] GPS unavailable or timed out; maintaining active hub:', err.message);
         setIsLocating(false);
-        alert('Could not access GPS. Using default location (Victoria Island).');
       },
-      { timeout: 8000, enableHighAccuracy: true }
+      { timeout: 6000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   };
 

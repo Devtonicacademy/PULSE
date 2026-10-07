@@ -18,6 +18,7 @@ export interface NavigationRoute {
   destinationTitle: string;
   destinationCategory?: string;
   geojsonFeature: GeoJSON.Feature<GeoJSON.LineString>;
+  pathCoordinates: [number, number][]; // Full interpolated path for 60fps smooth simulation
 }
 
 /**
@@ -82,7 +83,7 @@ export function calculateBearing(
 /**
  * Interpolates intermediate point along a line segment at ratio t (0 <= t <= 1)
  */
-function interpolateCoord(
+export function interpolateCoord(
   start: [number, number],
   end: [number, number],
   t: number
@@ -95,7 +96,7 @@ function interpolateCoord(
 
 /**
  * Generates an urban street route with game-like wayfinding cues
- * Spaced every ~20 - 35 meters with corner turns and final destination beacon
+ * Capped to a lean number of visual waypoints to ensure zero DOM overhead and 60fps performance
  */
 export function generateStreetNavigationRoute(
   start: [number, number], // [lng, lat]
@@ -136,102 +137,103 @@ export function generateStreetNavigationRoute(
           type: 'LineString',
           coordinates: [start, destination]
         }
-      }
+      },
+      pathCoordinates: [start, destination]
     };
   }
 
-  // To simulate realistic urban street blocks (e.g. grid navigation like in Victoria Island or Manhattan):
-  // We introduce an intermediate street corner intersection to avoid flying in a straight diagonal across buildings.
-  const cornerIntersection: [number, number] = [
-    destLng, // Turn at the target longitude
-    startLat // Continuing straight along the starting latitude
-  ];
+  // To simulate realistic urban street blocks (e.g. grid navigation):
+  const cornerIntersection: [number, number] = [destLng, startLat];
 
-  // Divide into 2 main street legs:
-  // Leg 1: from start -> corner
-  // Leg 2: from corner -> destination
   const leg1Dist = calculateDistanceMeters(startLat, startLng, cornerIntersection[1], cornerIntersection[0]);
   const leg2Dist = calculateDistanceMeters(cornerIntersection[1], cornerIntersection[0], destLat, destLng);
   const routeTotalDist = leg1Dist + leg2Dist;
 
-  // Decide waypoint spacing (every ~25-35 meters)
-  const waypointSpacing = Math.max(25, Math.min(35, routeTotalDist / 12));
+  // Build full high-resolution polyline for GPU line rendering and smooth camera interpolation (50-100 segments)
+  const pathCoordinates: [number, number][] = [start];
+  const leg1Samples = Math.max(10, Math.min(50, Math.round(leg1Dist / 20)));
+  for (let i = 1; i <= leg1Samples; i++) {
+    pathCoordinates.push(interpolateCoord(start, cornerIntersection, i / leg1Samples));
+  }
+  const leg2Samples = Math.max(10, Math.min(50, Math.round(leg2Dist / 20)));
+  for (let i = 1; i <= leg2Samples; i++) {
+    pathCoordinates.push(interpolateCoord(cornerIntersection, destination, i / leg2Samples));
+  }
 
-  const allLineCoords: [number, number][] = [start];
+  // Generate selective visual cues: maximum 6-10 cues across the entire route to eliminate DOM clutter
   const waypoints: WaypointCue[] = [];
-  let currentDistFromStart = 0;
-  let cueIdx = 0;
-
-  // 1. Generate Leg 1 waypoints
-  const numStepsLeg1 = Math.max(1, Math.round(leg1Dist / waypointSpacing));
   const leg1Bearing = calculateBearing(startLat, startLng, cornerIntersection[1], cornerIntersection[0]);
+  const leg2Bearing = calculateBearing(cornerIntersection[1], cornerIntersection[0], destLat, destLng);
 
-  for (let i = 1; i <= numStepsLeg1; i++) {
-    const t = i / numStepsLeg1;
-    const pt = interpolateCoord(start, cornerIntersection, t);
-    allLineCoords.push(pt);
+  // Initial guidance cue
+  waypoints.push({
+    id: 'cue-0',
+    index: 0,
+    coordinates: interpolateCoord(start, cornerIntersection, Math.min(0.2, 50 / Math.max(50, leg1Dist))),
+    bearing: leg1Bearing,
+    distanceFromStart: Math.min(50, Math.round(leg1Dist * 0.2)),
+    distanceToEnd: Math.round(routeTotalDist),
+    cueType: 'straight',
+    label: `${Math.round(routeTotalDist)}m ahead`
+  });
 
-    currentDistFromStart += leg1Dist / numStepsLeg1;
-    const distToEnd = Math.max(0, routeTotalDist - currentDistFromStart);
-
-    const isCorner = i === numStepsLeg1 && leg2Dist > 15;
-    const leg2Bearing = calculateBearing(cornerIntersection[1], cornerIntersection[0], destLat, destLng);
-
-    // Determine if turn is left or right
-    let turnType: 'straight' | 'turn-left' | 'turn-right' = 'straight';
-    if (isCorner) {
-      const diff = (leg2Bearing - leg1Bearing + 360) % 360;
-      turnType = diff > 0 && diff < 180 ? 'turn-right' : 'turn-left';
-    }
-
+  // Intermediate Leg 1 cue if leg is long
+  if (leg1Dist > 200) {
     waypoints.push({
-      id: `cue-${cueIdx++}`,
+      id: 'cue-mid1',
       index: waypoints.length,
-      coordinates: pt,
-      bearing: isCorner ? leg2Bearing : leg1Bearing,
-      distanceFromStart: Math.round(currentDistFromStart),
-      distanceToEnd: Math.round(distToEnd),
-      cueType: isCorner ? turnType : 'straight',
-      label: isCorner
-        ? `${turnType === 'turn-left' ? 'Turn Left' : 'Turn Right'} in ${Math.round(currentDistFromStart)}m`
-        : `${Math.round(distToEnd)}m`
+      coordinates: interpolateCoord(start, cornerIntersection, 0.5),
+      bearing: leg1Bearing,
+      distanceFromStart: Math.round(leg1Dist * 0.5),
+      distanceToEnd: Math.round(routeTotalDist - leg1Dist * 0.5),
+      cueType: 'straight',
+      label: `${Math.round(routeTotalDist - leg1Dist * 0.5)}m to turn`
     });
   }
 
-  // 2. Generate Leg 2 waypoints
-  if (leg2Dist > 10) {
-    const numStepsLeg2 = Math.max(1, Math.round(leg2Dist / waypointSpacing));
-    const leg2Bearing = calculateBearing(cornerIntersection[1], cornerIntersection[0], destLat, destLng);
+  // Corner turn cue
+  if (leg2Dist > 20) {
+    const diff = (leg2Bearing - leg1Bearing + 360) % 360;
+    const turnType: 'turn-left' | 'turn-right' = diff > 0 && diff < 180 ? 'turn-right' : 'turn-left';
 
-    for (let i = 1; i <= numStepsLeg2; i++) {
-      const t = i / numStepsLeg2;
-      const pt = interpolateCoord(cornerIntersection, destination, t);
-      allLineCoords.push(pt);
+    waypoints.push({
+      id: 'cue-corner',
+      index: waypoints.length,
+      coordinates: cornerIntersection,
+      bearing: leg2Bearing,
+      distanceFromStart: Math.round(leg1Dist),
+      distanceToEnd: Math.round(leg2Dist),
+      cueType: turnType,
+      label: `${turnType === 'turn-left' ? 'Turn Left' : 'Turn Right'} in ${Math.round(leg1Dist)}m`
+    });
 
-      currentDistFromStart += leg2Dist / numStepsLeg2;
-      const distToEnd = Math.max(0, routeTotalDist - currentDistFromStart);
-      const isFinal = i === numStepsLeg2;
-
+    // Intermediate Leg 2 cue if leg is long
+    if (leg2Dist > 250) {
       waypoints.push({
-        id: `cue-${cueIdx++}`,
+        id: 'cue-mid2',
         index: waypoints.length,
-        coordinates: pt,
+        coordinates: interpolateCoord(cornerIntersection, destination, 0.5),
         bearing: leg2Bearing,
-        distanceFromStart: Math.round(currentDistFromStart),
-        distanceToEnd: Math.round(distToEnd),
-        cueType: isFinal ? 'destination' : 'straight',
-        label: isFinal ? destinationTitle : `${Math.round(distToEnd)}m`
+        distanceFromStart: Math.round(leg1Dist + leg2Dist * 0.5),
+        distanceToEnd: Math.round(leg2Dist * 0.5),
+        cueType: 'straight',
+        label: `${Math.round(leg2Dist * 0.5)}m to arrival`
       });
-    }
-  } else {
-    // If leg 2 is trivial, ensure final cue is marked as destination
-    if (waypoints.length > 0) {
-      waypoints[waypoints.length - 1].cueType = 'destination';
-      waypoints[waypoints.length - 1].label = destinationTitle;
     }
   }
 
-  // Calculate walking time: average walking speed = 1.35 m/s (~80 meters per minute)
+  // Final destination beacon cue
+  waypoints.push({
+    id: 'cue-dest',
+    index: waypoints.length,
+    coordinates: destination,
+    bearing: leg2Bearing,
+    distanceFromStart: Math.round(routeTotalDist),
+    distanceToEnd: 0,
+    cueType: 'destination',
+    label: destinationTitle
+  });
+
   const walkingMinutes = Math.max(1, Math.ceil(routeTotalDist / 80));
 
   const geojsonFeature: GeoJSON.Feature<GeoJSON.LineString> = {
@@ -242,7 +244,7 @@ export function generateStreetNavigationRoute(
     },
     geometry: {
       type: 'LineString',
-      coordinates: allLineCoords
+      coordinates: pathCoordinates
     }
   };
 
@@ -254,36 +256,45 @@ export function generateStreetNavigationRoute(
     destinationCoordinates: destination,
     destinationTitle,
     destinationCategory,
-    geojsonFeature
+    geojsonFeature,
+    pathCoordinates
   };
 }
 
 /**
- * Interpolates coordinate position along waypoints by progress (0.0 to 1.0)
+ * High-performance coordinate interpolation along pathCoordinates by progress (0.0 to 1.0)
  */
 export function getPositionAlongRoute(
-  waypoints: WaypointCue[],
+  route: NavigationRoute | [number, number][],
   progress: number
 ): { coordinates: [number, number]; bearing: number; currentWaypointIndex: number } {
-  if (!waypoints || waypoints.length === 0) {
+  const coords: [number, number][] = Array.isArray(route)
+    ? route
+    : (route.pathCoordinates && route.pathCoordinates.length > 0 ? route.pathCoordinates : route.waypoints.map(w => w.coordinates));
+
+  if (!coords || coords.length === 0) {
     return { coordinates: [0, 0], bearing: 0, currentWaypointIndex: 0 };
   }
 
+  if (coords.length === 1) {
+    return { coordinates: coords[0], bearing: 0, currentWaypointIndex: 0 };
+  }
+
   const clampedProgress = Math.max(0, Math.min(1, progress));
-  const totalWaypoints = waypoints.length;
-  const floatIndex = clampedProgress * (totalWaypoints - 1);
-  const baseIndex = Math.floor(floatIndex);
-  const nextIndex = Math.min(totalWaypoints - 1, baseIndex + 1);
+  const totalSegments = coords.length - 1;
+  const floatIndex = clampedProgress * totalSegments;
+  const baseIndex = Math.min(totalSegments - 1, Math.floor(floatIndex));
+  const nextIndex = Math.min(totalSegments, baseIndex + 1);
   const localRatio = floatIndex - baseIndex;
 
-  const currentWp = waypoints[baseIndex];
-  const nextWp = waypoints[nextIndex];
+  const currentPt = coords[baseIndex];
+  const nextPt = coords[nextIndex];
 
-  const coords = interpolateCoord(currentWp.coordinates, nextWp.coordinates, localRatio);
-  const bearing = currentWp.bearing;
+  const currentCoords = interpolateCoord(currentPt, nextPt, localRatio);
+  const bearing = calculateBearing(currentPt[1], currentPt[0], nextPt[1], nextPt[0]);
 
   return {
-    coordinates: coords,
+    coordinates: currentCoords,
     bearing,
     currentWaypointIndex: baseIndex
   };

@@ -104,7 +104,7 @@ export const AppShell: React.FC = () => {
           <MapboxMap
             defaultCenter={[currentLocation.longitude, currentLocation.latitude]}
             defaultZoom={18.2}
-            pitch={85}
+            pitch={72}
             bearing={0}
             initialCameraMode="fpv"
             mapStyle="mapbox://styles/mapbox/standard"
