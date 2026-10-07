@@ -1,4 +1,7 @@
-const CACHE_NAME = 'pulse-pwa-v1';
+const CACHE_PREFIX = 'pulse-pwa-';
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-v2`;
+const RUNTIME_CACHE_MAX_ENTRIES = 200;
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +11,10 @@ const STATIC_ASSETS = [
   '/icon-512.png',
   '/apple-touch-icon.png'
 ];
+
+// Hosts whose images/tiles are worth keeping for offline use. Mapbox is left out on
+// purpose: mapbox-gl manages its own tile cache and its URLs carry the access token.
+const RUNTIME_CACHE_HOSTS = ['basemaps.cartocdn.com', 'images.unsplash.com'];
 
 // Install: Cache core application shell
 self.addEventListener('install', (event) => {
@@ -20,13 +27,13 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: Clean up outdated caches
+// Activate: Clean up our outdated caches (leave other libraries' caches alone)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME && key !== RUNTIME_CACHE) {
             console.log('[PULSE ServiceWorker] Removing old cache', key);
             return caches.delete(key);
           }
@@ -37,44 +44,74 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Stale-while-revalidate for local assets, network-first for external tiles/APIs
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-
-  // For external map tiles (CartoDB / Mapbox / Unsplash images), use network first with fallback
-  if (
-    url.hostname.includes('cartocdn') ||
-    url.hostname.includes('mapbox') ||
-    url.hostname.includes('unsplash')
-  ) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
-    return;
+async function putInCache(cacheName, request, response, maxEntries) {
+  const cache = await caches.open(cacheName);
+  await cache.put(request, response);
+  if (maxEntries) {
+    const keys = await cache.keys();
+    await Promise.all(keys.slice(0, Math.max(0, keys.length - maxEntries)).map((key) => cache.delete(key)));
   }
+}
 
-  // App shell & internal assets: Cache first with network fallback
+// Page loads: network first so a new deploy shows up on the next visit; cached shell offline
+function handleNavigation(event) {
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          event.waitUntil(putInCache(CACHE_NAME, '/index.html', response.clone()));
+        }
+        return response;
+      })
+      .catch(async () => (await caches.match('/index.html')) || Response.error())
+  );
+}
+
+// Same-origin assets: serve from cache, refresh in the background (hashed bundles never change)
+function handleAppAsset(event) {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
+      const networkFetch = fetch(event.request).then((response) => {
+        if (response.ok) {
+          event.waitUntil(putInCache(CACHE_NAME, event.request, response.clone()));
+        }
+        return response;
+      });
+
       if (cachedResponse) {
-        // Fetch in background to update cache (stale-while-revalidate)
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {});
+        event.waitUntil(networkFetch.catch(() => {}));
         return cachedResponse;
       }
-      return fetch(event.request);
+      return networkFetch;
     })
   );
+}
+
+// Tiles & photos: network first, keep a bounded offline copy of successful responses only
+function handleRuntimeAsset(event) {
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          event.waitUntil(putInCache(RUNTIME_CACHE, event.request, response.clone(), RUNTIME_CACHE_MAX_ENTRIES));
+        }
+        return response;
+      })
+      .catch(async () => (await caches.match(event.request)) || Response.error())
+  );
+}
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  if (event.request.mode === 'navigate') {
+    handleNavigation(event);
+  } else if (url.origin === self.location.origin) {
+    handleAppAsset(event);
+  } else if (RUNTIME_CACHE_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
+    handleRuntimeAsset(event);
+  }
+  // Everything else (Firebase, Mapbox APIs, ...) goes straight to the network
 });
