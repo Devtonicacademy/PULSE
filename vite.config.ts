@@ -6,5 +6,17 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
+  },
+  optimizeDeps: {
+    // Pre-bundle the Three.js add-ons used by the Pulse 3D map so the dev server doesn't
+    // discover them on first load and force a mid-load re-optimisation
+    include: [
+      'three',
+      'three/examples/jsm/controls/OrbitControls.js',
+      'three/examples/jsm/postprocessing/EffectComposer.js',
+      'three/examples/jsm/postprocessing/RenderPass.js',
+      'three/examples/jsm/postprocessing/UnrealBloomPass.js',
+      'three/examples/jsm/postprocessing/OutputPass.js'
+    ]
   }
 });

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { LiveActivityMap } from '../map/LiveActivityMap';
 import { MapboxMap } from '../map/MapboxMap';
+import { Pulse3DMap } from '../map/Pulse3DMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
@@ -33,6 +34,17 @@ import {
   LogIn,
   SlidersHorizontal
 } from 'lucide-react';
+
+type MapEngine = 'activity' | 'mapbox' | 'pulse3d';
+
+const MAP_ENGINE_ORDER: MapEngine[] = ['activity', 'mapbox', 'pulse3d'];
+const MAP_ENGINE_LABELS: Record<MapEngine, { short: string; long: string }> = {
+  activity: { short: 'Radar', long: 'MapLibre 2D Radar' },
+  mapbox: { short: 'Mapbox 3D', long: 'Mapbox Standard 3D' },
+  pulse3d: { short: 'Pulse 3D', long: 'Pulse 3D (OpenStreetMap)' }
+};
+const nextMapEngine = (engine: MapEngine) =>
+  MAP_ENGINE_ORDER[(MAP_ENGINE_ORDER.indexOf(engine) + 1) % MAP_ENGINE_ORDER.length];
 
 export const AppShell: React.FC = () => {
   const {
@@ -69,7 +81,7 @@ export const AppShell: React.FC = () => {
   const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
-  const [mapEngine, setMapEngine] = useState<'activity' | 'mapbox'>('mapbox');
+  const [mapEngine, setMapEngine] = useState<MapEngine>('mapbox');
   const [navigationDestination, setNavigationDestination] = useState<{
     latitude: number;
     longitude: number;
@@ -95,53 +107,58 @@ export const AppShell: React.FC = () => {
     { name: 'University of Lagos (Akoka)', latitude: 6.5168, longitude: 3.3976 }
   ];
 
+  // Navigation needs a 3D engine; stay on the current one unless we're on the 2D radar
+  const startNavigation = (destination: NonNullable<typeof navigationDestination>) => {
+    setNavigationDestination(destination);
+    setMapEngine((engine) => (engine === 'activity' ? 'mapbox' : engine));
+    setActiveTab('map');
+  };
+
   // Helper renderer for active tab content
   const renderActiveScreen = () => {
     switch (activeTab) {
       case 'map':
-        return mapEngine === 'activity' ? (
-          <LiveActivityMap
-            onOpenComments={(id) => setActiveCommentMomentId(id)}
-            onOpenReport={(id) => setActiveReportMomentId(id)}
-            onStartNavigation={(moment) => {
-              setNavigationDestination(moment);
-              setMapEngine('mapbox');
-              setActiveTab('map');
-            }}
-          />
-        ) : (
-          <MapboxMap
-            defaultCenter={[currentLocation.longitude, currentLocation.latitude]}
-            defaultZoom={18.2}
-            pitch={72}
-            bearing={0}
-            initialCameraMode="fpv"
-            mapStyle="mapbox://styles/mapbox/standard"
-            lightPreset="night"
-            enable3dBuildings={true}
-            enableDynamicLighting={true}
-            autoGeolocate={true}
-            showUserMarker={true}
-            showNavigationControl={true}
-            showGeolocateControl={true}
-            show3dControls={true}
-            moments={filteredMoments}
-            onSelectMoment={(moment) => setSelectedMoment(moment)}
-            navigationDestination={navigationDestination}
-            onClearNavigation={() => setNavigationDestination(null)}
-            className="h-full"
-          >
-            <HotspotBottomSheet
+        if (mapEngine === 'activity') {
+          return (
+            <LiveActivityMap
               onOpenComments={(id) => setActiveCommentMomentId(id)}
               onOpenReport={(id) => setActiveReportMomentId(id)}
-              onStartNavigation={(moment) => {
-                setNavigationDestination(moment);
-                setMapEngine('mapbox');
-                setActiveTab('map');
-              }}
+              onStartNavigation={startNavigation}
             />
-          </MapboxMap>
-        );
+          );
+        }
+        {
+          const MapEngineComponent = mapEngine === 'pulse3d' ? Pulse3DMap : MapboxMap;
+          return (
+            <MapEngineComponent
+              defaultCenter={[currentLocation.longitude, currentLocation.latitude]}
+              defaultZoom={18.2}
+              pitch={72}
+              bearing={0}
+              initialCameraMode="fpv"
+              mapStyle="mapbox://styles/mapbox/standard"
+              lightPreset="night"
+              enable3dBuildings={true}
+              enableDynamicLighting={true}
+              autoGeolocate={true}
+              showUserMarker={true}
+              showNavigationControl={true}
+              showGeolocateControl={true}
+              show3dControls={true}
+              moments={filteredMoments}
+              onSelectMoment={(moment) => setSelectedMoment(moment)}
+              navigationDestination={navigationDestination}
+              onClearNavigation={() => setNavigationDestination(null)}
+              className="h-full"
+            >
+              <HotspotBottomSheet
+                onOpenComments={(id) => setActiveCommentMomentId(id)}
+                onOpenReport={(id) => setActiveReportMomentId(id)}
+                onStartNavigation={startNavigation}
+              />
+            </MapEngineComponent>
+          );
+        }
       case 'discover':
         return (
           <DiscoverFeed
@@ -149,11 +166,7 @@ export const AppShell: React.FC = () => {
             onOpenReport={(id) => setActiveReportMomentId(id)}
             onSelectCommunity={(id) => setActiveCommunityId(id)}
             onOpenMoment={openMomentOnMap}
-            onNavigateMoment={(moment) => {
-              setNavigationDestination(moment);
-              setMapEngine('mapbox');
-              setActiveTab('map');
-            }}
+            onNavigateMoment={startNavigation}
           />
         );
       case 'notifications':
@@ -534,16 +547,16 @@ export const AppShell: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => setMapEngine(mapEngine === 'activity' ? 'mapbox' : 'activity')}
+                    onClick={() => setMapEngine(nextMapEngine(mapEngine))}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
-                      mapEngine === 'mapbox'
+                      mapEngine !== 'activity'
                         ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                     }`}
                     title="Toggle Map Engine"
                   >
                     <Layers className="w-3 h-3 text-cyan-400" />
-                    <span>{mapEngine === 'activity' ? 'Radar' : 'Mapbox 3D'}</span>
+                    <span>{MAP_ENGINE_LABELS[mapEngine].short}</span>
                   </button>
                 </div>
 
@@ -795,14 +808,14 @@ export const AppShell: React.FC = () => {
                   <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map Engine
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  {mapEngine === 'mapbox' ? 'Mapbox Standard 3D' : 'MapLibre 2D Radar'}
+                  {MAP_ENGINE_LABELS[mapEngine].long}
                 </div>
               </div>
               <button
-                onClick={() => setMapEngine((prev) => (prev === 'activity' ? 'mapbox' : 'activity'))}
+                onClick={() => setMapEngine(nextMapEngine)}
                 className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold"
               >
-                {mapEngine === 'mapbox' ? 'Mapbox 3D' : 'MapLibre'}
+                {MAP_ENGINE_LABELS[mapEngine].short}
               </button>
             </div>
 
