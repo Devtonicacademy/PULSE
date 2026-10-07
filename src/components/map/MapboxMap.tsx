@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useImperativeHandle,
+  useMemo,
   forwardRef
 } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -201,6 +202,13 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     },
     ref
   ) => {
+    // Callers often pass a fresh array literal each render; key off the numbers instead
+    const [centerLng, centerLat] = defaultCenter;
+    const stableCenter = useMemo<[number, number]>(() => [centerLng, centerLat], [centerLng, centerLat]);
+    // Initial camera is read once at map creation so prop churn never rebuilds the map
+    const initialViewRef = useRef({ center: stableCenter, zoom: defaultZoom, pitch, bearing });
+    const lastCenterRef = useRef<[number, number]>(stableCenter);
+
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -210,8 +218,8 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
     // Performance and coordination refs
     const userCoordsRef = useRef<UserCoordinates>({
-      latitude: defaultCenter[1],
-      longitude: defaultCenter[0]
+      latitude: stableCenter[1],
+      longitude: stableCenter[0]
     });
     const userBearingRef = useRef<number>(bearing);
     const simAnimationRef = useRef<number | null>(null);
@@ -220,8 +228,8 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
     const [isLocating, setIsLocating] = useState<boolean>(false);
     const [userCoords, setUserCoords] = useState<UserCoordinates>({
-      latitude: defaultCenter[1],
-      longitude: defaultCenter[0]
+      latitude: stableCenter[1],
+      longitude: stableCenter[0]
     });
     const [userBearing, setUserBearing] = useState<number>(bearing);
     const [isMapLoaded, setIsMapLoaded] = useState<boolean>(false);
@@ -751,7 +759,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const locateAndCenterUser = useCallback(
       (shouldFly = true) => {
         if (!navigator.geolocation) {
-          const fallback: UserCoordinates = { latitude: defaultCenter[1], longitude: defaultCenter[0] };
+          const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
           setUserCoords(fallback);
           userCoordsRef.current = fallback;
           updateUserMarker(fallback.longitude, fallback.latitude, userBearingRef.current);
@@ -788,7 +796,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           (err) => {
             setIsLocating(false);
             // Graceful fallback to default Victoria Island hub without throwing annoying UI errors
-            const fallback: UserCoordinates = { latitude: defaultCenter[1], longitude: defaultCenter[0] };
+            const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
             setUserCoords(fallback);
             userCoordsRef.current = fallback;
 
@@ -807,7 +815,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           }
         );
       },
-      [applyCameraMode, cameraMode, defaultCenter, onLocationFound, updateUserMarker]
+      [applyCameraMode, cameraMode, stableCenter, onLocationFound, updateUserMarker]
     );
 
     /**
@@ -883,10 +891,10 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       const map = new mapboxgl.Map({
         container: mapContainerRef.current,
         style: mapStyle,
-        center: defaultCenter,
-        zoom: defaultZoom,
-        pitch: pitch,
-        bearing: bearing,
+        center: initialViewRef.current.center,
+        zoom: initialViewRef.current.zoom,
+        pitch: initialViewRef.current.pitch,
+        bearing: initialViewRef.current.bearing,
         interactive: interactive,
         attributionControl: true
       });
@@ -965,16 +973,24 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         applyDynamicLighting(currentLightPreset);
       });
 
-      map.on('load', () => {
+      // Markers and controls only need the style; 'load' also waits on every tile and can
+      // stall on slow networks, so become ready on whichever fires first.
+      let isReady = false;
+      const markReady = () => {
+        if (isReady) return;
+        isReady = true;
         setIsMapLoaded(true);
         onMapLoad?.(map);
 
         if (autoGeolocate) {
           locateAndCenterUser(false);
         } else {
-          updateUserMarker(defaultCenter[0], defaultCenter[1], bearing);
+          const [lng, lat] = initialViewRef.current.center;
+          updateUserMarker(lng, lat, initialViewRef.current.bearing);
         }
-      });
+      };
+      map.on('style.load', markReady);
+      map.on('load', markReady);
 
       // Continuous Geolocation Watch Position
       let watchId: number | null = null;
@@ -1021,22 +1037,38 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         if (watchId !== null) navigator.geolocation.clearWatch(watchId);
         window.removeEventListener('deviceorientation', handleDeviceOrientation);
         clearWayfindingMarkers();
+        // Markers die with the map; drop refs so a rebuilt map re-creates them
+        momentMarkersRef.current.forEach((marker) => marker.remove());
+        momentMarkersRef.current.clear();
+        userMarkerRef.current = null;
+        setIsMapLoaded(false);
         map.remove();
         mapRef.current = null;
       };
     }, [
       token,
       mapStyle,
-      defaultCenter,
-      defaultZoom,
-      pitch,
-      bearing,
       interactive,
       showNavigationControl,
       navigationControlPosition,
       showGeolocateControl,
       showFullscreenControl
     ]);
+
+    /**
+     * Fly to a new center when the caller switches hubs (values change, not array identity)
+     */
+    useEffect(() => {
+      const [prevLng, prevLat] = lastCenterRef.current;
+      if (prevLng === stableCenter[0] && prevLat === stableCenter[1]) return;
+      lastCenterRef.current = stableCenter;
+
+      const map = mapRef.current;
+      if (!map) return;
+      setUserCoords({ latitude: stableCenter[1], longitude: stableCenter[0] });
+      updateUserMarker(stableCenter[0], stableCenter[1], userBearingRef.current);
+      map.flyTo({ center: stableCenter, curve: 1.4, duration: 1800, essential: true });
+    }, [stableCenter, updateUserMarker]);
 
     /**
      * Respond to incoming navigation destination prop
