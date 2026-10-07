@@ -138,7 +138,9 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeTab, setActiveTab] = useState<'map' | 'discover' | 'create' | 'notifications' | 'profile'>('map');
   const [selectedCategory, setSelectedCategory] = useState<FeedCategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  // Keep the picked moment as a reference only; the live copy is resolved below so
+  // reactions/comments made while it is open show up immediately
+  const [selectedMomentRef, setSelectedMoment] = useState<Moment | null>(null);
   const [selectedZone, setSelectedZone] = useState<ActivityZone | null>(null);
 
   // 3. Domain states
@@ -418,6 +420,16 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
       .sort((a, b) => b.engagementScore - a.engagementScore);
   }, [moments, businessPosts, currentLocation, radiusKm, selectedCategory, searchQuery]);
+
+  const selectedMoment = useMemo(() => {
+    if (!selectedMomentRef) return null;
+    const id = selectedMomentRef.id;
+    return (
+      filteredMoments.find((m) => m.id === id) ??
+      moments.find((m) => m.id === id) ??
+      selectedMomentRef
+    );
+  }, [selectedMomentRef, filteredMoments, moments]);
 
   // Calculate current Pulse Score and zone
   const { currentPulseScore, currentZoneName } = useMemo(() => {
