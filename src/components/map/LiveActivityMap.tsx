@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { usePulse } from '../../context/PulseContext';
 import { RadiusKm, MomentCategory, Moment } from '../../types/pulse';
 import { HotspotBottomSheet } from './HotspotBottomSheet';
+import { escapeHtml } from '../../utils/htmlUtils';
 import {
   Crosshair,
   Layers,
@@ -341,7 +342,7 @@ export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
         zoneEl.innerHTML = `
           <div class="px-2.5 py-1 rounded-full glass-panel border border-white/20 shadow-xl flex items-center gap-1.5" style="box-shadow: 0 0 16px ${glowColor};">
             <span class="w-2 h-2 rounded-full ${isHigh ? 'bg-rose-500 animate-ping' : 'bg-amber-400'}"></span>
-            <span class="text-[11px] font-bold text-white tracking-tight">${zone.zoneName}</span>
+            <span class="text-[11px] font-bold text-white tracking-tight">${escapeHtml(zone.zoneName)}</span>
             <span class="px-1.5 py-0.2 rounded text-[10px] font-black ${
               isHigh ? 'bg-rose-500/30 text-rose-300' : 'bg-amber-500/30 text-amber-300'
             }">⚡${zone.activityScore}</span>
@@ -425,7 +426,7 @@ export const LiveActivityMap: React.FC<LiveActivityMapProps> = ({
           bEl.innerHTML = `
             <div class="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/90 border border-amber-300 text-slate-950 font-bold text-[10px] shadow-lg shadow-amber-500/30">
               <span>⚡</span>
-              <span>${bpost.livePinType}</span>
+              <span>${escapeHtml(bpost.livePinType)}</span>
             </div>
           `;
 

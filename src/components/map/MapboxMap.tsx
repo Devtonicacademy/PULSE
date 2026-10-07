@@ -47,6 +47,7 @@ import {
   NavigationRoute,
   WaypointCue
 } from '../../utils/wayfindingUtils';
+import { escapeHtml, safeImageUrl } from '../../utils/htmlUtils';
 
 export interface UserCoordinates {
   latitude: number;
@@ -213,6 +214,9 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
     const momentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+    // Marker click handlers outlive renders; read the freshest copy of each moment from here
+    const latestMomentsRef = useRef<Moment[]>(moments);
+    latestMomentsRef.current = moments;
     const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
     const destinationBeaconRef = useRef<mapboxgl.Marker | null>(null);
 
@@ -546,7 +550,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             beaconEl.innerHTML = `
               <div style="background: linear-gradient(135deg, #FF4757, #FFA502); color: white; padding: 5px 12px; border-radius: 14px; font-weight: 800; font-size: 11px; border: 1.5px solid #FFFFFF; box-shadow: 0 0 20px rgba(255, 71, 87, 0.9); display: flex; align-items: center; gap: 5px; backdrop-filter: blur(10px);">
                 <span style="font-size: 13px;">🎯</span>
-                <span>${route.destinationTitle}</span>
+                <span>${escapeHtml(route.destinationTitle)}</span>
               </div>
               <div style="width: 3.5px; height: 110px; background: linear-gradient(to top, rgba(255, 71, 87, 0.95), rgba(0, 242, 254, 0.7), transparent); margin: 2px auto 0;"></div>
               <div style="width: 40px; height: 16px; border-radius: 50%; border: 2px solid #FF4757; background: radial-gradient(circle, rgba(255, 71, 87, 0.45), transparent); margin: 0 auto;"></div>
@@ -572,7 +576,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
               </svg>
             </div>
             <div style="background: rgba(10, 14, 23, 0.9); color: #00F2FE; border: 1px solid rgba(0, 242, 254, 0.6); border-radius: 9999px; padding: 2px 8px; font-size: 9px; font-weight: 800; margin-top: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.7); text-align: center; white-space: nowrap;">
-              ${cue.label}
+              ${escapeHtml(cue.label)}
             </div>
           `;
 
@@ -1116,16 +1120,16 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             <!-- Flyer Card Frame -->
             <div style="width: 150px; background: rgba(10, 14, 23, 0.92); border: 1.5px solid ${isBiz ? '#FCD34D' : 'rgba(0, 242, 254, 0.6)'}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.8), 0 0 12px ${isBiz ? 'rgba(252, 211, 77, 0.4)' : 'rgba(0, 242, 254, 0.3)'}; backdrop-filter: blur(12px);">
               <div style="position: relative; width: 100%; height: 74px; overflow: hidden; background: #080D16;">
-                <img src="${moment.photoUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80'}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                <img src="${safeImageUrl(moment.photoUrl, 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80')}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
                 <div style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.75); border-radius: 6px; padding: 2px 6px; font-size: 10px; font-weight: 800; color: #FFF; display: flex; align-items: center; gap: 3px;">
                   <span>${icon}</span>
-                  <span style="font-size: 9px; text-transform: uppercase;">${moment.category}</span>
+                  <span style="font-size: 9px; text-transform: uppercase;">${escapeHtml(moment.category)}</span>
                 </div>
               </div>
               <div style="padding: 5px 8px; text-align: left; background: rgba(10, 14, 23, 0.95);">
-                <div style="color: #FFF; font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${moment.title}</div>
+                <div style="color: #FFF; font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(moment.title)}</div>
                 <div style="color: #94A3B8; font-size: 9px; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
-                  <span>⚡ ${moment.viewsCount || 12} nearby</span>
+                  <span>⚡ ${escapeHtml(moment.viewsCount || 12)} nearby</span>
                   <span style="color: #00F2FE; font-weight: 700;">Tap to open</span>
                 </div>
               </div>
@@ -1138,7 +1142,8 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
         el.addEventListener('click', (e) => {
           e.stopPropagation();
-          onSelectMoment?.(moment);
+          const latest = latestMomentsRef.current.find((m) => m.id === moment.id) ?? moment;
+          onSelectMoment?.(latest);
           map.flyTo({
             center: [moment.longitude, moment.latitude],
             zoom: 18.2,
