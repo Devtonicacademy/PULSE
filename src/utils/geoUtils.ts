@@ -19,8 +19,7 @@ export function calculateDistanceKm(
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c;
-  return Math.round(d * 10) / 10; // Round to 1 decimal place
+  return R * c; // Unrounded; format at display time (see formatDistance)
 }
 
 export function formatDistance(distanceKm: number): string {
@@ -74,13 +73,13 @@ export function applyPrivacyBlur(
  */
 export function getApproximateAreaName(lat: number, lng: number): string {
   // Approximate based on standard Lagos coordinates or fallback
-  if (lat > 6.42 && lat < 6.44 && lng > 6.41 && lng < 6.44) {
+  if (lat > 6.42 && lat < 6.44 && lng > 3.40 && lng < 3.44) {
     return 'Victoria Island';
-  } else if (lat >= 6.44 && lat <= 6.47 && lng >= 6.45 && lng <= 6.50) {
+  } else if (lat >= 6.44 && lat <= 6.47 && lng >= 3.45 && lng <= 3.50) {
     return 'Lekki Phase 1';
-  } else if (lat >= 6.50 && lat <= 6.53 && lng >= 6.36 && lng <= 6.40) {
+  } else if (lat >= 6.50 && lat <= 6.53 && lng >= 3.36 && lng <= 3.40) {
     return 'Yaba';
-  } else if (lat >= 6.44 && lat <= 6.46 && lng >= 6.38 && lng <= 6.41) {
+  } else if (lat >= 6.44 && lat <= 6.46 && lng >= 3.38 && lng <= 3.41) {
     return 'Lagos Island';
   }
   return 'Local Area';

@@ -114,7 +114,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
                         <MapPin className="w-3 h-3" />
                         {item.distanceKm < 1
                           ? `${Math.round(item.distanceKm * 1000)}m away`
-                          : `${item.distanceKm}km away`}
+                          : `${item.distanceKm.toFixed(1)}km away`}
                       </span>
                     )}
                     {item.momentId && (
