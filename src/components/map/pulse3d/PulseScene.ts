@@ -14,8 +14,21 @@ export interface PulseSceneOptions {
 
 type FrameCallback = (deltaSeconds: number, elapsedSeconds: number) => void;
 
+export type LightPreset = 'night' | 'dusk' | 'dawn' | 'day';
+
 const NIGHT_SKY = 0x05070d;
 const FOG_DENSITY = 0.0011;
+
+// Atmosphere per MapboxMap light preset. Windows switch off in daylight.
+const LIGHT_PRESETS: Record<
+  LightPreset,
+  { sky: number; fog: number; hemiSky: number; hemiGround: number; hemi: number; sun: number; sunColor: number; windows: number; exposure: number }
+> = {
+  night: { sky: NIGHT_SKY, fog: FOG_DENSITY, hemiSky: 0x5a6ea8, hemiGround: 0x0a0d18, hemi: 1.5, sun: 1.3, sunColor: 0xa9bcff, windows: 2.0, exposure: 1.05 },
+  dusk: { sky: 0x2a1530, fog: 0.0009, hemiSky: 0xff9a6a, hemiGround: 0x1a1020, hemi: 1.6, sun: 1.6, sunColor: 0xffa070, windows: 1.4, exposure: 1.0 },
+  dawn: { sky: 0x3a2a40, fog: 0.0009, hemiSky: 0xffb6c8, hemiGround: 0x1a1a28, hemi: 1.7, sun: 1.8, sunColor: 0xffc0a0, windows: 0.8, exposure: 1.0 },
+  day: { sky: 0x8fb4d9, fog: 0.0006, hemiSky: 0xdfeaff, hemiGround: 0x3a4250, hemi: 2.4, sun: 2.6, sunColor: 0xffffff, windows: 0, exposure: 0.9 }
+};
 
 /**
  * Owns the Three.js renderer, scene graph, post-processing and render loop.
@@ -35,6 +48,9 @@ export class PulseScene {
   private resizeObserver: ResizeObserver;
   private animationId: number | null = null;
   private ground: THREE.Mesh;
+  private hemiLight: THREE.HemisphereLight;
+  private baseFogDensity = FOG_DENSITY;
+  private sunLight: THREE.DirectionalLight;
 
   /** Rolling frame stats for diagnostics / adaptive quality */
   readonly stats = { frames: 0, fps: 0, lastSample: performance.now(), sampleFrames: 0 };
@@ -60,10 +76,10 @@ export class PulseScene {
     this.camera = new THREE.PerspectiveCamera(55, width / height, 0.5, 6000);
 
     // Moonlight + cool ambient; city glow comes from emissive windows and road edges
-    this.scene.add(new THREE.HemisphereLight(0x5a6ea8, 0x0a0d18, 1.5));
-    const moon = new THREE.DirectionalLight(0xa9bcff, 1.3);
-    moon.position.set(-300, 600, 200);
-    this.scene.add(moon);
+    this.hemiLight = new THREE.HemisphereLight(0x5a6ea8, 0x0a0d18, 1.5);
+    this.sunLight = new THREE.DirectionalLight(0xa9bcff, 1.3);
+    this.sunLight.position.set(-300, 600, 200);
+    this.scene.add(this.hemiLight, this.sunLight);
 
     this.materials = createPulseMaterials();
 
@@ -91,6 +107,32 @@ export class PulseScene {
   onFrame(callback: FrameCallback): () => void {
     this.frameCallbacks.add(callback);
     return () => this.frameCallbacks.delete(callback);
+  }
+
+  setLightPreset(preset: LightPreset) {
+    const p = LIGHT_PRESETS[preset];
+    (this.scene.background as THREE.Color).setHex(p.sky);
+    const fog = this.scene.fog as THREE.FogExp2;
+    fog.color.setHex(p.sky);
+    this.baseFogDensity = p.fog;
+    fog.density = p.fog;
+    this.hemiLight.color.setHex(p.hemiSky);
+    this.hemiLight.groundColor.setHex(p.hemiGround);
+    this.hemiLight.intensity = p.hemi;
+    this.sunLight.color.setHex(p.sunColor);
+    this.sunLight.intensity = p.sun;
+    this.materials.uniforms.uWindowIntensity.value = p.windows;
+    this.renderer.toneMappingExposure = p.exposure;
+  }
+
+  /** Thins the fog as the camera rises so overview shots aren't washed out */
+  setViewDistance(cameraDistance: number) {
+    const fog = this.scene.fog as THREE.FogExp2;
+    fog.density = this.baseFogDensity * Math.min(1, 600 / Math.max(1, cameraDistance));
+  }
+
+  setBuildingsVisible(visible: boolean) {
+    this.materials.building.visible = visible;
   }
 
   setBloomEnabled(enabled: boolean) {

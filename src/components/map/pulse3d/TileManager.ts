@@ -26,14 +26,16 @@ export class TileManager {
   private buildQueue: MapTile[] = [];
   private focus: [number, number] = [0, 0];
   private disposed = false;
-  private readonly loadRadius: number;
-  private readonly unloadRadius: number;
+  private loadRadius: number;
+  private unloadRadius: number;
+  private readonly baseLoadRadius: number;
   private readonly maxLoaded: number;
 
   constructor(private materials: PulseMaterials, options: TileManagerOptions = {}) {
-    this.loadRadius = options.loadRadiusMeters ?? 1000;
+    this.baseLoadRadius = options.loadRadiusMeters ?? 1000;
+    this.loadRadius = this.baseLoadRadius;
     this.unloadRadius = options.unloadRadiusMeters ?? 1500;
-    this.maxLoaded = options.maxLoadedTiles ?? 40;
+    this.maxLoaded = options.maxLoadedTiles ?? 64;
     this.root.name = 'map-tiles';
   }
 
@@ -54,8 +56,11 @@ export class TileManager {
     return Boolean(this.index?.tiles[tileKey(...tileForMeters(x, y))]);
   }
 
-  setFocus(x: number, y: number) {
+  /** `viewRadius` widens loading when the camera is high enough to see further */
+  setFocus(x: number, y: number, viewRadius = 0) {
     this.focus = [x, y];
+    this.loadRadius = Math.min(2000, Math.max(this.baseLoadRadius, viewRadius));
+    this.unloadRadius = this.loadRadius + 500;
     this.refresh();
   }
 

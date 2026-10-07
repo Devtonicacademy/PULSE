@@ -12,7 +12,6 @@ export default defineConfig({
     // discover them on first load and force a mid-load re-optimisation
     include: [
       'three',
-      'three/examples/jsm/controls/OrbitControls.js',
       'three/examples/jsm/postprocessing/EffectComposer.js',
       'three/examples/jsm/postprocessing/RenderPass.js',
       'three/examples/jsm/postprocessing/UnrealBloomPass.js',
