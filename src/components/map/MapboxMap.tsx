@@ -1123,23 +1123,9 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         el.className = 'pulse-3d-moment-marker';
         el.style.cursor = 'pointer';
         el.innerHTML = `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.7)); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
-            <div style="padding: 6px 9px; border-radius: 14px; background: ${
-              isBiz ? 'rgba(245, 158, 11, 0.95)' : 'rgba(18, 25, 39, 0.94)'
-            }; border: 1.5px solid ${
-          isBiz ? '#FCD34D' : 'rgba(255, 255, 255, 0.25)'
-        }; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 18px rgba(0,0,0,0.6); backdrop-filter: blur(12px);">
-              <span style="font-size: 14px;">${icon}</span>
-              <span style="font-size: 10px; font-weight: 800; color: #FFF; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${moment.title.slice(0, 16)}
-              </span>
-            </div>
-            <div style="width: 2.5px; height: 12px; background: ${
-              isBiz ? '#F59E0B' : '#FF4757'
-            }; box-shadow: 0 0 10px ${isBiz ? '#F59E0B' : '#FF4757'};"></div>
-            <div style="width: 7px; height: 7px; border-radius: 9999px; background: ${
-              isBiz ? '#FCD34D' : '#00F2FE'
-            }; box-shadow: 0 0 8px #00F2FE;"></div>
+          <div style="width: 160px; background: rgba(0,0,0,0.7); border: 1px solid #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">
+            <img src="${moment.photoUrl || 'https://placehold.co/150x80?text=No+Image'}" style="width:100%;height:auto;display:block;" />
+            <div style="padding:4px 6px;text-align:center;color:#fff;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${moment.title}</div>
           </div>
         `;
 
