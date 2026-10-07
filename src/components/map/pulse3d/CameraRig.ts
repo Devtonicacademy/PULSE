@@ -4,7 +4,7 @@ export type CameraMode = 'fpv' | 'aerial' | 'overview';
 
 /**
  * Camera pose in map terms: look-at point (meters, x east / y north), heading in
- * degrees clockwise from north, pitch in degrees from straight down (Mapbox style:
+ * degrees clockwise from north, pitch in degrees from straight down (map style:
  * 0 = top-down, 72 = street level), and distance from the look-at point.
  */
 export interface RigPose {
@@ -15,7 +15,7 @@ export interface RigPose {
   distance: number;
 }
 
-/** Mode framings matched to MapboxMap (FPV 72° / aerial 58° / 2D top-down) */
+/** Mode framings matched to PulseMap (FPV 72° / aerial 58° / 2D top-down) */
 export const MODE_FRAMING: Record<CameraMode, { pitch: number; distance: number }> = {
   fpv: { pitch: 72, distance: 85 },
   aerial: { pitch: 58, distance: 480 },
@@ -32,7 +32,7 @@ interface Tween {
   to: RigPose;
   start: number;
   duration: number;
-  /** Extra distance at mid-flight so long jumps arc up and back down like Mapbox flyTo */
+  /** Extra distance at mid-flight so long jumps arc up and back down like map flyTo */
   arc: number;
   resolve: () => void;
 }
@@ -43,7 +43,7 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 
 /**
  * Drives the Three.js camera from a map-style pose, with eased transitions and
- * Mapbox-like input: drag to pan, right-drag / ctrl-drag to rotate & tilt,
+ * Map-like input: drag to pan, right-drag / ctrl-drag to rotate & tilt,
  * wheel or pinch to zoom, two-finger twist to rotate.
  */
 export class CameraRig {

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import confetti from 'canvas-confetti';
 import { Loader2, MapPinOff } from 'lucide-react';
-import type { MapboxMapProps } from './MapboxMap';
+import type { PulseMapProps, MapLightPreset } from './PulseMap';
 import { PulseScene, LightPreset } from './pulse3d/PulseScene';
 import { CameraRig, CameraMode, MODE_FRAMING } from './pulse3d/CameraRig';
 import { UserAvatar } from './pulse3d/UserAvatar';
@@ -23,10 +23,12 @@ import { findWalkingRoute } from '../../utils/walkingRouter';
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
  * OpenStreetMap tiles (public/map-tiles, built by scripts/build-map-tiles.mjs).
- * Accepts the same props as MapboxMap so AppShell can swap engines freely;
- * Mapbox-only props (accessToken, mapStyle) are accepted and ignored.
+ * Accepts the same props as PulseMap so AppShell can swap between them freely.
  */
-export type Pulse3DMapProps = MapboxMapProps;
+export type Pulse3DMapProps = PulseMapProps & {
+  lightPreset?: MapLightPreset;
+  enableDynamicLighting?: boolean;
+};
 
 const CAMERA_NOTICES: Record<CameraMode, string> = {
   fpv: '🎮 Street First-Person View (72° Perspective)',
@@ -34,7 +36,7 @@ const CAMERA_NOTICES: Record<CameraMode, string> = {
   overview: '🗺️ 2D Tactical Map (0° North)'
 };
 
-// Walking step sizes match MapboxMap
+// Walking step sizes match PulseMap
 const STEP_FORWARD_METERS = 12;
 const STEP_BACKWARD_METERS = -8;
 const TURN_DEGREES = 15;
@@ -112,7 +114,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     avatarRef.current?.setHeading(user.current.heading);
   }, []);
 
-  /** Mirrors MapboxMap.applyCameraMode: frame the user (or a target) in the given mode */
+  /** Mirrors PulseMap.applyCameraMode: frame the user (or a target) in the given mode */
   const applyCameraMode = useCallback(
     (mode: CameraMode, target?: { x: number; y: number }, targetHeading?: number) => {
       const rig = rigRef.current;
@@ -136,7 +138,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     [showNotice]
   );
 
-  /** Free-roam walking: WASD / arrows / on-screen pad (same steps as MapboxMap) */
+  /** Free-roam walking: WASD / arrows / on-screen pad (same steps as PulseMap) */
   const walkStep = useCallback(
     (direction: WalkDirection) => {
       const rig = rigRef.current;
@@ -243,7 +245,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     onClearNavigation?.();
   }, [onClearNavigation, stopWalkSimulation]);
 
-  /** Autopilot along the route at street level (same timing as MapboxMap) */
+  /** Autopilot along the route at street level (same timing as PulseMap) */
   const toggleWalkSimulation = useCallback(() => {
     const route = activeRouteRef.current;
     const rig = rigRef.current;
@@ -324,7 +326,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     pulseScene.scene.add(avatar.group);
     avatarRef.current = avatar;
 
-    // Clicking a card selects the latest copy and flies to it at street level (like MapboxMap)
+    // Clicking a card selects the latest copy and flies to it at street level (like PulseMap)
     const momentLayer = new MomentLayer((moment) => {
       onSelectMomentRef.current?.(moment);
       const [mx, my] = lngLatToMeters(moment.longitude, moment.latitude);
@@ -524,7 +526,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       {status === 'error' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
           <div className="max-w-xs text-center px-4 py-3 rounded-2xl glass-panel text-xs text-slate-300">
-            3D map data could not be loaded. Switch to Mapbox 3D or Radar from the map engine toggle.
+            3D map data could not be loaded. Go back to the map with the "Back to map" button.
           </div>
         </div>
       )}

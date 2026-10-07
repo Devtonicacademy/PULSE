@@ -287,3 +287,9 @@
   z-index: 1;
 }
 
+
+/* Map flyer cards: compact while the map is zoomed out */
+.pulse-map-compact-cards .pulse-3d-moment-marker > div {
+  transform: scale(0.55);
+  transform-origin: 50% 100%;
+}

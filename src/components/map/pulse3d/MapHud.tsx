@@ -28,7 +28,7 @@ import type { CameraMode } from './CameraRig';
 import type { LightPreset } from './PulseScene';
 
 /**
- * On-map controls for Pulse 3D. Mirrors MapboxMap's HUD markup so switching
+ * On-map controls for Pulse 3D. Mirrors PulseMap's HUD markup so switching
  * engines doesn't change the controls people already know.
  */
 

@@ -14,12 +14,11 @@
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-FF4757?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Deployed on Railway](https://img.shields.io/badge/Railway-Live_Deploy-0B0D0E?logo=railway&logoColor=white)](https://pulse-production-2015.up.railway.app)
 [![Firebase](https://img.shields.io/badge/Firebase-quizapp--project--c5e0e-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![Mapbox GL](https://img.shields.io/badge/Mapbox_GL-Standard_3D-4264FB?logo=mapbox&logoColor=white)](https://mapbox.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-5.2-243B55?logo=maplibre&logoColor=white)](https://maplibre.org/)
 
 🌐 **Live Production App**: [https://pulse-production-2015.up.railway.app](https://pulse-production-2015.up.railway.app)
 
-[Vision](#-core-vision) • [Mapbox 3D & FPV](#-mapbox-standard-3d-fpv-85-camera--wayfinding-navigation) • [Glassmorphism & Layout](#-modern-dark-glassmorphism--consolidated-layout) • [Firebase Cloud](#-firebase-cloud--authentication-quizapp-project-c5e0e) • [PWA Features](#-progressive-web-app-pwa-features) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [Directory Structure](#-directory-structure)
+[Vision](#-core-vision) • [Map & Navigation](#-pulse-map-maplibre--openstreetmap-camera-modes--wayfinding) • [Glassmorphism & Layout](#-modern-dark-glassmorphism--consolidated-layout) • [Firebase Cloud](#-firebase-cloud--authentication-quizapp-project-c5e0e) • [PWA Features](#-progressive-web-app-pwa-features) • [Architecture](#-system-architecture) • [Getting Started](#-getting-started) • [Directory Structure](#-directory-structure)
 
 </div>
 
@@ -38,7 +37,7 @@ Traditional social networks are organized around friends, permanent follower gra
 The product experience feels like **Google Maps + Yik Yak + Citizen + Eventbrite** engineered into a real-time social radar for local discovery.
 
 When a user opens Pulse, they instantly know:
-1. **Where people are gathering right now** (via the Live Activity Heatmap or Mapbox 3D extruded urban map).
+1. **Where people are gathering right now** (via the Radar layers (heatmap, radius, zone badges) on the Pulse Map, or the 3D extruded city).
 2. **What the neighborhood pulse is** (via algorithmic **Pulse Scores** like *Victoria Island ⚡92*, *Lekki ⚡82*, *Yaba ⚡74*).
 3. **What is trending near them** (via the **AI Local Radar** executive summary).
 4. **What alerts, food deals, and events exist within their chosen radius** (`1km` to `25km`).
@@ -46,23 +45,21 @@ When a user opens Pulse, they instantly know:
 
 ---
 
-## 🎮 Mapbox Standard 3D, FPV 85° Camera & Wayfinding Navigation
+## 🗺️ Pulse Map (MapLibre + OpenStreetMap), Camera Modes & Wayfinding Navigation
 
-Pulse features a cutting-edge dual map engine, headlined by a hardware-accelerated **Mapbox GL Standard 3D** implementation ([`src/components/map/MapboxMap.tsx`](src/components/map/MapboxMap.tsx)):
+One map engine, no token or key: **MapLibre GL** drawing free OpenStreetMap vector tiles from [OpenFreeMap](https://openfreemap.org) ([`src/components/map/PulseMap.tsx`](src/components/map/PulseMap.tsx), style in [`pulseMapStyle.ts`](src/components/map/pulseMapStyle.ts)). The tile and glyph URLs live in one constant (`OPENFREEMAP_TILEJSON`), so you can later point it at a self-hosted tile server with the same schema.
 
-### 1. Mapbox Standard Style with 3D Extrusions & Dynamic Lighting
-- **3D Building Extrusions**: Realistic urban density with extruded building heights, procedural textures, and ambient depth occlusion.
-- **Dynamic Atmosphere & Lighting Presets**: Switchable on-the-fly across 4 atmospheric presets:
-  - 🌙 **Night**: Deep cybernetic indigo and neon street luminescence.
-  - 🌇 **Dusk**: Warm amber twilight horizon with directional sunset shadows.
-  - 🌅 **Dawn**: Soft rose-gold morning light.
-  - ☀️ **Day**: High-contrast solar illumination for daytime clarity.
+### 1. Dark Glass / Neon Basemap with 3D Buildings
+- **Neon roads by class**: motorways and trunks glow cyan, primary and secondary roads step down through cyan-violet, minor streets stay dim.
+- **3D building extrusions** (`fill-extrusion`) using OSM `height` / `levels` where it exists (OSM heights are sparse in Lagos, so most buildings use a default height); toggle them in **Layers**.
+- **Readable labels**: place names, street names and points of interest.
+- **Layers menu**: the Radar overlays — density heatmap, radius circle, zone badges and business offers — are off by default so the map opens clean. The same menu holds the search radius and the "Simulate Local Alert" trigger.
 
-### 2. First-Person View (FPV 85° Pitch) & Live Heading Tracking
-- **Street-Level Immersion**: The camera swoops down to street level, elevating pitch to **85°** (at maximum physical tilt) and setting zoom to **18.4** for an authentic first-person perspective.
+### 2. First-Person View (FPV Pitch) & Live Heading Tracking
+- **Street-Level Immersion**: The camera swoops down to street level, elevating pitch to **72°** (at maximum physical tilt) and setting zoom to **18.2** for an authentic first-person perspective.
 - **Continuous Live Heading Tracking**: The camera's bearing and focal center continuously track the user's live coordinates and device heading direction (`watchPosition` + compass orientation).
 - **Smooth Cinematic Camera Transitions**:
-  - **FPV (85°)**: Street-level immersive perspective locked to user movement.
+  - **FPV (72°)**: Street-level immersive perspective locked to user movement.
   - **3D Aerial (58°)**: Panoramic skyline perspective showcasing extruded 3D architecture.
   - **2D Overview (0°)**: Tactical neighborhood overview oriented to True North.
   - **Flight Physics**: Powered by `map.flyTo` (`curve: 1.42`, `speed: 0.9`, custom cubic bezier easing) with temporary HUD toast badges indicating the active camera mode.
@@ -76,9 +73,9 @@ Pulse features a cutting-edge dual map engine, headlined by a hardware-accelerat
 
 ---
 
-## 🌃 Pulse 3D Engine (Three.js + OpenStreetMap, no Mapbox)
+## 🌃 Pulse 3D (Three.js + OpenStreetMap)
 
-A self-hosted alternative to Mapbox, selectable as **Pulse 3D** in the map-engine toggle ([`Pulse3DMap.tsx`](src/components/map/Pulse3DMap.tsx)). It renders a night/neon city from OpenStreetMap data with the same camera modes, WASD walking, avatar, moment cards and wayfinding as the Mapbox view. Three.js is loaded only when this engine is opened.
+The **Walk in 3D** button on the map (also in the navigation card and the sidebar) opens **Pulse 3D** ([`Pulse3DMap.tsx`](src/components/map/Pulse3DMap.tsx)), a self-hosted explore mode. It renders a night/neon city from OpenStreetMap data with the same camera modes, WASD walking, avatar, moment cards and wayfinding as the map. Three.js is loaded only when it is opened.
 
 - **Coverage**: Victoria Island, Lekki Phase 1, Lagos Island, Yaba and Unilag. Elsewhere it shows a "no 3D data" grid.
 - **Data quality**: OSM building heights are sparse in Lagos. Real heights exist for ~32% of Victoria Island buildings, almost none in Yaba/Lekki; the rest are estimated from building type and footprint.
@@ -105,19 +102,16 @@ Pulse features a sleek, obsidian dark theme with semi-transparent glassmorphism 
 - **`.glass-dropdown`**: 24px blurred crystalline menus with deep obsidian contrast.
 
 ### 2. Consolidated Controls & Reduced Visible Dashboard Elements
-- **Unified Camera & Environment Capsule ([`src/components/map/MapboxMap.tsx`](src/components/map/MapboxMap.tsx))**:
-  - Replaced 2 separate multi-button toolbars (8 buttons) with a single floating capsule: `[ 🎮 FPV 85° | 🚁 3D Aerial | 🗺️ 2D Map ]` plus a compact `✨` atmosphere & lighting flyout menu, freeing up over 70% of map canvas space.
-- **Consolidated 2D Radar Controls ([`src/components/map/LiveActivityMap.tsx`](src/components/map/LiveActivityMap.tsx))**:
-  - Replaced 5 vertically stacked floating buttons with a consolidated horizontal action dock: `[ 🎯 GPS | 🎨 Layers ]`.
-  - The `Layers` button opens an integrated dropdown containing Density Heatmap toggle, Business Offers toggle, 2x2 activity color legend, and local alert simulation trigger.
-  - Replaced the wide horizontal radius chip list with a compact `[ RADAR 5km ▾ ]` pill with an animated glass dropdown.
+- **Unified Camera & Layers Toolbar ([`src/components/map/PulseMap.tsx`](src/components/map/PulseMap.tsx))**:
+  - A single floating row: `[ FPV | 3D Aerial | 2D Map ]  Hotspots  Walk in 3D  Layers`.
+  - The `Layers` button opens one dropdown with 3D Buildings, the Radar overlays (heatmap, radius circle, zone badges, business offers), the search radius chips, the heatmap legend and the local alert simulation trigger.
 - **Consolidated Discover Feed ([`src/components/feed/DiscoverFeed.tsx`](src/components/feed/DiscoverFeed.tsx))**:
   - Replaced multi-row sticky headers with a unified search field and a compact filter pill `[ ⚡ {radius}km • {sort} ▾ ]` that expands into a glass drawer only when tapped.
   - Converted the AI Local Radar summary into a compact, collapsible banner to prioritize live moments.
 - **Consolidated System & Cloud Status Dock ([`src/components/profile/GamificationProfile.tsx`](src/components/profile/GamificationProfile.tsx))**:
   - Consolidated 3 separate full-width stacked status banners (PWA Install, Firebase Sync, and Guest Upgrade) into a unified, compact glass status capsule (`⚡ Firebase Live Sync • 📱 Mobile Web | Install App | Save Rank`), eliminating over 200px of scrolling clutter.
 - **Consolidated App Shell Controls ([`src/components/layout/AppShell.tsx`](src/components/layout/AppShell.tsx))**:
-  - **Desktop**: Segmented dual-pill controls (`[ Resident | Merchant ]`, `[ Radar | Mapbox 3D ]`) and compact utility icons (`Simulator`, `Install`, `Sign In`).
+  - **Desktop**: Segmented dual-pill controls (`[ Resident | Merchant ]`, `[ Map | Walk in 3D ]`) and compact utility icons (`Simulator`, `Install`, `Sign In`).
   - **Mobile**: Top header with location selector, score pill (`⚡ 84`), and a Quick Preferences modal (`SlidersHorizontal`) housing secondary controls off the primary viewport.
 
 ---
@@ -177,8 +171,8 @@ PULSE is a **fully installable Progressive Web App** configured for both mobile 
 
 | # | Feature | Highlights |
 | :---: | :--- | :--- |
-| **1** | **Mapbox Standard 3D Map** | 3D extruded buildings, dynamic atmosphere presets (`Night`, `Dusk`, `Dawn`, `Day`), 85° FPV street-level mode, live heading tracking, and game-style wayfinding navigation markers. |
-| **2** | **Live Activity Radar (2D)** | Hardware-accelerated MapLibre GL dark map with dynamic Heatmap layer: 🔵 Blue (Low), 🟡 Yellow (Medium), 🟠 Orange (High), 🔴 Red (Trending Hotspot). Consolidated layer & legend menu. |
+| **1** | **Pulse Map (MapLibre + OSM)** | Free OpenStreetMap vector tiles, neon roads, 3D extruded buildings, FPV street-level mode, live heading tracking, and game-style wayfinding navigation markers. No map token. |
+| **2** | **Radar Layers** | Toggleable overlays on the same map (off by default): density heatmap 🔵 Low, 🟡 Medium, 🟠 High, 🔴 Trending Hotspot, radius circle, zone badges and business offers. |
 | **3** | **Dynamic Radius Feed** | Instant radius selection: **1km, 2km, 5km, 10km, 25km**. Feed auto-refreshes when the user changes GPS coordinates or switches radius. |
 | **4** | **Moments** | Replaces static social posts with real-world Moments across 8 categories: `🎉 Events`, `🚨 Alerts`, `🍔 Food & Drinks`, `🔍 Lost & Found`, `💡 Recommendations`, `🏃 Activities`, `🛍 Deals`, `💬 Community`. |
 | **5** | **Moment Expiration** | **24-hour default lifespan** (optional 48h). High engagement grants automatic freshness extensions (+30m per surge). Expired moments cleanly move to user archives. |
@@ -207,11 +201,11 @@ PULSE is a **fully installable Progressive Web App** configured for both mobile 
           │                                             │                                             │
           ▼                                             ▼                                             ▼
 ┌───────────────────┐                         ┌───────────────────┐                         ┌───────────────────┐
-│   Dual Map Engine │                         │  PWA & Mobile UX  │                         │ State & Offline   │
-│ Mapbox 3D/MapLibre│                         │  (5 Core Views)   │                         │ Reactive Engine   │
+│ Map + Pulse 3D    │                         │  PWA & Mobile UX  │                         │ State & Offline   │
+│ MapLibre / Three  │                         │  (5 Core Views)   │                         │ Reactive Engine   │
 ├───────────────────┤                         ├───────────────────┤                         ├───────────────────┤
-│• Mapbox 3D Bldgs  │                         │1. Map (Default)   │                         │• Local Storage    │
-│• FPV 85° Tracking │                         │2. Discover Feed   │                         │• Distance Engine  │
+│• OSM 3D Buildings │                         │1. Map (Default)   │                         │• Local Storage    │
+│• FPV Tracking     │                         │2. Discover Feed   │                         │• Distance Engine  │
 │• Wayfinding Cues  │                         │3. Broadcast Modal │                         │• Algorithmic Score│
 │• 4-Color Heatmap  │                         │4. Proximity Alerts│                         │• Service Worker   │
 │• Dynamic Radius   │                         │5. Profile / Biz   │                         │• PWA Install Hook │
@@ -253,8 +247,7 @@ cp .env.example .env
 ```
 
 ```env
-# Mapbox Access Token (Optional - falls back to MapLibre GL CartoDB Dark Matter if omitted)
-VITE_MAPBOX_TOKEN=your-mapbox-token-here
+# The map needs no token: it uses free OpenStreetMap tiles from OpenFreeMap.
 
 # Firebase Configuration (quizapp-project-c5e0e)
 VITE_FIREBASE_API_KEY=your-firebase-api-key
@@ -267,7 +260,7 @@ VITE_FIREBASE_MEASUREMENT_ID=G-QWLVXQ9DBX
 ```
 
 > [!NOTE]
-> Pulse is **zero-setup ready**: if you don't provide Mapbox or Firebase keys, it automatically runs in interactive offline demo mode with rich pre-seeded data!
+> Pulse is **zero-setup ready**: if you don't provide Firebase keys, it automatically runs in interactive offline demo mode with rich pre-seeded data!
 
 ### 3. Start Development Server
 ```bash
@@ -318,8 +311,8 @@ PULSE/
 │   │   ├── layout/
 │   │   │   └── AppShell.tsx                # Glassmorphic shell, control dock & quick preferences
 │   │   ├── map/
-│   │   │   ├── MapboxMap.tsx               # Mapbox Standard 3D, FPV 85°, lighting & wayfinding
-│   │   │   ├── LiveActivityMap.tsx         # MapLibre 2D heatmap & consolidated layers dock
+│   │   │   ├── PulseMap.tsx                # MapLibre map: camera modes, radar layers & wayfinding
+│   │   │   ├── pulseMapStyle.ts            # Dark neon OSM style (OpenFreeMap tiles)
 │   │   │   ├── HotspotBottomSheet.tsx      # Moment glass drawer, reactions & navigate CTA
 │   │   │   └── index.ts                    # Map module exports
 │   │   ├── modals/

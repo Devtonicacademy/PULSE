@@ -34,7 +34,7 @@ const SURFACE_COLORS = {
   ground: [0x05080f, 0x7d8388]
 } as const;
 
-// Atmosphere per MapboxMap light preset. Windows switch off in daylight.
+// Atmosphere per PulseMap light preset. Windows switch off in daylight.
 const LIGHT_PRESETS: Record<
   LightPreset,
   { sky: number; fog: number; hemiSky: number; hemiGround: number; hemi: number; sun: number; sunColor: number; windows: number; exposure: number; daylight: number }

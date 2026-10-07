@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * The player marker: a glowing orb with a pulsing ground ring, a cyan heading cone
- * on the ground and a direction arrow — the 3D counterpart of MapboxMap's avatar.
+ * on the ground and a direction arrow — the 3D counterpart of PulseMap's avatar.
  */
 export class UserAvatar {
   readonly group = new THREE.Group();

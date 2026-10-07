@@ -7,29 +7,19 @@ import React, {
   useMemo,
   forwardRef
 } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
 import {
-  Navigation,
   Crosshair,
-  AlertCircle,
   Loader2,
-  ExternalLink,
-  ShieldAlert,
-  Moon,
-  Sun,
-  Sunset,
-  Sunrise,
   Box,
   Layers,
   Sparkles,
-  Compass,
   Eye,
   Footprints,
   Play,
   Square,
-  CheckCircle2,
   X,
   MapPin,
   ChevronRight,
@@ -38,9 +28,16 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Gamepad2
+  Gamepad2,
+  TrendingUp,
+  Radar,
+  Building2,
+  Flame,
+  AlertTriangle
 } from 'lucide-react';
-import { Moment } from '../../types/pulse';
+import { usePulse } from '../../context/PulseContext';
+import { Moment, RadiusKm } from '../../types/pulse';
+import { buildPulseStyle, BUILDINGS_LAYER_ID } from './pulseMapStyle';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import {
   getPositionAlongRoute,
@@ -59,20 +56,12 @@ export interface UserCoordinates {
   speed?: number | null;
 }
 
-export type MapboxLightPreset = 'night' | 'dusk' | 'dawn' | 'day';
+export type MapLightPreset = 'night' | 'dusk' | 'dawn' | 'day';
 export type CameraMode = 'fpv' | 'aerial' | 'overview';
 
-export interface MapboxMapProps {
-  /** Optional Mapbox access token. Defaults to VITE_MAPBOX_TOKEN env variable or verified default */
-  accessToken?: string;
-  /** Mapbox style URL (defaults to Mapbox Standard: 'mapbox://styles/mapbox/standard') */
-  mapStyle?: string;
-  /** Mapbox Standard light preset: 'night' | 'dusk' | 'dawn' | 'day' (defaults to 'night') */
-  lightPreset?: MapboxLightPreset;
-  /** Whether 3D buildings and objects are enabled (defaults to true) */
+export interface PulseMapProps {
+  /** Whether 3D building extrusions are shown (defaults to true) */
   enable3dBuildings?: boolean;
-  /** Enable dynamic lighting and shadow effects (defaults to true) */
-  enableDynamicLighting?: boolean;
   /** Fallback center coordinates as [longitude, latitude] if geolocation is unavailable (defaults to [3.4219, 6.4281]) */
   defaultCenter?: [number, number];
   /** Default zoom level (defaults to 18.2 for street-level first-person view) */
@@ -87,17 +76,15 @@ export interface MapboxMapProps {
   autoGeolocate?: boolean;
   /** Display a custom pulsing radar avatar marker at user's current GPS location (default: true) */
   showUserMarker?: boolean;
-  /** Display native Mapbox navigation controls (+/- zoom, compass pitch/bearing) (default: true) */
+  /** Display native navigation controls (+/- zoom, compass pitch/bearing) (default: true) */
   showNavigationControl?: boolean;
   /** Position of navigation controls (default: 'top-right') */
   navigationControlPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-  /** Display native Mapbox geolocate button control (default: true) */
+  /** Display native geolocate button control (default: true) */
   showGeolocateControl?: boolean;
-  /** Display native fullscreen toggle control (default: false) */
-  showFullscreenControl?: boolean;
-  /** Display the interactive 3D, camera mode and lighting controls toolbar (defaults to true) */
+  /** Display the interactive camera mode, hotspots and layers toolbar (defaults to true) */
   show3dControls?: boolean;
-  /** Optional array of Pulse live moments to display as 3D pins on the map */
+  /** Pulse live moments shown as street flyer cards on the map */
   moments?: Moment[];
   /** Callback fired when a live moment marker is clicked */
   onSelectMoment?: (moment: Moment) => void;
@@ -110,35 +97,35 @@ export interface MapboxMapProps {
   } | null;
   /** Callback fired when user exits navigation mode */
   onClearNavigation?: () => void;
+  /** Opens the Pulse 3D explore / walk mode (shows a "Walk in 3D" button when provided) */
+  onWalkIn3D?: () => void;
   /** Whether the map accepts interactive user gestures (pan, pinch, zoom, tilt) (default: true) */
   interactive?: boolean;
   /** Extra container CSS class names */
   className?: string;
   /** Extra container inline styles */
   style?: React.CSSProperties;
-  /** Callback fired when the Mapbox GL map instance finishes loading */
-  onMapLoad?: (map: mapboxgl.Map) => void;
+  /** Callback fired when the map instance finishes loading */
+  onMapLoad?: (map: maplibregl.Map) => void;
   /** Callback fired when the user's GPS coordinates are resolved and centered */
   onLocationFound?: (coords: UserCoordinates) => void;
   /** Callback fired if geolocation request fails or permission is denied */
   onLocationError?: (error: GeolocationPositionError | Error) => void;
   /** Click event listener on map canvas */
-  onMapClick?: (e: mapboxgl.MapMouseEvent) => void;
+  onMapClick?: (e: maplibregl.MapMouseEvent) => void;
   /** Overlay components or floating controls rendered over the map canvas */
   children?: React.ReactNode;
 }
 
-export interface MapboxMapHandle {
-  /** Returns the underlying Mapbox GL Map instance */
-  getMap: () => mapboxgl.Map | null;
+export interface PulseMapHandle {
+  /** Returns the underlying MapLibre GL Map instance */
+  getMap: () => maplibregl.Map | null;
   /** Smoothly fly camera to a target [lng, lat] coordinate */
   flyTo: (center: [number, number], zoom?: number) => void;
   /** Re-triggers geolocation and smoothly recenters camera on current user position */
   recenterOnUser: () => void;
   /** Returns currently resolved user GPS coordinates */
   getUserLocation: () => UserCoordinates | null;
-  /** Set Mapbox Standard dynamic light preset */
-  setLightPreset: (preset: MapboxLightPreset) => void;
   /** Toggle 3D buildings visibility */
   set3dBuildings: (enabled: boolean) => void;
   /** Toggle between 3D perspective and 2D top-down view */
@@ -151,14 +138,38 @@ export interface MapboxMapHandle {
   stopNavigation: () => void;
 }
 
-export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
+// Generates a GeoJSON polygon circle around a center point
+function createGeoJSONCircle(center: [number, number], radiusInKm: number, points = 64) {
+  const coords: [number, number][] = [];
+  const distanceX = radiusInKm / (111.32 * Math.cos((center[1] * Math.PI) / 180));
+  const distanceY = radiusInKm / 110.574;
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    coords.push([center[0] + distanceX * Math.cos(theta), center[1] + distanceY * Math.sin(theta)]);
+  }
+  coords.push(coords[0]);
+  return {
+    type: 'Feature' as const,
+    geometry: { type: 'Polygon' as const, coordinates: [coords] },
+    properties: {}
+  };
+}
+
+function heatmapFeatures(moments: Moment[]) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: moments.map((m) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: [m.longitude, m.latitude] },
+      properties: { score: m.engagementScore || 50 }
+    }))
+  };
+}
+
+export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
   (
     {
-      accessToken,
-      mapStyle = 'mapbox://styles/mapbox/standard',
-      lightPreset: initialLightPreset = 'night',
       enable3dBuildings: initialEnable3dBuildings = true,
-      enableDynamicLighting = true,
       defaultCenter = [3.4219, 6.4281], // Victoria Island, Lagos
       defaultZoom = 18.2,
       pitch = 72,
@@ -169,12 +180,12 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       showNavigationControl = true,
       navigationControlPosition = 'top-right',
       showGeolocateControl = true,
-      showFullscreenControl = false,
       show3dControls = true,
       moments = [],
       onSelectMoment,
       navigationDestination: propNavDestination = null,
       onClearNavigation,
+      onWalkIn3D,
       interactive = true,
       className = '',
       style,
@@ -194,14 +205,14 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const lastCenterRef = useRef<[number, number]>(stableCenter);
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
-    const mapRef = useRef<mapboxgl.Map | null>(null);
-    const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-    const momentMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+    const mapRef = useRef<maplibregl.Map | null>(null);
+    const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+    const momentMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     // Marker click handlers outlive renders; read the freshest copy of each moment from here
     const latestMomentsRef = useRef<Moment[]>(moments);
     latestMomentsRef.current = moments;
-    const waypointMarkersRef = useRef<mapboxgl.Marker[]>([]);
-    const destinationBeaconRef = useRef<mapboxgl.Marker | null>(null);
+    const waypointMarkersRef = useRef<maplibregl.Marker[]>([]);
+    const destinationBeaconRef = useRef<maplibregl.Marker | null>(null);
 
     // Performance and coordination refs
     const userCoordsRef = useRef<UserCoordinates>({
@@ -223,11 +234,19 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const [isMapLoaded, setIsMapLoaded] = useState<boolean>(false);
 
     // 3D & Camera State
-    const [currentLightPreset, setCurrentLightPreset] = useState<MapboxLightPreset>(initialLightPreset);
     const [is3dBuildingsEnabled, setIs3dBuildingsEnabled] = useState<boolean>(initialEnable3dBuildings);
     const [cameraMode, setCameraModeState] = useState<CameraMode>(initialCameraMode);
     const [cameraNotification, setCameraNotification] = useState<string | null>(null);
-    const [showEnvironmentMenu, setShowEnvironmentMenu] = useState<boolean>(false);
+    const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
+    // Radar overlays start off so the map opens clean; the Layers menu turns them on
+    const [radarLayers, setRadarLayers] = useState({ heatmap: false, radius: false, zones: false, business: false });
+    const radarLayersRef = useRef(radarLayers);
+    radarLayersRef.current = radarLayers;
+    const zoneMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+    const businessMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+    const is3dBuildingsRef = useRef(initialEnable3dBuildings);
+    const currentLocationRef = useRef({ longitude: 0, latitude: 0 });
+    const radiusKmRef = useRef<RadiusKm>(5);
     const [showHotspotMenu, setShowHotspotMenu] = useState<boolean>(false);
     const [showWalkingControls, setShowWalkingControls] = useState<boolean>(true);
     const cameraNoticeTimeoutRef = useRef<number | null>(null);
@@ -237,87 +256,28 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const [isSimulatingWalk, setIsSimulatingWalk] = useState<boolean>(false);
     const [simulationProgress, setSimulationProgress] = useState<number>(0);
 
-    // Resolve token: explicit prop, then Vite env variable
-    const token = accessToken || import.meta.env.VITE_MAPBOX_TOKEN || '';
-    const hasToken = Boolean(
-      token &&
-      token.trim().length > 0 &&
-      !token.includes('your_mapbox_access_token')
-    );
-
-    /**
-     * Applies Mapbox Standard dynamic light preset and shadow parameters
-     */
-    const applyDynamicLighting = useCallback(
-      (preset: MapboxLightPreset) => {
-        const map = mapRef.current;
-        if (!map) return;
-
-        // 1. Mapbox Standard basemap light preset
-        try {
-          (map as any).setConfigProperty('basemap', 'lightPreset', preset);
-        } catch (err) {
-          // Fallback if classic style is used
-        }
-
-        // 2. Configure Mapbox GL dynamic lights when supported (clean parameters only)
-        if (enableDynamicLighting && typeof (map as any).setLights === 'function') {
-          try {
-            const lightConfigs: Record<
-              MapboxLightPreset,
-              { sunDir: [number, number]; sunColor: string; sunIntensity: number; ambColor: string; ambIntensity: number }
-            > = {
-              night: { sunDir: [220, 16], sunColor: '#00F2FE', sunIntensity: 0.4, ambColor: '#0C1322', ambIntensity: 0.5 },
-              dusk: { sunDir: [255, 18], sunColor: '#FFA502', sunIntensity: 0.7, ambColor: '#1A1226', ambIntensity: 0.55 },
-              dawn: { sunDir: [70, 24], sunColor: '#FF6B6B', sunIntensity: 0.75, ambColor: '#1E1A2C', ambIntensity: 0.55 },
-              day: { sunDir: [180, 52], sunColor: '#FFFFFF', sunIntensity: 0.9, ambColor: '#243044', ambIntensity: 0.6 }
-            };
-
-            const cfg = lightConfigs[preset];
-            (map as any).setLights([
-              {
-                id: 'directional_sun',
-                type: 'directional',
-                properties: {
-                  direction: cfg.sunDir,
-                  color: cfg.sunColor,
-                  intensity: cfg.sunIntensity
-                }
-              },
-              {
-                id: 'ambient_fill',
-                type: 'ambient',
-                properties: {
-                  color: cfg.ambColor,
-                  intensity: cfg.ambIntensity
-                }
-              }
-            ]);
-          } catch (e) {
-            // Ignore custom light restrictions
-          }
-        }
-      },
-      [enableDynamicLighting]
-    );
+    const {
+      currentLocation,
+      radiusKm,
+      setRadiusKm,
+      simulateIncomingMomentAlert,
+      activityZones,
+      businessPosts,
+      setSelectedMoment,
+      setSelectedZone
+    } = usePulse();
+    currentLocationRef.current = currentLocation;
+    radiusKmRef.current = radiusKm;
 
     /**
      * Toggles 3D buildings on/off
      */
     const toggle3dBuildings = useCallback((enabled: boolean) => {
-      const map = mapRef.current;
-      if (!map) return;
-
+      is3dBuildingsRef.current = enabled;
       setIs3dBuildingsEnabled(enabled);
-
-      try {
-        (map as any).setConfigProperty('basemap', 'show3dObjects', enabled);
-      } catch (e) {
-        // Fallback
-      }
-
-      if (map.getLayer('pulse-3d-buildings')) {
-        map.setLayoutProperty('pulse-3d-buildings', 'visibility', enabled ? 'visible' : 'none');
+      const map = mapRef.current;
+      if (map?.getLayer(BUILDINGS_LAYER_ID)) {
+        map.setLayoutProperty(BUILDINGS_LAYER_ID, 'visibility', enabled ? 'visible' : 'none');
       }
     }, []);
 
@@ -358,7 +318,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             <div id="pulse-avatar-arrow" style="position: absolute; top: 2px; z-index: 3; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid #00F2FE; transform-origin: 50% 24px; transform: rotate(${heading}deg); filter: drop-shadow(0 0 6px #00F2FE);"></div>
           `;
 
-          userMarkerRef.current = new mapboxgl.Marker({
+          userMarkerRef.current = new maplibregl.Marker({
             element: markerContainer,
             anchor: 'center'
           })
@@ -480,7 +440,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
         // 1. Add/Update High-Performance GPU WebGL Route Line
         try {
-          const existingSource = map.getSource('pulse-nav-route-source') as mapboxgl.GeoJSONSource | undefined;
+          const existingSource = map.getSource('pulse-nav-route-source') as maplibregl.GeoJSONSource | undefined;
           if (existingSource) {
             existingSource.setData(route.geojsonFeature);
           } else {
@@ -523,7 +483,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             });
           }
         } catch (e) {
-          console.warn('[PULSE Mapbox] Error adding route line:', e);
+          console.warn('[PULSE Map] Error adding route line:', e);
         }
 
         // 2. Instantiate Lean Waypoint Cues (max 4-6 cues)
@@ -540,7 +500,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
               <div style="width: 40px; height: 16px; border-radius: 50%; border: 2px solid #FF4757; background: radial-gradient(circle, rgba(255, 71, 87, 0.45), transparent); margin: 0 auto;"></div>
             `;
 
-            destinationBeaconRef.current = new mapboxgl.Marker({
+            destinationBeaconRef.current = new maplibregl.Marker({
               element: beaconEl,
               anchor: 'bottom'
             })
@@ -564,7 +524,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
             </div>
           `;
 
-          const marker = new mapboxgl.Marker({
+          const marker = new maplibregl.Marker({
             element: cueEl,
             anchor: 'center'
           })
@@ -649,7 +609,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         };
         userBearingRef.current = currentPos.bearing;
 
-        // 1. Direct avatar update without re-rendering Mapbox component
+        // 1. Direct avatar update without re-rendering the map component
         updateUserMarker(currentPos.coordinates[0], currentPos.coordinates[1], currentPos.bearing);
 
         // 2. Direct GPU Camera tracking at 60fps (jumpTo eliminates animation queue latency)
@@ -824,10 +784,6 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         },
         recenterOnUser: () => locateAndCenterUser(true),
         getUserLocation: () => userCoordsRef.current,
-        setLightPreset: (preset) => {
-          setCurrentLightPreset(preset);
-          applyDynamicLighting(preset);
-        },
         set3dBuildings: toggle3dBuildings,
         toggle3dView: () => {
           applyCameraMode(cameraMode === 'overview' ? 'fpv' : 'overview');
@@ -836,7 +792,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         startNavigation,
         stopNavigation
       }),
-      [applyCameraMode, applyDynamicLighting, cameraMode, locateAndCenterUser, startNavigation, stopNavigation, toggle3dBuildings]
+      [applyCameraMode, cameraMode, locateAndCenterUser, startNavigation, stopNavigation, toggle3dBuildings]
     );
 
     /**
@@ -868,31 +824,31 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     }, [walkStep]);
 
     /**
-     * Initialize Mapbox GL instance
+     * Initialize the MapLibre GL instance
      */
     useEffect(() => {
       if (!mapContainerRef.current || mapRef.current) return;
-      if (!token || token.includes('your_mapbox_access_token')) return;
 
-      mapboxgl.accessToken = token;
-
-      const map = new mapboxgl.Map({
+      const map = new maplibregl.Map({
         container: mapContainerRef.current,
-        style: mapStyle,
+        style: buildPulseStyle(),
+        maxPitch: 85,
         center: initialViewRef.current.center,
         zoom: initialViewRef.current.zoom,
         pitch: initialViewRef.current.pitch,
         bearing: initialViewRef.current.bearing,
         interactive: interactive,
-        attributionControl: true
+        attributionControl: { compact: true }
       });
 
       mapRef.current = map;
+      // Test hook for inspecting the map in dev builds
+      if (import.meta.env.DEV) (window as unknown as { __pulseMap?: maplibregl.Map }).__pulseMap = map;
 
       // Navigation Controls
       if (showNavigationControl) {
         map.addControl(
-          new mapboxgl.NavigationControl({
+          new maplibregl.NavigationControl({
             visualizePitch: true,
             showCompass: true,
             showZoom: true
@@ -903,63 +859,86 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
 
       // Geolocate Control
       if (showGeolocateControl) {
-        const geolocate = new mapboxgl.GeolocateControl({
+        const geolocate = new maplibregl.GeolocateControl({
           positionOptions: { enableHighAccuracy: false, timeout: 6000 },
-          trackUserLocation: true,
-          showUserHeading: true
+          trackUserLocation: true
         });
         map.addControl(geolocate, 'top-right');
-      }
-
-      if (showFullscreenControl) {
-        map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
       }
 
       if (onMapClick) {
         map.on('click', onMapClick);
       }
 
-      // Style Load Event: Configure Mapbox Standard and 3D Extrusions
+      // Style load: add the Radar overlays (hidden until switched on) and apply building state
       map.on('style.load', () => {
-        try {
-          // Native Mapbox Standard 3D parameters
-          (map as any).setConfigProperty('basemap', 'lightPreset', currentLightPreset);
-          (map as any).setConfigProperty('basemap', 'show3dObjects', is3dBuildingsEnabled);
-          (map as any).setConfigProperty('basemap', 'showPointOfInterestLabels', true);
-          (map as any).setConfigProperty('basemap', 'showPlaceLabels', true);
-          (map as any).setConfigProperty('basemap', 'showRoadLabels', true);
-        } catch (err) {
-          // Classic style fallback
-        }
+        const on = radarLayersRef.current;
+        const visibility = (flag: boolean) => (flag ? 'visible' : 'none') as 'visible' | 'none';
+        const center: [number, number] = [currentLocationRef.current.longitude, currentLocationRef.current.latitude];
+        const before = 'water-name'; // keep labels above the overlays
 
-        // Add 3D building extrusions ONLY if composite source exists (classic style fallback)
-        try {
-          if (map.getSource('composite') && !map.getLayer('pulse-3d-buildings')) {
-            map.addLayer({
-              id: 'pulse-3d-buildings',
-              source: 'composite',
-              'source-layer': 'building',
-              filter: ['==', 'extrude', 'true'],
-              type: 'fill-extrusion',
-              minzoom: 14,
-              layout: { visibility: is3dBuildingsEnabled ? 'visible' : 'none' },
-              paint: {
-                'fill-extrusion-color': [
-                  'interpolate', ['linear'], ['get', 'height'],
-                  0, '#0B111E', 30, '#111B30', 80, '#182745', 160, '#00F2FE'
-                ],
-                'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'height']],
-                'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'min_height']],
-                'fill-extrusion-opacity': 0.88
-              }
-            });
+        map.addSource('pulse-radius-source', {
+          type: 'geojson',
+          data: createGeoJSONCircle(center, radiusKmRef.current) as never
+        });
+        map.addLayer({
+          id: 'pulse-radius-fill',
+          type: 'fill',
+          source: 'pulse-radius-source',
+          layout: { visibility: visibility(on.radius) },
+          paint: { 'fill-color': '#00F2FE', 'fill-opacity': 0.06 }
+        }, before);
+        map.addLayer({
+          id: 'pulse-radius-line',
+          type: 'line',
+          source: 'pulse-radius-source',
+          layout: { visibility: visibility(on.radius) },
+          paint: { 'line-color': '#00F2FE', 'line-width': 1.5, 'line-dasharray': [3, 2], 'line-opacity': 0.7 }
+        }, before);
+
+        map.addSource('pulse-heat-source', {
+          type: 'geojson',
+          data: heatmapFeatures(latestMomentsRef.current) as never
+        });
+        map.addLayer({
+          id: 'pulse-heat',
+          type: 'heatmap',
+          source: 'pulse-heat-source',
+          maxzoom: 17,
+          layout: { visibility: visibility(on.heatmap) },
+          paint: {
+            'heatmap-weight': ['interpolate', ['linear'], ['get', 'score'], 0, 0, 100, 1],
+            'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 9, 1, 15, 3],
+            // Blue = low, yellow = moderate, orange = active, red = hotspot
+            'heatmap-color': [
+              'interpolate', ['linear'], ['heatmap-density'],
+              0, 'rgba(0, 0, 0, 0)',
+              0.2, '#3B82F6',
+              0.45, '#EAB308',
+              0.7, '#F97316',
+              0.95, '#EF4444'
+            ],
+            'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 9, 20, 14, 55, 17, 90],
+            'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 15, 0.8, 17, 0]
           }
-        } catch (err) {
-          // Ignore
-        }
+        }, before);
 
-        applyDynamicLighting(currentLightPreset);
+        if (map.getLayer(BUILDINGS_LAYER_ID)) {
+          map.setLayoutProperty(
+            BUILDINGS_LAYER_ID,
+            'visibility',
+            visibility(is3dBuildingsRef.current)
+          );
+        }
       });
+
+      // Flyer cards shrink when zoomed out so a busy city doesn't pile them on top of each other
+      const syncCompactCards = () => {
+        map.getContainer().classList.toggle('pulse-map-compact-cards', map.getZoom() < 15);
+      };
+      map.on('zoom', syncCompactCards);
+      syncCompactCards();
+      map.on('error', (e) => console.warn('[PULSE Map]', e.error?.message ?? e));
 
       // Markers and controls only need the style; 'load' also waits on every tile and can
       // stall on slow networks, so become ready on whichever fires first.
@@ -1028,19 +1007,20 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         // Markers die with the map; drop refs so a rebuilt map re-creates them
         momentMarkersRef.current.forEach((marker) => marker.remove());
         momentMarkersRef.current.clear();
+        zoneMarkersRef.current.forEach((marker) => marker.remove());
+        zoneMarkersRef.current.clear();
+        businessMarkersRef.current.forEach((marker) => marker.remove());
+        businessMarkersRef.current.clear();
         userMarkerRef.current = null;
         setIsMapLoaded(false);
         map.remove();
         mapRef.current = null;
       };
     }, [
-      token,
-      mapStyle,
       interactive,
       showNavigationControl,
       navigationControlPosition,
-      showGeolocateControl,
-      showFullscreenControl
+      showGeolocateControl
     ]);
 
     /**
@@ -1107,7 +1087,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
           });
         });
 
-        const newMarker = new mapboxgl.Marker({
+        const newMarker = new maplibregl.Marker({
           element: el,
           anchor: 'bottom'
         })
@@ -1118,45 +1098,157 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
       });
     }, [moments, isMapLoaded, onSelectMoment]);
 
+    /**
+     * Radar overlays: keep the radius circle and heatmap in step with the app state
+     */
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      const source = map.getSource('pulse-radius-source') as maplibregl.GeoJSONSource | undefined;
+      source?.setData(
+        createGeoJSONCircle([currentLocation.longitude, currentLocation.latitude], radiusKm) as never
+      );
+    }, [currentLocation, radiusKm, isMapLoaded]);
+
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      const source = map.getSource('pulse-heat-source') as maplibregl.GeoJSONSource | undefined;
+      source?.setData(heatmapFeatures(moments) as never);
+    }, [moments, isMapLoaded]);
+
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      const setVisible = (id: string, visible: boolean) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      };
+      setVisible('pulse-heat', radarLayers.heatmap);
+      setVisible('pulse-radius-fill', radarLayers.radius);
+      setVisible('pulse-radius-line', radarLayers.radius);
+    }, [radarLayers.heatmap, radarLayers.radius, isMapLoaded]);
+
+    /**
+     * Radar overlays: hotspot zone badges (DOM markers, only while the layer is on)
+     */
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      const markers = zoneMarkersRef.current;
+      const wanted = radarLayers.zones ? new Set(activityZones.map((z) => z.id)) : new Set<string>();
+
+      markers.forEach((marker, id) => {
+        if (!wanted.has(id)) {
+          marker.remove();
+          markers.delete(id);
+        }
+      });
+
+      if (!radarLayers.zones) return;
+      activityZones.forEach((zone) => {
+        if (markers.has(zone.id)) return;
+        const zoneEl = document.createElement('div');
+        zoneEl.className = 'cursor-pointer select-none pointer-events-auto';
+        const isHigh = zone.activityScore >= 80;
+        const glowColor = isHigh ? 'rgba(239, 68, 68, 0.4)' : 'rgba(234, 179, 8, 0.3)';
+        zoneEl.innerHTML = `
+          <div class="px-2.5 py-1 rounded-full glass-panel border border-white/20 shadow-xl flex items-center gap-1.5 transition-transform hover:scale-110 active:scale-95" style="box-shadow: 0 0 16px ${glowColor};">
+            <span class="w-2 h-2 rounded-full ${isHigh ? 'bg-rose-500 animate-ping' : 'bg-amber-400'}"></span>
+            <span class="text-[11px] font-bold text-white tracking-tight">${escapeHtml(zone.zoneName)}</span>
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-black ${
+              isHigh ? 'bg-rose-500/30 text-rose-300' : 'bg-amber-500/30 text-amber-300'
+            }">⚡${zone.activityScore}</span>
+          </div>
+        `;
+        zoneEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setSelectedZone(zone);
+          setSelectedMoment(null);
+        });
+        markers.set(
+          zone.id,
+          new maplibregl.Marker({ element: zoneEl, anchor: 'bottom' })
+            .setLngLat([zone.centerLng, zone.centerLat])
+            .addTo(map)
+        );
+      });
+    }, [activityZones, radarLayers.zones, isMapLoaded, setSelectedMoment, setSelectedZone]);
+
+    /**
+     * Radar overlays: business live pins (only while the layer is on)
+     */
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      const markers = businessMarkersRef.current;
+      const wanted = radarLayers.business ? new Set(businessPosts.map((b) => b.id)) : new Set<string>();
+
+      markers.forEach((marker, id) => {
+        if (!wanted.has(id)) {
+          marker.remove();
+          markers.delete(id);
+        }
+      });
+
+      if (!radarLayers.business) return;
+      businessPosts.forEach((bpost) => {
+        if (markers.has(bpost.id)) return;
+        const bEl = document.createElement('div');
+        bEl.className = 'cursor-pointer pointer-events-auto';
+        bEl.innerHTML = `
+          <div class="flex items-center gap-1 px-2 py-1 rounded-full transition-transform hover:scale-125 active:scale-95 bg-amber-500/90 border border-amber-300 text-slate-950 font-bold text-[10px] shadow-lg shadow-amber-500/30">
+            <span>⚡</span>
+            <span>${escapeHtml(bpost.livePinType)}</span>
+          </div>
+        `;
+        bEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const syntheticMoment: Moment = {
+            id: bpost.id,
+            userId: bpost.businessId,
+            userName: bpost.businessName,
+            userAvatar: bpost.businessAvatar,
+            userReputation: 99,
+            title: bpost.title,
+            description: bpost.offer,
+            category: 'deals',
+            latitude: bpost.latitude,
+            longitude: bpost.longitude,
+            createdAt: bpost.createdAt,
+            expiresAt: bpost.expiresAt,
+            engagementScore: 90,
+            viewsCount: bpost.views,
+            isArchived: false,
+            approxAddress: 'Verified Local Business Partner',
+            reactions: { helpful: 20, trending: 35, confirmed: 15, interested: 40, going: 18 },
+            commentCount: 4,
+            isBusiness: true,
+            businessName: bpost.businessName
+          };
+          setSelectedMoment(syntheticMoment);
+        });
+        markers.set(
+          bpost.id,
+          new maplibregl.Marker({ element: bEl, anchor: 'center' })
+            .setLngLat([bpost.longitude, bpost.latitude])
+            .addTo(map)
+        );
+      });
+    }, [businessPosts, radarLayers.business, isMapLoaded, setSelectedMoment]);
+
     return (
       <div
         className={`relative w-full h-full min-h-[350px] overflow-hidden rounded-2xl bg-[#0A0E17] ${className}`}
         style={style}
       >
-        {/* Mapbox Canvas Container */}
+        {/* Map canvas */}
         <div ref={mapContainerRef} className="w-full h-full" />
-
-        {/* Missing Token Guidance Notice */}
-        {!hasToken && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-[#0A0E17]/95 backdrop-blur-md">
-            <div className="max-w-md w-full glass-panel p-6 rounded-3xl border border-white/10 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center border border-rose-500/30">
-                <AlertCircle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Mapbox Token Required</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Please provide a Mapbox access token to activate Mapbox Standard 3D building extrusions and dynamic lighting.
-                </p>
-              </div>
-              <a
-                href="https://account.mapbox.com/access-tokens/"
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs flex items-center justify-center gap-2"
-              >
-                <span>Get Free Mapbox Token</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        )}
 
         {/* =========================================================================
             GAMING HUD: STREET-LEVEL WAYFINDING NAVIGATION CUES OVERLAY
            ========================================================================= */}
         {activeRoute && (
-          <div className="absolute top-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
+          <div className="absolute top-16 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
             <div className="glass-panel p-4 rounded-3xl border border-cyan-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
               {/* Header Title & Close Button */}
               <div className="flex items-center justify-between">
@@ -1227,6 +1319,15 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
                   )}
                 </button>
 
+                {onWalkIn3D && (
+                  <button
+                    onClick={onWalkIn3D}
+                    title="Continue this route in Pulse 3D"
+                    className="py-2.5 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-xs font-bold transition-colors border border-cyan-400/30"
+                  >
+                    3D
+                  </button>
+                )}
                 <button
                   onClick={stopNavigation}
                   className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors border border-white/5"
@@ -1241,7 +1342,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         {/* =========================================================================
             CONSOLIDATED CAMERA, TELEPORT HOTSPOTS & ENVIRONMENT CONTROLS
            ========================================================================= */}
-        {hasToken && show3dControls && isMapLoaded && (
+        {show3dControls && isMapLoaded && (
           <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
             {/* Unified Camera Mode Capsule */}
             <div className="flex items-center gap-1 p-1 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl">
@@ -1332,75 +1433,177 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
               )}
             </div>
 
-            {/* Atmosphere & Lighting Preset Flyout */}
+            {/* Walk in 3D: opens the Pulse 3D explore mode */}
+            {onWalkIn3D && (
+              <button
+                onClick={onWalkIn3D}
+                title="Explore and walk the city in Pulse 3D"
+                className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-cyan-400/40 shadow-2xl backdrop-blur-2xl text-[11px] font-bold text-cyan-200 hover:bg-cyan-500/20 transition-all"
+              >
+                <Footprints className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Walk in 3D</span>
+              </button>
+            )}
+
+            {/* Layers: 3D buildings and the Radar overlays */}
             <div className="relative">
               <button
-                onClick={() => setShowEnvironmentMenu((prev) => !prev)}
-                title="Atmosphere, Lighting & 3D Settings"
-                className={`flex items-center gap-1 p-2 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl transition-all ${
-                  showEnvironmentMenu ? 'bg-white/20 text-white border-white/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                onClick={() => setShowLayerMenu((prev) => !prev)}
+                title="Map layers and Radar overlays"
+                className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
+                  showLayerMenu ? 'bg-white/20 text-white border-white/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-amber-400" />
+                <Layers className="w-3.5 h-3.5 text-amber-400" />
+                <span>Layers</span>
               </button>
 
-              {showEnvironmentMenu && (
-                <div className="absolute top-full left-0 mt-2 p-2.5 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 min-w-[200px] z-30 animate-fade-in bg-[#0A0E17]/95">
-                  <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider flex items-center justify-between">
-                    <span>Atmosphere Lighting</span>
-                    <span className="text-cyan-400 capitalize">{currentLightPreset}</span>
+              {showLayerMenu && (
+                <div className="absolute top-full left-0 mt-2 p-3 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 w-64 z-30 animate-fade-in bg-[#0A0E17]/95 text-xs">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1 border-b border-white/10">
+                    Map
                   </div>
 
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { id: 'night', label: 'Night', icon: Moon, color: 'text-cyan-400' },
-                        { id: 'dusk', label: 'Dusk', icon: Sunset, color: 'text-amber-400' },
-                        { id: 'dawn', label: 'Dawn', icon: Sunrise, color: 'text-rose-400' },
-                        { id: 'day', label: 'Day', icon: Sun, color: 'text-yellow-300' }
-                      ] as const
-                    ).map((preset) => {
-                      const isActive = currentLightPreset === preset.id;
-                      const Icon = preset.icon;
+                  <button
+                    onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      is3dBuildingsEnabled
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>3D Buildings</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                      is3dBuildingsEnabled ? 'bg-white/15 text-white' : 'bg-white/10 text-slate-400'
+                    }`}>
+                      {is3dBuildingsEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
 
-                      return (
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-1 pb-1 border-b border-white/10 flex items-center justify-between">
+                    <span>Radar</span>
+                    <Radar className="w-3 h-3 text-rose-400" />
+                  </div>
+
+                  <button
+                    onClick={() => setRadarLayers((l) => ({ ...l, heatmap: !l.heatmap }))}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      radarLayers.heatmap
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Density Heatmap</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                      radarLayers.heatmap ? 'bg-white/15 text-white' : 'bg-white/10 text-slate-400'
+                    }`}>
+                      {radarLayers.heatmap ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setRadarLayers((l) => ({ ...l, radius: !l.radius }))}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      radarLayers.radius
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Radius Circle</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                      radarLayers.radius ? 'bg-white/15 text-white' : 'bg-white/10 text-slate-400'
+                    }`}>
+                      {radarLayers.radius ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setRadarLayers((l) => ({ ...l, zones: !l.zones }))}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      radarLayers.zones
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Flame className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Zone Badges</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                      radarLayers.zones ? 'bg-white/15 text-white' : 'bg-white/10 text-slate-400'
+                    }`}>
+                      {radarLayers.zones ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setRadarLayers((l) => ({ ...l, business: !l.business }))}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      radarLayers.business
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'text-slate-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Business Offers</span>
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
+                      radarLayers.business ? 'bg-white/15 text-white' : 'bg-white/10 text-slate-400'
+                    }`}>
+                      {radarLayers.business ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  <div className="pt-1">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1">
+                      Search radius
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {([1, 2, 5, 10, 25] as RadiusKm[]).map((r) => (
                         <button
-                          key={preset.id}
-                          onClick={() => {
-                            setCurrentLightPreset(preset.id);
-                            applyDynamicLighting(preset.id);
-                          }}
-                          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-[10px] font-bold transition-all ${
-                            isActive
-                              ? 'bg-white/15 text-white border border-white/30 shadow-sm'
-                              : 'text-slate-300 hover:text-white hover:bg-white/5'
+                          key={r}
+                          onClick={() => setRadiusKm(r)}
+                          className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                            radiusKm === r
+                              ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40'
+                              : 'text-slate-300 bg-white/5 hover:bg-white/10'
                           }`}
                         >
-                          <Icon className={`w-3.5 h-3.5 ${preset.color}`} />
-                          <span>{preset.label}</span>
+                          {r}km
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="border-t border-white/10 pt-2">
+                  {radarLayers.heatmap && (
+                    <div className="pt-2 border-t border-white/10 grid grid-cols-2 gap-1 text-[11px] text-slate-300">
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />Low activity</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />Moderate</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />Active</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />Hotspot</div>
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-white/10">
                     <button
-                      onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
-                        is3dBuildingsEnabled
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                          : 'text-slate-400 hover:bg-white/5'
-                      }`}
+                      onClick={() => {
+                        simulateIncomingMomentAlert();
+                        setShowLayerMenu(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[11px] font-bold border border-rose-500/30 transition-all"
                     >
-                      <span className="flex items-center gap-1.5">
-                        <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>3D Buildings</span>
-                      </span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
-                        is3dBuildingsEnabled ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/10 text-slate-400'
-                      }`}>
-                        {is3dBuildingsEnabled ? 'ON' : 'OFF'}
-                      </span>
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Simulate Local Alert</span>
                     </button>
                   </div>
                 </div>
@@ -1410,7 +1613,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         )}
 
         {/* Free-Roaming Walking Mode Controller HUD (Desktop & Mobile) */}
-        {hasToken && show3dControls && isMapLoaded && showWalkingControls && (
+        {show3dControls && isMapLoaded && showWalkingControls && (
           <div className="absolute bottom-6 left-4 z-20 pointer-events-auto">
             <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
               <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
@@ -1467,7 +1670,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         )}
 
         {/* Quick GPS Recenter Button */}
-        {hasToken && (
+        {(
           <div className="absolute bottom-6 right-4 z-20 flex flex-col gap-2">
             <button
               onClick={() => locateAndCenterUser(true)}
@@ -1499,4 +1702,4 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
   }
 );
 
-MapboxMap.displayName = 'MapboxMap';
+PulseMap.displayName = 'PulseMap';

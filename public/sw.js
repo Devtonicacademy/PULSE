@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'pulse-pwa-';
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
-const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-v2`;
-const RUNTIME_CACHE_MAX_ENTRIES = 200;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-v3`;
+const RUNTIME_CACHE_MAX_ENTRIES = 400;
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -12,9 +12,9 @@ const STATIC_ASSETS = [
   '/apple-touch-icon.png'
 ];
 
-// Hosts whose images/tiles are worth keeping for offline use. Mapbox is left out on
-// purpose: mapbox-gl manages its own tile cache and its URLs carry the access token.
-const RUNTIME_CACHE_HOSTS = ['basemaps.cartocdn.com', 'images.unsplash.com'];
+// Hosts whose images/tiles/glyphs are worth keeping for offline use (OpenFreeMap serves the
+// vector tiles and fonts for the map; its tile URLs are versioned, so cached copies stay valid).
+const RUNTIME_CACHE_HOSTS = ['tiles.openfreemap.org', 'images.unsplash.com'];
 
 // Install: Cache core application shell
 self.addEventListener('install', (event) => {
@@ -113,5 +113,5 @@ self.addEventListener('fetch', (event) => {
   } else if (RUNTIME_CACHE_HOSTS.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) {
     handleRuntimeAsset(event);
   }
-  // Everything else (Firebase, Mapbox APIs, ...) goes straight to the network
+  // Everything else (Firebase, ...) goes straight to the network
 });

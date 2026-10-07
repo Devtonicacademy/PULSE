@@ -1,4 +1,2 @@
-export { MapboxMap } from './MapboxMap';
-export type { MapboxMapProps, MapboxMapHandle, UserCoordinates, MapboxLightPreset } from './MapboxMap';
-export { LiveActivityMap } from './LiveActivityMap';
-export { HotspotBottomSheet } from './HotspotBottomSheet';
+export { PulseMap } from './PulseMap';
+export type { PulseMapProps, PulseMapHandle, UserCoordinates, MapLightPreset } from './PulseMap';

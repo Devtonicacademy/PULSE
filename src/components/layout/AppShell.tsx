@@ -1,7 +1,6 @@
 import React, { Suspense, lazy, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
-import { LiveActivityMap } from '../map/LiveActivityMap';
-import { MapboxMap } from '../map/MapboxMap';
+import { PulseMap } from '../map/PulseMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
@@ -34,19 +33,16 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 
-// Three.js only downloads when someone opens the Pulse 3D engine
+// Three.js only downloads when someone opens the Pulse 3D explore mode
 const Pulse3DMap = lazy(() => import('../map/Pulse3DMap'));
 
-type MapEngine = 'activity' | 'mapbox' | 'pulse3d';
+// 'map' is the MapLibre map; 'pulse3d' is the walkable Three.js city
+type MapEngine = 'map' | 'pulse3d';
 
-const MAP_ENGINE_ORDER: MapEngine[] = ['activity', 'mapbox', 'pulse3d'];
 const MAP_ENGINE_LABELS: Record<MapEngine, { short: string; long: string }> = {
-  activity: { short: 'Radar', long: 'MapLibre 2D Radar' },
-  mapbox: { short: 'Mapbox 3D', long: 'Mapbox Standard 3D' },
-  pulse3d: { short: 'Pulse 3D', long: 'Pulse 3D (OpenStreetMap)' }
+  map: { short: 'Map', long: 'Pulse Map (OpenStreetMap)' },
+  pulse3d: { short: 'Walk in 3D', long: 'Pulse 3D (explore and walk)' }
 };
-const nextMapEngine = (engine: MapEngine) =>
-  MAP_ENGINE_ORDER[(MAP_ENGINE_ORDER.indexOf(engine) + 1) % MAP_ENGINE_ORDER.length];
 
 export const AppShell: React.FC = () => {
   const {
@@ -83,7 +79,7 @@ export const AppShell: React.FC = () => {
   const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
-  const [mapEngine, setMapEngine] = useState<MapEngine>('mapbox');
+  const [mapEngine, setMapEngine] = useState<MapEngine>('map');
   const [navigationDestination, setNavigationDestination] = useState<{
     latitude: number;
     longitude: number;
@@ -109,10 +105,9 @@ export const AppShell: React.FC = () => {
     { name: 'University of Lagos (Akoka)', latitude: 6.5168, longitude: 3.3976 }
   ];
 
-  // Navigation needs a 3D engine; stay on the current one unless we're on the 2D radar
+  // Navigation runs on whichever map is open; it opens on the map tab
   const startNavigation = (destination: NonNullable<typeof navigationDestination>) => {
     setNavigationDestination(destination);
-    setMapEngine((engine) => (engine === 'activity' ? 'mapbox' : engine));
     setActiveTab('map');
   };
 
@@ -120,15 +115,6 @@ export const AppShell: React.FC = () => {
   const renderActiveScreen = () => {
     switch (activeTab) {
       case 'map':
-        if (mapEngine === 'activity') {
-          return (
-            <LiveActivityMap
-              onOpenComments={(id) => setActiveCommentMomentId(id)}
-              onOpenReport={(id) => setActiveReportMomentId(id)}
-              onStartNavigation={startNavigation}
-            />
-          );
-        }
         {
           const mapProps = {
             defaultCenter: [currentLocation.longitude, currentLocation.latitude] as [number, number],
@@ -136,10 +122,7 @@ export const AppShell: React.FC = () => {
             pitch: 72,
             bearing: 0,
             initialCameraMode: 'fpv' as const,
-            mapStyle: 'mapbox://styles/mapbox/standard',
-            lightPreset: 'night' as const,
             enable3dBuildings: true,
-            enableDynamicLighting: true,
             autoGeolocate: true,
             showUserMarker: true,
             showNavigationControl: true,
@@ -163,15 +146,31 @@ export const AppShell: React.FC = () => {
               <Suspense
                 fallback={
                   <div className="h-full flex items-center justify-center text-xs text-cyan-300 bg-[#05070d]">
-                    Loading Pulse 3D engine…
+                    Loading Pulse 3D…
                   </div>
                 }
               >
-                <Pulse3DMap {...mapProps}>{sheet}</Pulse3DMap>
+                <div className="relative h-full">
+                  <Pulse3DMap {...mapProps} lightPreset="night" enableDynamicLighting>
+                    {sheet}
+                  </Pulse3DMap>
+                  <button
+                    onClick={() => setMapEngine('map')}
+                    className="absolute bottom-24 right-4 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10"
+                    title="Back to the map"
+                  >
+                    <MapIcon className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Back to map</span>
+                  </button>
+                </div>
               </Suspense>
             );
           }
-          return <MapboxMap {...mapProps}>{sheet}</MapboxMap>;
+          return (
+            <PulseMap {...mapProps} onWalkIn3D={() => setMapEngine('pulse3d')}>
+              {sheet}
+            </PulseMap>
+          );
         }
       case 'discover':
         return (
@@ -561,16 +560,16 @@ export const AppShell: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => setMapEngine(nextMapEngine(mapEngine))}
+                    onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
-                      mapEngine !== 'activity'
+                      mapEngine === 'pulse3d'
                         ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                     }`}
-                    title="Toggle Map Engine"
+                    title="Switch between the map and Pulse 3D"
                   >
                     <Layers className="w-3 h-3 text-cyan-400" />
-                    <span>{MAP_ENGINE_LABELS[mapEngine].short}</span>
+                    <span>{mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}</span>
                   </button>
                 </div>
 
@@ -819,17 +818,17 @@ export const AppShell: React.FC = () => {
             <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
               <div>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map Engine
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map View
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
                   {MAP_ENGINE_LABELS[mapEngine].long}
                 </div>
               </div>
               <button
-                onClick={() => setMapEngine(nextMapEngine)}
+                onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
                 className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold"
               >
-                {MAP_ENGINE_LABELS[mapEngine].short}
+                {mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}
               </button>
             </div>
 
