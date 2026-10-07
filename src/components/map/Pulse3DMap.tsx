@@ -7,6 +7,7 @@ import { PulseScene, LightPreset } from './pulse3d/PulseScene';
 import { CameraRig, CameraMode, MODE_FRAMING } from './pulse3d/CameraRig';
 import { UserAvatar } from './pulse3d/UserAvatar';
 import { MapHud, WalkDirection } from './pulse3d/MapHud';
+import { MomentLayer } from './pulse3d/MomentLayer';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat } from '../../utils/mapProjection';
 import {
@@ -34,6 +35,7 @@ const STEP_FORWARD_METERS = 12;
 const STEP_BACKWARD_METERS = -8;
 const TURN_DEGREES = 15;
 const FOCUS_UPDATE_METERS = 25;
+const MOMENT_CARD_RANGE = 1500;
 
 const normalizeHeading = (deg: number) => ((deg % 360) + 360) % 360;
 
@@ -51,6 +53,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   autoGeolocate = true,
   showUserMarker = true,
   show3dControls = true,
+  moments = [],
+  onSelectMoment,
   navigationDestination = null,
   onClearNavigation,
   onLocationFound,
@@ -63,6 +67,9 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const sceneRef = useRef<PulseScene | null>(null);
   const rigRef = useRef<CameraRig | null>(null);
   const avatarRef = useRef<UserAvatar | null>(null);
+  const momentLayerRef = useRef<MomentLayer | null>(null);
+  const onSelectMomentRef = useRef(onSelectMoment);
+  onSelectMomentRef.current = onSelectMoment;
   const routeLineRef = useRef<THREE.Line | null>(null);
   const simAnimationRef = useRef<number | null>(null);
   const lastProgressUpdateRef = useRef(0);
@@ -324,12 +331,23 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     pulseScene.scene.add(avatar.group);
     avatarRef.current = avatar;
 
+    // Clicking a card selects the latest copy and flies to it at street level (like MapboxMap)
+    const momentLayer = new MomentLayer((moment) => {
+      onSelectMomentRef.current?.(moment);
+      const [mx, my] = lngLatToMeters(moment.longitude, moment.latitude);
+      void rig.flyTo({ x: mx, y: my, ...MODE_FRAMING.fpv }, 1200);
+    });
+    pulseScene.scene.add(momentLayer.group);
+    momentLayerRef.current = momentLayer;
+
     let lastFocus = { x: Infinity, y: Infinity, distance: 0 };
     let frame = 0;
     let lastHasData = true;
     const stopFrame = pulseScene.onFrame((_dt, elapsed) => {
       rig.update();
       avatar.update(elapsed, rig.pose.distance);
+      // Street level: cards within 1.5 km (no horizon clutter); zoomed out: the whole radius
+      momentLayer.updateVisibility(pulseScene.camera, Math.max(MOMENT_CARD_RANGE, rig.pose.distance * 2.6));
       const { x: fx, y: fy, distance } = rig.pose;
       pulseScene.setViewDistance(distance);
       if (Math.hypot(fx - lastFocus.x, fy - lastFocus.y) > FOCUS_UPDATE_METERS || Math.abs(distance - lastFocus.distance) > lastFocus.distance * 0.1) {
@@ -387,7 +405,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
     if (import.meta.env.DEV) {
       Object.assign(container, {
-        __pulse3d: { scene: pulseScene, rig, avatar, user, walkStep, applyCameraMode, teleportTo }
+        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo }
       });
     }
 
@@ -399,11 +417,13 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       stopFrame();
       clearRouteLine();
       rig.dispose();
+      momentLayer.dispose();
       avatar.dispose();
       pulseScene.dispose();
       sceneRef.current = null;
       rigRef.current = null;
       avatarRef.current = null;
+      momentLayerRef.current = null;
     };
     // The scene is built once; props that change later are applied by the effects below
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -418,6 +438,10 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     moveUser(x, y);
     applyCameraMode(cameraModeRef.current, { x, y });
   }, [centerLng, centerLat, applyCameraMode, moveUser]);
+
+  useEffect(() => {
+    momentLayerRef.current?.sync(moments);
+  }, [moments]);
 
   useEffect(() => {
     sceneRef.current?.setLightPreset(lightPreset);

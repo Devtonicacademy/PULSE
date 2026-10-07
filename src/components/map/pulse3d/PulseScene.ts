@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { createPulseMaterials, PulseMaterials } from './materials';
 import { TileManager } from './TileManager';
 
@@ -40,6 +41,8 @@ export class PulseScene {
   readonly camera: THREE.PerspectiveCamera;
   readonly materials: PulseMaterials;
   readonly tiles: TileManager;
+  /** HTML labels (moment cards) composited over the WebGL canvas */
+  readonly labelRenderer = new CSS2DRenderer();
 
   private composer: EffectComposer;
   private bloomPass: UnrealBloomPass | null = null;
@@ -69,6 +72,15 @@ export class PulseScene {
     this.renderer.domElement.className = 'pulse3d-canvas';
     this.renderer.domElement.style.display = 'block';
     container.appendChild(this.renderer.domElement);
+
+    this.labelRenderer.setSize(width, height);
+    Object.assign(this.labelRenderer.domElement.style, {
+      position: 'absolute',
+      inset: '0',
+      pointerEvents: 'none', // cards opt back in; drags fall through to the canvas
+      overflow: 'hidden'
+    });
+    container.appendChild(this.labelRenderer.domElement);
 
     this.scene.background = new THREE.Color(NIGHT_SKY);
     this.scene.fog = new THREE.FogExp2(NIGHT_SKY, FOG_DENSITY);
@@ -151,6 +163,7 @@ export class PulseScene {
       this.tiles.tick();
       this.renderer.info.reset();
       this.composer.render(delta);
+      this.labelRenderer.render(this.scene, this.camera);
       this.sampleFps();
     };
     loop();
@@ -167,6 +180,7 @@ export class PulseScene {
     this.composer.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
+    this.labelRenderer.domElement.remove();
   }
 
   private resize() {
@@ -177,6 +191,7 @@ export class PulseScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.composer.setSize(width, height);
+    this.labelRenderer.setSize(width, height);
   }
 
   private sampleFps() {

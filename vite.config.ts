@@ -15,7 +15,8 @@ export default defineConfig({
       'three/examples/jsm/postprocessing/EffectComposer.js',
       'three/examples/jsm/postprocessing/RenderPass.js',
       'three/examples/jsm/postprocessing/UnrealBloomPass.js',
-      'three/examples/jsm/postprocessing/OutputPass.js'
+      'three/examples/jsm/postprocessing/OutputPass.js',
+      'three/examples/jsm/renderers/CSS2DRenderer.js'
     ]
   }
 });
