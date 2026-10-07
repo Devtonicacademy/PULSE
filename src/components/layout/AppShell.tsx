@@ -46,6 +46,7 @@ export const AppShell: React.FC = () => {
     isBusinessMode,
     setIsBusinessMode,
     setSelectedMoment,
+    moments,
     activeToast,
     dismissToast,
     userProfile,
@@ -77,6 +78,14 @@ export const AppShell: React.FC = () => {
   } | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  // The moment detail sheet lives on the map tab, so opening a moment always lands there
+  const openMomentOnMap = (momentId: string) => {
+    const moment =
+      filteredMoments.find((m) => m.id === momentId) ?? moments.find((m) => m.id === momentId);
+    if (moment) setSelectedMoment(moment);
+    setActiveTab('map');
+  };
 
   const PRESET_LOCATIONS = [
     { name: 'Victoria Island, Lagos', latitude: 6.4281, longitude: 3.4219 },
@@ -139,6 +148,7 @@ export const AppShell: React.FC = () => {
             onOpenComments={(id) => setActiveCommentMomentId(id)}
             onOpenReport={(id) => setActiveReportMomentId(id)}
             onSelectCommunity={(id) => setActiveCommunityId(id)}
+            onOpenMoment={openMomentOnMap}
             onNavigateMoment={(moment) => {
               setNavigationDestination(moment);
               setMapEngine('mapbox');
@@ -148,14 +158,7 @@ export const AppShell: React.FC = () => {
         );
       case 'notifications':
         return (
-          <NotificationsDrawer
-            onSelectMoment={(id) => {
-              const found = notifications.find((n) => n.momentId === id);
-              if (found?.momentId) {
-                setActiveTab('map');
-              }
-            }}
-          />
+          <NotificationsDrawer onSelectMoment={openMomentOnMap} />
         );
       case 'profile':
         return isBusinessMode ? <BusinessDashboard /> : <GamificationProfile />;
@@ -721,7 +724,7 @@ export const AppShell: React.FC = () => {
             <div
               onClick={() => {
                 if (activeToast.momentId) {
-                  setActiveTab('map');
+                  openMomentOnMap(activeToast.momentId);
                 }
                 dismissToast();
               }}

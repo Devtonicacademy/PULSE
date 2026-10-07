@@ -28,6 +28,7 @@ interface DiscoverFeedProps {
   onOpenReport: (momentId: string) => void;
   onSelectCommunity: (communityId: string) => void;
   onNavigateMoment?: (moment: Moment) => void;
+  onOpenMoment: (momentId: string) => void;
 }
 
 const CATEGORIES: { id: FeedCategoryFilter; label: string; icon: string; isSpecial?: boolean }[] = [
@@ -47,7 +48,8 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
   onOpenComments,
   onOpenReport,
   onSelectCommunity,
-  onNavigateMoment
+  onNavigateMoment,
+  onOpenMoment
 }) => {
   const {
     currentLocation,
@@ -59,7 +61,6 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
     setSearchQuery,
     filteredMoments,
     temporaryCommunities,
-    setSelectedMoment,
     toggleReaction,
     currentPulseScore,
     currentZoneName
@@ -367,7 +368,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                   {/* Photo (if present) */}
                   {moment.photoUrl && (
                     <div
-                      onClick={() => setSelectedMoment(moment)}
+                      onClick={() => onOpenMoment(moment.id)}
                       className="relative h-44 w-full cursor-pointer overflow-hidden bg-slate-950"
                     >
                       <img
@@ -462,7 +463,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
                     {/* Title & Description */}
                     <h3
-                      onClick={() => setSelectedMoment(moment)}
+                      onClick={() => onOpenMoment(moment.id)}
                       className="text-sm sm:text-base font-bold text-white mb-1.5 cursor-pointer hover:text-rose-400 transition-colors"
                     >
                       {moment.title}
