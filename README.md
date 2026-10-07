@@ -16,7 +16,6 @@
 [![Firebase](https://img.shields.io/badge/Firebase-quizapp--project--c5e0e-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Mapbox GL](https://img.shields.io/badge/Mapbox_GL-Standard_3D-4264FB?logo=mapbox&logoColor=white)](https://mapbox.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-5.2-243B55?logo=maplibre&logoColor=white)](https://maplibre.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
 🌐 **Live Production App**: [https://pulse-production-2015.up.railway.app](https://pulse-production-2015.up.railway.app)
 
@@ -203,17 +202,16 @@ PULSE is a **fully installable Progressive Web App** configured for both mobile 
           │                                                                                           │
           └─────────────────────────────────────────────┬─────────────────────────────────────────────┘
                                                         │
-                        ┌───────────────────────────────┴───────────────────────────────┐
-                        ▼                                                               ▼
-          ┌───────────────────────────┐                                   ┌───────────────────────────┐
-          │    Firebase Cloud Sync    │                                   │     Supabase Backend      │
-          │  Auth + Firestore NoSQL   │                                   │   PostgreSQL + PostGIS    │
-          ├───────────────────────────┤                                   ├───────────────────────────┤
-          │• Email / Google / Guest   │                                   │• ST_DWithin Radius Query  │
-          │• Realtime moments sync    │                                   │• Spatial Point Indexing   │
-          │• Realtime comments sync   │                                   │• Realtime Channels        │
-          │• Security Rules enforced  │                                   │• Row Level Security (RLS) │
-          └───────────────────────────┘                                   └───────────────────────────┘
+                                                        ▼
+                                          ┌───────────────────────────┐
+                                          │    Firebase Cloud Sync    │
+                                          │  Auth + Firestore NoSQL   │
+                                          ├───────────────────────────┤
+                                          │• Email / Google / Guest   │
+                                          │• Realtime moments sync    │
+                                          │• Realtime comments sync   │
+                                          │• Security Rules enforced  │
+                                          └───────────────────────────┘
 ```
 
 ---
@@ -249,14 +247,10 @@ VITE_FIREBASE_STORAGE_BUCKET=quizapp-project-c5e0e.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=489428029645
 VITE_FIREBASE_APP_ID=1:489428029645:web:8991f28257e3a2f83bd984
 VITE_FIREBASE_MEASUREMENT_ID=G-QWLVXQ9DBX
-
-# Supabase Configuration (Optional - falls back to offline reactive demo mode if omitted)
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
 > [!NOTE]
-> Pulse is **zero-setup ready**: if you don't provide Mapbox, Firebase, or Supabase keys, it automatically runs in interactive offline demo mode with rich pre-seeded data!
+> Pulse is **zero-setup ready**: if you don't provide Mapbox or Firebase keys, it automatically runs in interactive offline demo mode with rich pre-seeded data!
 
 ### 3. Start Development Server
 ```bash
@@ -328,8 +322,7 @@ PULSE/
 │   │   ├── firebaseAuthService.ts          # Firebase Authentication & session sync
 │   │   ├── firebaseClient.ts               # Firebase App & Firestore initialization
 │   │   ├── firebaseSyncService.ts          # Firestore real-time moments & reactions sync
-│   │   ├── mockData.ts                     # Pre-seeded hyper-local hubs
-│   │   └── supabaseClient.ts               # Supabase client connector
+│   │   └── mockData.ts                     # Pre-seeded hyper-local hubs
 │   ├── types/
 │   │   └── pulse.ts                        # TypeScript domain definitions
 │   ├── utils/
@@ -341,9 +334,6 @@ PULSE/
 ├── .firebaserc                             # Firebase project alias (quizapp-project-c5e0e)
 ├── firebase.json                           # Firebase hosting and Firestore config
 ├── firestore.rules                         # Security rules for moments, comments, users
-├── supabase/
-│   └── migrations/
-│       └── 20261006_init_pulse_schema.sql  # PostGIS schema migration
 ├── .env                                    # Environment variables
 ├── .env.example                            # Example environment variables template
 ├── index.html                              # HTML template with PWA meta tags

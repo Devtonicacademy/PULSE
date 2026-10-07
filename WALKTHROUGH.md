@@ -84,9 +84,6 @@ PULSE is now a complete **Progressive Web App (PWA)** that automatically prompts
 11. **Real-Time Proximity Alerts (Feature 14)**:
     - Real-time in-app toast banners and notification center.
 
-12. **Supabase PostgreSQL + PostGIS Backend Migration**:
-    - Complete DDL migration script at [`20261006_init_pulse_schema.sql`](file:///c:/Users/ADMIN/Desktop/PROJECTS/PULSE/supabase/migrations/20261006_init_pulse_schema.sql).
-
 ---
 
 ## 🧪 Verification & Build Status

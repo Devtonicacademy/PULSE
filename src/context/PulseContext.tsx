@@ -25,7 +25,6 @@ import {
   INITIAL_COMMENTS
 } from '../services/mockData';
 import { calculateDistanceKm, isWithinRadius, applyPrivacyBlur, getApproximateAreaName } from '../utils/geoUtils';
-import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
 import { isFirebaseConfigured } from '../services/firebaseClient';
 import {
   subscribeToFirebaseMoments,
@@ -213,89 +212,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // 4. Real-Time WebSocket Subscription via Supabase Client
-  useEffect(() => {
-    const client = supabase;
-    if (!client || !isSupabaseConfigured) {
-      console.log('[PULSE Realtime] Supabase keys omitted; running in zero-setup reactive offline demo mode.');
-      return;
-    }
-
-    console.log('[PULSE Realtime] Subscribing to live Supabase WebSocket channel: public:moments');
-    const channel = client
-      .channel('pulse-realtime-moments')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'moments' },
-        (payload) => {
-          console.log('[PULSE Realtime] Live WebSocket payload received:', payload.new);
-          const record = payload.new as any;
-          const newMoment: Moment = {
-            id: record.id || `moment-rt-${Date.now()}`,
-            userId: record.user_id || 'remote-user',
-            userName: record.username || 'Nearby_Pulse_Scout',
-            userAvatar:
-              record.avatar ||
-              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-            userReputation: 88,
-            title: record.title,
-            description: record.description,
-            category: record.category || 'events',
-            latitude: Number(record.latitude),
-            longitude: Number(record.longitude),
-            photoUrl: record.photo_url || undefined,
-            createdAt: record.created_at || new Date().toISOString(),
-            expiresAt: record.expires_at || new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-            engagementScore: record.engagement_score || 60,
-            viewsCount: record.views_count || 1,
-            isArchived: false,
-            isBlurred: record.is_blurred || false,
-            approxAddress:
-              record.approx_address ||
-              `${getApproximateAreaName(record.latitude, record.longitude)} (Live Radar)`,
-            reactions: { helpful: 1, trending: 1, confirmed: 0, interested: 0, going: 0 },
-            commentCount: 0
-          };
-
-          setMoments((prev) => {
-            if (prev.some((m) => m.id === newMoment.id)) return prev;
-            return [newMoment, ...prev];
-          });
-
-          // Proximity calculation and alert
-          const dist = calculateDistanceKm(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            newMoment.latitude,
-            newMoment.longitude
-          );
-
-          if (dist <= radiusKm) {
-            const alertNotif: NotificationItem = {
-              id: `rt-${Date.now()}`,
-              type: newMoment.category === 'alerts' ? 'alert' : 'event',
-              title: `⚡ Live Broadcast (${dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km'})`,
-              message: `${newMoment.title}: ${newMoment.description.slice(0, 90)}...`,
-              momentId: newMoment.id,
-              distanceKm: dist,
-              createdAt: new Date().toISOString(),
-              isRead: false
-            };
-            setNotifications((prev) => [alertNotif, ...prev]);
-            setActiveToast(alertNotif);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log(`[PULSE Realtime] WebSocket connection status: ${status}`);
-      });
-
-    return () => {
-      client.removeChannel(channel);
-    };
-  }, [currentLocation, radiusKm]);
-
-  // 4b. Real-Time Sync via Firebase Firestore (Project: quizapp-project-c5e0e)
+  // 4. Real-Time Sync via Firebase Firestore (Project: quizapp-project-c5e0e)
   useEffect(() => {
     if (!isFirebaseConfigured) {
       console.log('[PULSE Firebase] Firestore credentials omitted or uninitialized; running with reactive local / demo mode.');
@@ -537,28 +454,6 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setMoments((prev) => [newMoment, ...prev]);
-
-    // Broadcast to Supabase Realtime channel if configured
-    if (supabase && isSupabaseConfigured) {
-      supabase
-        .from('moments')
-        .insert({
-          id: newMoment.id,
-          user_id: newMoment.userId,
-          title: newMoment.title,
-          description: newMoment.description,
-          category: newMoment.category,
-          latitude: newMoment.latitude,
-          longitude: newMoment.longitude,
-          photo_url: newMoment.photoUrl,
-          expires_at: newMoment.expiresAt,
-          is_blurred: newMoment.isBlurred,
-          approx_address: newMoment.approxAddress
-        })
-        .then(({ error }) => {
-          if (error) console.warn('[PULSE Supabase Realtime] Broadcast error:', error.message);
-        });
-    }
 
     // Save to Firebase Firestore if configured (quizapp-project-c5e0e)
     if (isFirebaseConfigured) {
