@@ -131,6 +131,12 @@ export const MapHud: React.FC<MapHudProps> = ({
               </div>
             </div>
 
+            {route.routeSource === 'estimate' && (
+              <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px]">
+                Approximate route: this trip leaves the streets we have map data for.
+              </div>
+            )}
+
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs font-semibold">
               <Footprints className="w-4 h-4 text-cyan-400 shrink-0 animate-bounce" />
               <span className="truncate">

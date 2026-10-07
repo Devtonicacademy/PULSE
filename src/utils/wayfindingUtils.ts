@@ -19,6 +19,8 @@ export interface NavigationRoute {
   destinationCategory?: string;
   geojsonFeature: GeoJSON.Feature<GeoJSON.LineString>;
   pathCoordinates: [number, number][]; // Full interpolated path for 60fps smooth simulation
+  /** 'streets' = routed over the OSM street network; 'estimate' = straight-line approximation */
+  routeSource?: 'streets' | 'estimate';
 }
 
 /**
@@ -138,7 +140,8 @@ export function generateStreetNavigationRoute(
           coordinates: [start, destination]
         }
       },
-      pathCoordinates: [start, destination]
+      pathCoordinates: [start, destination],
+      routeSource: 'estimate'
     };
   }
 
@@ -257,7 +260,8 @@ export function generateStreetNavigationRoute(
     destinationTitle,
     destinationCategory,
     geojsonFeature,
-    pathCoordinates
+    pathCoordinates,
+    routeSource: 'estimate'
   };
 }
 
@@ -280,12 +284,21 @@ export function getPositionAlongRoute(
     return { coordinates: coords[0], bearing: 0, currentWaypointIndex: 0 };
   }
 
-  const clampedProgress = Math.max(0, Math.min(1, progress));
-  const totalSegments = coords.length - 1;
-  const floatIndex = clampedProgress * totalSegments;
-  const baseIndex = Math.min(totalSegments - 1, Math.floor(floatIndex));
-  const nextIndex = Math.min(totalSegments, baseIndex + 1);
-  const localRatio = floatIndex - baseIndex;
+  // Progress is a share of the route's length, so the walk keeps a steady pace even
+  // where path points are unevenly spaced (real street geometry)
+  const cosLat = Math.cos(toRad(coords[0][1]));
+  const segmentLengths = coords.slice(1).map((pt, i) =>
+    Math.hypot((pt[0] - coords[i][0]) * cosLat, pt[1] - coords[i][1])
+  );
+  const totalLength = segmentLengths.reduce((sum, len) => sum + len, 0);
+  let remaining = Math.max(0, Math.min(1, progress)) * totalLength;
+  let baseIndex = 0;
+  while (baseIndex < segmentLengths.length - 1 && remaining > segmentLengths[baseIndex]) {
+    remaining -= segmentLengths[baseIndex];
+    baseIndex++;
+  }
+  const nextIndex = baseIndex + 1;
+  const localRatio = segmentLengths[baseIndex] > 0 ? Math.min(1, remaining / segmentLengths[baseIndex]) : 1;
 
   const currentPt = coords[baseIndex];
   const nextPt = coords[nextIndex];

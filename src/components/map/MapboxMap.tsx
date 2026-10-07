@@ -41,8 +41,8 @@ import {
   Gamepad2
 } from 'lucide-react';
 import { Moment } from '../../types/pulse';
+import { findWalkingRoute } from '../../utils/walkingRouter';
 import {
-  generateStreetNavigationRoute,
   getPositionAlongRoute,
   NavigationRoute,
   WaypointCue
@@ -212,6 +212,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
     const simAnimationRef = useRef<number | null>(null);
     const lastProgressUpdateRef = useRef<number>(0);
     const activeRouteRef = useRef<NavigationRoute | null>(null);
+    const routeRequestRef = useRef(0);
 
     const [isLocating, setIsLocating] = useState<boolean>(false);
     const [userCoords, setUserCoords] = useState<UserCoordinates>({
@@ -584,20 +585,19 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
         const startPoint: [number, number] = [userCoordsRef.current.longitude, userCoordsRef.current.latitude];
         const destPoint: [number, number] = [destination.longitude, destination.latitude];
 
-        const route = generateStreetNavigationRoute(
-          startPoint,
-          destPoint,
-          destination.title,
-          destination.category
-        );
+        const request = ++routeRequestRef.current;
 
-        setActiveRoute(route);
-        renderStreetWayfindingCues(route);
+        void findWalkingRoute(startPoint, destPoint, destination.title, destination.category).then((route) => {
+          // Ignore results for a destination that was replaced or cancelled meanwhile
+          if (request !== routeRequestRef.current || !mapRef.current) return;
+          setActiveRoute(route);
+          renderStreetWayfindingCues(route);
 
-        const initialBearing = route.waypoints[0]?.bearing || 0;
-        setUserBearing(initialBearing);
-        userBearingRef.current = initialBearing;
-        applyCameraMode('fpv', startPoint, initialBearing);
+          const initialBearing = route.waypoints[0]?.bearing || 0;
+          setUserBearing(initialBearing);
+          userBearingRef.current = initialBearing;
+          applyCameraMode('fpv', startPoint, initialBearing);
+        });
       },
       [applyCameraMode, renderStreetWayfindingCues]
     );
@@ -606,6 +606,7 @@ export const MapboxMap = forwardRef<MapboxMapHandle, MapboxMapProps>(
      * Stops active navigation
      */
     const stopNavigation = useCallback(() => {
+      routeRequestRef.current++;
       clearWayfindingMarkers();
       setActiveRoute(null);
       onClearNavigation?.();

@@ -8,13 +8,11 @@ import { CameraRig, CameraMode, MODE_FRAMING } from './pulse3d/CameraRig';
 import { UserAvatar } from './pulse3d/UserAvatar';
 import { MapHud, WalkDirection } from './pulse3d/MapHud';
 import { MomentLayer } from './pulse3d/MomentLayer';
+import { RouteLayer } from './pulse3d/RouteLayer';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat } from '../../utils/mapProjection';
-import {
-  generateStreetNavigationRoute,
-  getPositionAlongRoute,
-  NavigationRoute
-} from '../../utils/wayfindingUtils';
+import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
+import { findWalkingRoute } from '../../utils/walkingRouter';
 
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
@@ -70,7 +68,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const momentLayerRef = useRef<MomentLayer | null>(null);
   const onSelectMomentRef = useRef(onSelectMoment);
   onSelectMomentRef.current = onSelectMoment;
-  const routeLineRef = useRef<THREE.Line | null>(null);
+  const routeLayerRef = useRef<RouteLayer | null>(null);
+  const routeRequestRef = useRef(0);
   const simAnimationRef = useRef<number | null>(null);
   const lastProgressUpdateRef = useRef(0);
   const noticeTimeoutRef = useRef<number | null>(null);
@@ -198,47 +197,28 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     [applyCameraMode, moveUser, onLocationFound, onLocationError]
   );
 
-  const clearRouteLine = useCallback(() => {
-    const line = routeLineRef.current;
-    if (!line) return;
-    line.geometry.dispose();
-    (line.material as THREE.Material).dispose();
-    line.removeFromParent();
-    routeLineRef.current = null;
-  }, []);
-
   const startNavigation = useCallback(
-    (destination: { latitude: number; longitude: number; title: string; category?: string }) => {
-      const scene = sceneRef.current;
-      if (!scene) return;
+    async (destination: { latitude: number; longitude: number; title: string; category?: string }) => {
+      const request = ++routeRequestRef.current;
       const start = metersToLngLat(user.current.x, user.current.y);
-      const route = generateStreetNavigationRoute(
+      const route = await findWalkingRoute(
         start,
         [destination.longitude, destination.latitude],
         destination.title,
         destination.category
       );
+      // Ignore results for a destination that was replaced or cancelled meanwhile
+      if (request !== routeRequestRef.current || !sceneRef.current) return;
+
       activeRouteRef.current = route;
       setActiveRoute(route);
-
-      clearRouteLine();
-      const points = route.pathCoordinates.map(([lng, lat]) => {
-        const [x, y] = lngLatToMeters(lng, lat);
-        return new THREE.Vector3(x, 1.5, -y);
-      });
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints(points),
-        new THREE.LineBasicMaterial({ color: 0x00f2fe })
-      );
-      line.name = 'route';
-      scene.scene.add(line);
-      routeLineRef.current = line;
+      routeLayerRef.current?.setRoute(route);
 
       const initialHeading = route.waypoints[0]?.bearing ?? user.current.heading;
       moveUser(user.current.x, user.current.y, initialHeading);
       applyCameraMode('fpv', undefined, initialHeading);
     },
-    [applyCameraMode, clearRouteLine, moveUser]
+    [applyCameraMode, moveUser]
   );
 
   const stopWalkSimulation = useCallback(() => {
@@ -248,13 +228,14 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   }, []);
 
   const stopNavigation = useCallback(() => {
+    routeRequestRef.current++;
     stopWalkSimulation();
-    clearRouteLine();
+    routeLayerRef.current?.setRoute(null);
     activeRouteRef.current = null;
     setActiveRoute(null);
     setSimulationProgress(0);
     onClearNavigation?.();
-  }, [clearRouteLine, onClearNavigation, stopWalkSimulation]);
+  }, [onClearNavigation, stopWalkSimulation]);
 
   /** Autopilot along the route at street level (same timing as MapboxMap) */
   const toggleWalkSimulation = useCallback(() => {
@@ -340,12 +321,17 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     pulseScene.scene.add(momentLayer.group);
     momentLayerRef.current = momentLayer;
 
+    const routeLayer = new RouteLayer();
+    pulseScene.scene.add(routeLayer.group);
+    routeLayerRef.current = routeLayer;
+
     let lastFocus = { x: Infinity, y: Infinity, distance: 0 };
     let frame = 0;
     let lastHasData = true;
     const stopFrame = pulseScene.onFrame((_dt, elapsed) => {
       rig.update();
       avatar.update(elapsed, rig.pose.distance);
+      routeLayer.update(elapsed, rig.pose.distance);
       // Street level: cards within 1.5 km (no horizon clutter); zoomed out: the whole radius
       momentLayer.updateVisibility(pulseScene.camera, Math.max(MOMENT_CARD_RANGE, rig.pose.distance * 2.6));
       const { x: fx, y: fy, distance } = rig.pose;
@@ -415,7 +401,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       if (simAnimationRef.current) cancelAnimationFrame(simAnimationRef.current);
       if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current);
       stopFrame();
-      clearRouteLine();
+      routeLayer.dispose();
       rig.dispose();
       momentLayer.dispose();
       avatar.dispose();
@@ -424,6 +410,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       rigRef.current = null;
       avatarRef.current = null;
       momentLayerRef.current = null;
+      routeLayerRef.current = null;
     };
     // The scene is built once; props that change later are applied by the effects below
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -452,7 +439,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   }, [buildingsVisible]);
 
   useEffect(() => {
-    if (navigationDestination && status === 'ready') startNavigation(navigationDestination);
+    if (navigationDestination && status === 'ready') void startNavigation(navigationDestination);
     // Re-run only when a new destination arrives
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigationDestination, status]);
@@ -485,7 +472,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       className={`relative w-full h-full min-h-[350px] overflow-hidden rounded-2xl bg-[#05070d] ${className}`}
       style={style}
     >
-      <div ref={containerRef} className="absolute inset-0" data-testid="pulse3d-container" />
+      {/* isolate: label z-indexes (depth sorting) must not compete with the HUD above */}
+      <div ref={containerRef} className="absolute inset-0 isolate" data-testid="pulse3d-container" />
 
       {status === 'loading' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
