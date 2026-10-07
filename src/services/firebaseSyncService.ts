@@ -17,6 +17,16 @@ const MOMENTS_COLLECTION = 'moments';
 const COMMENTS_COLLECTION = 'comments';
 
 /**
+ * Firestore rejects `undefined` field values, so drop those keys before writing
+ * (e.g. a top-level comment's parentId).
+ */
+export function withoutUndefined<T extends object>(data: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+}
+
+/**
  * Subscribes to real-time moment updates from Firestore
  */
 export function subscribeToFirebaseMoments(
@@ -90,8 +100,10 @@ export async function saveMomentToFirebase(moment: Moment): Promise<boolean> {
 
   try {
     const momentDocRef = doc(db, MOMENTS_COLLECTION, moment.id);
+    // userReaction and distanceKm are per-viewer, not shared state
+    const { userReaction: _userReaction, distanceKm: _distanceKm, ...shared } = moment;
     await setDoc(momentDocRef, {
-      ...moment,
+      ...withoutUndefined(shared),
       updatedAt: new Date().toISOString()
     });
     console.log('[PULSE Firebase] Moment saved to Firestore:', moment.id);
@@ -137,8 +149,10 @@ export async function saveCommentToFirebase(comment: Comment): Promise<boolean> 
 
   try {
     const commentDocRef = doc(db, COMMENTS_COLLECTION, comment.id);
+    // userLiked is per-viewer, not shared state
+    const { userLiked: _userLiked, ...shared } = comment;
     await setDoc(commentDocRef, {
-      ...comment,
+      ...withoutUndefined(shared),
       updatedAt: new Date().toISOString()
     });
 

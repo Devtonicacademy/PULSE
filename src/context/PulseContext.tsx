@@ -651,11 +651,20 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       points: prev.points + 2
     }));
 
-    // Sync to Firebase Firestore if configured
+    // Sync to Firebase Firestore if configured. Mirror the local transition exactly:
+    // switching reactions must also decrement the previous one.
     if (isFirebaseConfigured) {
-      const isCurrent = moments.find((m) => m.id === momentId)?.userReaction === reactionType;
-      updateFirebaseReaction(momentId, reactionType, isCurrent ? -1 : 1).catch((err) =>
-        console.warn('[PULSE Firebase] Error syncing reaction to Firestore:', err)
+      const previous = moments.find((m) => m.id === momentId)?.userReaction;
+      const deltas: [ReactionType, number][] =
+        previous === reactionType
+          ? [[reactionType, -1]]
+          : previous
+          ? [[previous, -1], [reactionType, 1]]
+          : [[reactionType, 1]];
+      deltas.forEach(([type, delta]) =>
+        updateFirebaseReaction(momentId, type, delta).catch((err) =>
+          console.warn('[PULSE Firebase] Error syncing reaction to Firestore:', err)
+        )
       );
     }
   };
