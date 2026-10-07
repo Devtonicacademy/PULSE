@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { LiveActivityMap } from '../map/LiveActivityMap';
 import { MapboxMap } from '../map/MapboxMap';
-import { Pulse3DMap } from '../map/Pulse3DMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
@@ -34,6 +33,9 @@ import {
   LogIn,
   SlidersHorizontal
 } from 'lucide-react';
+
+// Three.js only downloads when someone opens the Pulse 3D engine
+const Pulse3DMap = lazy(() => import('../map/Pulse3DMap'));
 
 type MapEngine = 'activity' | 'mapbox' | 'pulse3d';
 
@@ -128,36 +130,48 @@ export const AppShell: React.FC = () => {
           );
         }
         {
-          const MapEngineComponent = mapEngine === 'pulse3d' ? Pulse3DMap : MapboxMap;
-          return (
-            <MapEngineComponent
-              defaultCenter={[currentLocation.longitude, currentLocation.latitude]}
-              defaultZoom={18.2}
-              pitch={72}
-              bearing={0}
-              initialCameraMode="fpv"
-              mapStyle="mapbox://styles/mapbox/standard"
-              lightPreset="night"
-              enable3dBuildings={true}
-              enableDynamicLighting={true}
-              autoGeolocate={true}
-              showUserMarker={true}
-              showNavigationControl={true}
-              showGeolocateControl={true}
-              show3dControls={true}
-              moments={filteredMoments}
-              onSelectMoment={(moment) => setSelectedMoment(moment)}
-              navigationDestination={navigationDestination}
-              onClearNavigation={() => setNavigationDestination(null)}
-              className="h-full"
-            >
-              <HotspotBottomSheet
-                onOpenComments={(id) => setActiveCommentMomentId(id)}
-                onOpenReport={(id) => setActiveReportMomentId(id)}
-                onStartNavigation={startNavigation}
-              />
-            </MapEngineComponent>
+          const mapProps = {
+            defaultCenter: [currentLocation.longitude, currentLocation.latitude] as [number, number],
+            defaultZoom: 18.2,
+            pitch: 72,
+            bearing: 0,
+            initialCameraMode: 'fpv' as const,
+            mapStyle: 'mapbox://styles/mapbox/standard',
+            lightPreset: 'night' as const,
+            enable3dBuildings: true,
+            enableDynamicLighting: true,
+            autoGeolocate: true,
+            showUserMarker: true,
+            showNavigationControl: true,
+            showGeolocateControl: true,
+            show3dControls: true,
+            moments: filteredMoments,
+            onSelectMoment: setSelectedMoment,
+            navigationDestination,
+            onClearNavigation: () => setNavigationDestination(null),
+            className: 'h-full'
+          };
+          const sheet = (
+            <HotspotBottomSheet
+              onOpenComments={(id) => setActiveCommentMomentId(id)}
+              onOpenReport={(id) => setActiveReportMomentId(id)}
+              onStartNavigation={startNavigation}
+            />
           );
+          if (mapEngine === 'pulse3d') {
+            return (
+              <Suspense
+                fallback={
+                  <div className="h-full flex items-center justify-center text-xs text-cyan-300 bg-[#05070d]">
+                    Loading Pulse 3D engine…
+                  </div>
+                }
+              >
+                <Pulse3DMap {...mapProps}>{sheet}</Pulse3DMap>
+              </Suspense>
+            );
+          }
+          return <MapboxMap {...mapProps}>{sheet}</MapboxMap>;
         }
       case 'discover':
         return (

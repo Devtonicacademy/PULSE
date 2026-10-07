@@ -11,6 +11,8 @@ export interface PulseSceneOptions {
   /** Cap on devicePixelRatio (mobile performance) */
   maxPixelRatio?: number;
   bloom?: boolean;
+  maxTiles?: number;
+  maxLoadRadius?: number;
 }
 
 type FrameCallback = (deltaSeconds: number, elapsedSeconds: number) => void;
@@ -100,7 +102,10 @@ export class PulseScene {
     this.ground.name = 'ground-grid';
     this.scene.add(this.ground);
 
-    this.tiles = new TileManager(this.materials);
+    this.tiles = new TileManager(this.materials, {
+      maxLoadedTiles: options.maxTiles,
+      maxLoadRadiusMeters: options.maxLoadRadius
+    });
     this.scene.add(this.tiles.root);
 
     this.composer = new EffectComposer(this.renderer);
@@ -149,6 +154,17 @@ export class PulseScene {
 
   setBloomEnabled(enabled: boolean) {
     if (this.bloomPass) this.bloomPass.enabled = enabled;
+  }
+
+  get bloomEnabled() {
+    return Boolean(this.bloomPass?.enabled);
+  }
+
+  setPixelRatio(maxPixelRatio: number) {
+    const ratio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
+    this.renderer.setPixelRatio(ratio);
+    this.composer.setPixelRatio(ratio);
+    this.resize();
   }
 
   start() {

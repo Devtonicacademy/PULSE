@@ -11,6 +11,8 @@ export interface TileManagerOptions {
   unloadRadiusMeters?: number;
   /** Upper bound on tiles kept in the scene at once */
   maxLoadedTiles?: number;
+  /** Upper bound on the load radius when the camera is high up */
+  maxLoadRadiusMeters?: number;
 }
 
 /**
@@ -29,6 +31,7 @@ export class TileManager {
   private loadRadius: number;
   private unloadRadius: number;
   private readonly baseLoadRadius: number;
+  private readonly maxLoadRadius: number;
   private readonly maxLoaded: number;
 
   constructor(private materials: PulseMaterials, options: TileManagerOptions = {}) {
@@ -36,6 +39,7 @@ export class TileManager {
     this.loadRadius = this.baseLoadRadius;
     this.unloadRadius = options.unloadRadiusMeters ?? 1500;
     this.maxLoaded = options.maxLoadedTiles ?? 64;
+    this.maxLoadRadius = options.maxLoadRadiusMeters ?? 2000;
     this.root.name = 'map-tiles';
   }
 
@@ -59,7 +63,7 @@ export class TileManager {
   /** `viewRadius` widens loading when the camera is high enough to see further */
   setFocus(x: number, y: number, viewRadius = 0) {
     this.focus = [x, y];
-    this.loadRadius = Math.min(2000, Math.max(this.baseLoadRadius, viewRadius));
+    this.loadRadius = Math.min(this.maxLoadRadius, Math.max(this.baseLoadRadius, viewRadius));
     this.unloadRadius = this.loadRadius + 500;
     this.refresh();
   }

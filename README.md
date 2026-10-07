@@ -72,6 +72,23 @@ Pulse features a cutting-edge dual map engine, headlined by a hardware-accelerat
 - **Dynamic Route Line**: Glowing gradient polyline connecting the user's live position to the target location.
 - **Navigation HUD Card**: Displays active distance counter (`320m away`), target venue name, category badge, and 1-tap "End Route" action.
 - **Pulsing Arrival Beacon**: Destination hotspot marked with a 3D animated beacon ring that pulses upon arrival.
+- **Real Walking Routes**: Routes follow the OpenStreetMap street network ([`walkingRouter.ts`](src/utils/walkingRouter.ts), A* in the browser, no routing server). Outside the mapped areas they fall back to an estimated route, flagged in the HUD.
+
+---
+
+## 🌃 Pulse 3D Engine (Three.js + OpenStreetMap, no Mapbox)
+
+A self-hosted alternative to Mapbox, selectable as **Pulse 3D** in the map-engine toggle ([`Pulse3DMap.tsx`](src/components/map/Pulse3DMap.tsx)). It renders a night/neon city from OpenStreetMap data with the same camera modes, WASD walking, avatar, moment cards and wayfinding as the Mapbox view. Three.js is loaded only when this engine is opened.
+
+- **Coverage**: Victoria Island, Lekki Phase 1, Lagos Island, Yaba and Unilag. Elsewhere it shows a "no 3D data" grid.
+- **Data quality**: OSM building heights are sparse in Lagos. Real heights exist for ~32% of Victoria Island buildings, almost none in Yaba/Lekki; the rest are estimated from building type and footprint.
+- **Rebuilding tiles** (downloads from Overpass once, cached in `.cache/`):
+
+```bash
+node scripts/build-map-tiles.mjs
+```
+
+Output goes to [`public/map-tiles/`](public/map-tiles) (~2.3 MB, ~950 KB gzipped). Map data © OpenStreetMap contributors, ODbL.
 
 ---
 

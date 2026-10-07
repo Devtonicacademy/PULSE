@@ -9,6 +9,12 @@ import { UserAvatar } from './pulse3d/UserAvatar';
 import { MapHud, WalkDirection } from './pulse3d/MapHud';
 import { MomentLayer } from './pulse3d/MomentLayer';
 import { RouteLayer } from './pulse3d/RouteLayer';
+import {
+  detectQuality,
+  DOWNGRADE_BLOOM_BELOW_FPS,
+  DOWNGRADE_PIXELS_BELOW_FPS,
+  DOWNGRADE_SAMPLE_SECONDS
+} from './pulse3d/quality';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat } from '../../utils/mapProjection';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
@@ -291,7 +297,13 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    const pulseScene = new PulseScene(container);
+    const quality = detectQuality();
+    const pulseScene = new PulseScene(container, {
+      maxPixelRatio: quality.maxPixelRatio,
+      bloom: quality.bloom,
+      maxTiles: quality.maxTiles,
+      maxLoadRadius: quality.maxLoadRadius
+    });
     sceneRef.current = pulseScene;
     pulseScene.setLightPreset(initialLightPreset);
     pulseScene.setBuildingsVisible(enable3dBuildings);
@@ -326,12 +338,38 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     routeLayerRef.current = routeLayer;
 
     let lastFocus = { x: Infinity, y: Infinity, distance: 0 };
+
+    // Adaptive quality: if the real frame rate stays low, drop bloom, then pixel density.
+    // Only sampled while visible (hidden tabs throttle to ~1 fps and would mislead us).
+    let slowSeconds = 0;
+    let lastSampledAt = 0;
+    let pixelsDowngraded = quality.maxPixelRatio <= 1;
+    const adaptQuality = (elapsed: number) => {
+      if (elapsed - lastSampledAt < 1 || document.visibilityState !== 'visible') return;
+      lastSampledAt = elapsed;
+      const fps = pulseScene.stats.fps;
+      const bloomOn = pulseScene.bloomEnabled;
+      const threshold = bloomOn ? DOWNGRADE_BLOOM_BELOW_FPS : DOWNGRADE_PIXELS_BELOW_FPS;
+      if (!fps || (!bloomOn && pixelsDowngraded)) return;
+      slowSeconds = fps < threshold ? slowSeconds + 1 : 0;
+      if (slowSeconds < DOWNGRADE_SAMPLE_SECONDS) return;
+      slowSeconds = 0;
+      if (bloomOn) {
+        pulseScene.setBloomEnabled(false);
+        console.info(`[PULSE 3D] ${fps} fps: glow turned off to keep the map smooth`);
+      } else {
+        pulseScene.setPixelRatio(1);
+        pixelsDowngraded = true;
+        console.info(`[PULSE 3D] ${fps} fps: rendering at lower resolution`);
+      }
+    };
     let frame = 0;
     let lastHasData = true;
     const stopFrame = pulseScene.onFrame((_dt, elapsed) => {
       rig.update();
       avatar.update(elapsed, rig.pose.distance);
       routeLayer.update(elapsed, rig.pose.distance);
+      adaptQuality(elapsed);
       // Street level: cards within 1.5 km (no horizon clutter); zoomed out: the whole radius
       momentLayer.updateVisibility(pulseScene.camera, Math.max(MOMENT_CARD_RANGE, rig.pose.distance * 2.6));
       const { x: fx, y: fy, distance } = rig.pose;
@@ -391,7 +429,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
     if (import.meta.env.DEV) {
       Object.assign(container, {
-        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo }
+        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality }
       });
     }
 
