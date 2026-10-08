@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, Auth } from 'firebase/auth';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Firebase configuration for quizapp-project-c5e0e
@@ -24,6 +24,16 @@ try {
   db = getFirestore(app);
   auth = getAuth(app);
   storage = getStorage(app);
+  // Local development against the Firebase emulators (npm run emulators): set VITE_USE_FIREBASE_EMULATOR=true
+  if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true' && getApps().length === 1) {
+    try {
+      connectFirestoreEmulator(db, '127.0.0.1', 8080);
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+      console.log('[PULSE Firebase] Using the local emulators (Firestore 8080, Auth 9099)');
+    } catch {
+      // Already connected (hot reload)
+    }
+  }
   console.log('[PULSE Firebase] Initialized successfully with project:', firebaseConfig.projectId);
 } catch (error) {
   console.warn('[PULSE Firebase] Initialization warning:', error);

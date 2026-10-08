@@ -127,11 +127,14 @@ PULSE is integrated with Google Cloud Firebase for real-time data sync and ident
   - 🌐 **Google Sign-In**: 1-click Google authentication with popup flow and auto-provisioned Scout profile.
   - ⚡ **Anonymous Guest Scout Mode**: Immediate friction-free onboarding allowing users to explore the live map and chat immediately before converting to a permanent account.
   - 🔒 **Persistent Session**: Synchronized with `onAuthStateChanged` and Firestore `users/{uid}` collection.
-- **Real-Time Collections**:
-  - `moments`: Synchronizes live moments, geographic coordinates, privacy blur flags, and expiration timestamps.
-  - `comments`: Real-time threaded replies and discussion counters.
-  - `reactions`: Real-time increments for helpful, trending, and confirmed activity counts.
-  - `users`: User profile badges, reputation scores, and scout bios.
+- **Data model** (rules in [`firestore.rules`](firestore.rules), index config in [`firestore.indexes.json`](firestore.indexes.json)):
+  - `moments/{id}`: each moment stores a **geohash**. The map reads only the geohash ranges that cover the search radius (`geofire-common`) and re-queries when the location or radius changes. Counters (`reactions`, `commentCount`, `bonusMinutes`) start at zero and the rules only let them move together with the user's own reaction / comment document.
+  - `moments/{id}/reactions/{uid}`: one reaction per user per moment; the user can switch or remove it (written in one batch with the counters).
+  - `comments/{id}`: threaded replies; the comment counter moves in the same batch.
+  - `users/{uid}`: profile only (name, avatar, bio). **Points, reputation and badges are not stored**: they are derived from the user's own activity counts, so nobody can edit them. `lastPostAt` is the posting cooldown clock (one moment every 2 minutes).
+  - `activityZones`, `businesses`, `businessPosts`: read-only for clients (managed from the Firebase console); the demo seeds are used when they are empty.
+- **Rules tests**: `npm run test:rules` runs the security rules against the Firestore emulator (needs Java 11+). `npm run emulators` starts the Firestore + Auth emulators; run the app against them with `VITE_USE_FIREBASE_EMULATOR=true npm run dev`.
+- **Deploying**: nothing is deployed automatically. Before the new client works against the live project, deploy the rules and indexes (`firebase deploy --only firestore`). Moments created before the geohash field existed are not returned by nearby queries.
 - **Offline / Zero-Setup Fallback**: If `VITE_FIREBASE_API_KEY` is omitted, PULSE gracefully continues operating in local reactive demo mode without network exceptions or crashes.
 
 ---

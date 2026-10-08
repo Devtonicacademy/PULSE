@@ -34,3 +34,6 @@ Thumbs.db
 
 # OpenStreetMap download cache (scripts/build-map-tiles.mjs)
 .cache/
+firestore-debug.log
+ui-debug.log
+firebase-debug.log

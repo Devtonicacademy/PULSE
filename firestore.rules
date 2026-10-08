@@ -26,36 +26,203 @@ service cloud.firestore {
       ];
     }
 
-    // Live moments: public to read; authors own them; any signed-in user may
-    // bump the shared engagement counters (reactions, comment count).
-    match /moments/{momentId} {
-      allow read: if true;
-      allow create: if isUser(request.resource.data.userId)
-                    && isBoundedString(request.resource.data.title, 150)
-                    && isBoundedString(request.resource.data.description, 2000)
-                    && isValidCategory(request.resource.data.category);
-      allow update: if (isUser(resource.data.userId)
-                        && request.resource.data.userId == resource.data.userId)
-                    || (signedIn()
-                        && onlyChanges(['reactions', 'engagementScore', 'commentCount', 'updatedAt']));
-      allow delete: if isUser(resource.data.userId);
+    function isReactionType(type) {
+      return type in ['helpful', 'trending', 'confirmed', 'interested', 'going'];
     }
 
-    // Comments: public to read; authors own them; anyone signed in may like.
+    function momentPath(momentId) {
+      return /databases/$(database)/documents/moments/$(momentId);
+    }
+
+    function reactionPath(momentId, uid) {
+      return /databases/$(database)/documents/moments/$(momentId)/reactions/$(uid);
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    // The user's reaction type before and after this write ('' = none)
+    function typeBefore(momentId, uid) {
+      return exists(reactionPath(momentId, uid)) ? get(reactionPath(momentId, uid)).data.type : '';
+    }
+
+    function typeAfter(momentId, uid) {
+      return existsAfter(reactionPath(momentId, uid)) ? getAfter(reactionPath(momentId, uid)).data.type : '';
+    }
+
+    // How much one reaction counter must move: +1 for the new type, -1 for the old one
+    function counterDelta(momentId, uid, type) {
+      return (typeAfter(momentId, uid) == type ? 1 : 0) - (typeBefore(momentId, uid) == type ? 1 : 0);
+    }
+
+    // A new trending / confirmed reaction may extend the moment's life by 30 minutes (capped at
+    // 4 hours in total). Not taking the bonus is always allowed.
+    function bonusOk(momentId, uid, beforeBonus, afterBonus) {
+      return afterBonus == beforeBonus
+             || (afterBonus == beforeBonus + 30
+                 && beforeBonus < 240
+                 && typeAfter(momentId, uid) != typeBefore(momentId, uid)
+                 && typeAfter(momentId, uid) in ['trending', 'confirmed']);
+    }
+
+    // The moment's counters must move by exactly what the user's reaction document did.
+    // `before` and `after` are the moment's reaction map and bonus around this batch.
+    function countersMatchReaction(momentId, uid, beforeData, afterData) {
+      return afterData.reactions.helpful == beforeData.reactions.helpful + counterDelta(momentId, uid, 'helpful')
+          && afterData.reactions.trending == beforeData.reactions.trending + counterDelta(momentId, uid, 'trending')
+          && afterData.reactions.confirmed == beforeData.reactions.confirmed + counterDelta(momentId, uid, 'confirmed')
+          && afterData.reactions.interested == beforeData.reactions.interested + counterDelta(momentId, uid, 'interested')
+          && afterData.reactions.going == beforeData.reactions.going + counterDelta(momentId, uid, 'going')
+          && bonusOk(momentId, uid, beforeData.get('bonusMinutes', 0), afterData.get('bonusMinutes', 0));
+    }
+
+    // Post cooldown: at most one moment every two minutes per user. The user document keeps
+    // the server time of the last post and a new moment must be written in the same batch
+    // that moves it to request.time.
+    function cooldownPassed(uid) {
+      return !exists(userPath(uid))
+             || get(userPath(uid)).data.get('lastPostAt', null) == null
+             || request.time > get(userPath(uid)).data.lastPostAt + duration.value(120, 's');
+    }
+
+    function postStampedNow(uid) {
+      return getAfter(userPath(uid)).data.get('lastPostAt', null) == request.time;
+    }
+
+    // Live moments: public to read. Authors create them with zeroed counters; counters only
+    // move together with a matching reaction / comment document (see the rules below).
+    match /moments/{momentId} {
+      allow read: if true;
+
+      allow create: if isUser(request.resource.data.userId)
+                    && request.resource.data.keys().hasOnly([
+                         'id', 'userId', 'userName', 'userAvatar', 'title', 'description',
+                         'category', 'latitude', 'longitude', 'geohash', 'photoUrl',
+                         'createdAt', 'expiresAt', 'engagementScore', 'viewsCount',
+                         'isArchived', 'isBlurred', 'approxAddress', 'reactions',
+                         'commentCount', 'bonusMinutes', 'updatedAt'
+                       ])
+                    && isBoundedString(request.resource.data.title, 150)
+                    && isBoundedString(request.resource.data.description, 2000)
+                    && isValidCategory(request.resource.data.category)
+                    && request.resource.data.latitude is number
+                    && request.resource.data.longitude is number
+                    && request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90
+                    && request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180
+                    && request.resource.data.geohash is string
+                    && request.resource.data.geohash.size() >= 6
+                    && request.resource.data.reactions == {
+                         'helpful': 0, 'trending': 0, 'confirmed': 0, 'interested': 0, 'going': 0
+                       }
+                    && request.resource.data.commentCount == 0
+                    && request.resource.data.engagementScore == 50
+                    && request.resource.data.viewsCount == 1
+                    && request.resource.data.get('bonusMinutes', 0) == 0
+                    && request.resource.data.isArchived == false
+                    && cooldownPassed(request.auth.uid)
+                    && postStampedNow(request.auth.uid);
+
+      allow update: if
+        // The author edits their own text (never counters or ownership)
+        (isUser(resource.data.userId)
+          && request.resource.data.userId == resource.data.userId
+          && onlyChanges(['title', 'description', 'photoUrl', 'isArchived', 'updatedAt'])
+          && isBoundedString(request.resource.data.title, 150)
+          && isBoundedString(request.resource.data.description, 2000))
+        // Reaction counters, in the same batch as the user's own reaction document
+        || (signedIn()
+          && onlyChanges(['reactions', 'bonusMinutes', 'updatedAt'])
+          && countersMatchReaction(momentId, request.auth.uid, resource.data, request.resource.data))
+        // Comment counter, in the same batch as a brand-new comment by this user
+        || (signedIn()
+          && onlyChanges(['commentCount', 'lastCommentId', 'updatedAt'])
+          && request.resource.data.commentCount == resource.data.commentCount + 1
+          && request.resource.data.lastCommentId is string
+          && !exists(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId))
+          && existsAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId))
+          && getAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId)).data.momentId == momentId
+          && getAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId)).data.userId == request.auth.uid);
+
+      allow delete: if isUser(resource.data.userId);
+
+      // One reaction per user per moment; the user can switch it or take it back.
+      match /reactions/{uid} {
+        allow create, update: if isUser(uid)
+                              && request.resource.data.keys().hasOnly(['type', 'userId', 'createdAt', 'updatedAt'])
+                              && isReactionType(request.resource.data.type)
+                              && request.resource.data.userId == uid
+                              && exists(momentPath(momentId))
+                              && countersMatchReaction(
+                                   momentId, uid,
+                                   get(momentPath(momentId)).data,
+                                   getAfter(momentPath(momentId)).data);
+        allow delete: if isUser(uid)
+                      && countersMatchReaction(
+                           momentId, uid,
+                           get(momentPath(momentId)).data,
+                           getAfter(momentPath(momentId)).data);
+      }
+    }
+
+    // Collection-group reads ("what did I react to?") only ever return the caller's own reactions
+    match /{path=**}/reactions/{reactionId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Comments: public to read; authors own them. The comment counter on the moment moves in
+    // the same batch (see the moment rules above).
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isUser(request.resource.data.userId)
+                    && request.resource.data.keys().hasOnly([
+                         'id', 'userId', 'userName', 'userAvatar', 'momentId', 'parentId',
+                         'content', 'createdAt', 'likesCount', 'updatedAt'
+                       ])
                     && isBoundedString(request.resource.data.content, 1000)
-                    && request.resource.data.momentId is string;
-      allow update: if (isUser(resource.data.userId)
-                        && request.resource.data.userId == resource.data.userId)
-                    || (signedIn() && onlyChanges(['likesCount', 'updatedAt']));
+                    && request.resource.data.momentId is string
+                    && request.resource.data.likesCount == 0
+                    && exists(momentPath(request.resource.data.momentId))
+                    && getAfter(momentPath(request.resource.data.momentId)).data.get('lastCommentId', '') == commentId
+                    && getAfter(momentPath(request.resource.data.momentId)).data.commentCount
+                       == get(momentPath(request.resource.data.momentId)).data.commentCount + 1;
+      allow update: if isUser(resource.data.userId)
+                    && onlyChanges(['content', 'updatedAt'])
+                    && isBoundedString(request.resource.data.content, 1000);
       allow delete: if isUser(resource.data.userId);
     }
 
-    // Profiles hold email addresses, so only the owner can read or write them.
+    // Profiles hold email addresses, so only the owner can read or write them. Points,
+    // reputation, badges and activity counts are derived from the user's own data and are
+    // never stored here, so nobody can edit them. lastPostAt is the posting cooldown clock.
     match /users/{userId} {
-      allow read, write: if isUser(userId);
+      allow read: if isUser(userId);
+      allow create: if isUser(userId)
+                    && request.resource.data.keys().hasOnly([
+                         'id', 'username', 'email', 'avatar', 'bio', 'isAnonymous',
+                         'providerId', 'createdAt', 'lastPostAt'
+                       ])
+                    && request.resource.data.get('lastPostAt', request.time) == request.time;
+      allow update: if isUser(userId)
+                    && onlyChanges([
+                         'username', 'email', 'avatar', 'bio', 'isAnonymous',
+                         'providerId', 'createdAt', 'lastPostAt'
+                       ])
+                    && (!('lastPostAt' in request.resource.data.diff(resource.data).affectedKeys())
+                        || request.resource.data.lastPostAt == request.time);
+    }
+
+    // Admin-curated map data (managed from the Firebase console or a seed script); read-only for clients.
+    match /activityZones/{zoneId} {
+      allow read: if true;
+    }
+
+    match /businesses/{businessId} {
+      allow read: if true;
+    }
+
+    match /businessPosts/{postId} {
+      allow read: if true;
     }
 
     // Everything else is closed.

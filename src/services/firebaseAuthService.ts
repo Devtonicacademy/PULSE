@@ -63,6 +63,25 @@ export function buildDefaultProfile(
 }
 
 /**
+ * The fields a profile document may hold. Points, reputation, badges and activity counts are
+ * derived from the user's own data (see utils/gamification.ts) and the security rules reject them.
+ */
+function profileDocument(profile: UserProfile) {
+  return Object.fromEntries(
+    Object.entries({
+      id: profile.id,
+      username: profile.username,
+      email: profile.email,
+      avatar: profile.avatar,
+      bio: profile.bio,
+      isAnonymous: profile.isAnonymous,
+      providerId: profile.providerId,
+      createdAt: profile.createdAt
+    }).filter(([, value]) => value !== undefined)
+  );
+}
+
+/**
  * Fetches user profile from Firestore or creates it if it doesn't exist
  */
 export async function getOrCreateUserProfile(user: User): Promise<UserProfile> {
@@ -97,7 +116,7 @@ export async function getOrCreateUserProfile(user: User): Promise<UserProfile> {
       user.isAnonymous
     );
     await setDoc(userDocRef, {
-      ...newProfile,
+      ...profileDocument(newProfile),
       createdAt: new Date().toISOString()
     });
     return newProfile;
@@ -125,7 +144,7 @@ export async function updateUserProfileInFirestore(profile: UserProfile): Promis
 
   try {
     const userDocRef = doc(db, USERS_COLLECTION, profile.id);
-    await setDoc(userDocRef, profile, { merge: true });
+    await setDoc(userDocRef, profileDocument(profile), { merge: true });
     return true;
   } catch (err) {
     console.warn('[PULSE Firebase Auth] Error saving profile to Firestore:', err);

@@ -48,6 +48,8 @@ export interface Moment {
   userReaction?: ReactionType;
   commentCount: number;
   distanceKm?: number;
+  /** Minutes added to expiresAt by trending / confirmed reactions (from Firestore) */
+  bonusMinutes?: number;
   isVerified?: boolean;
   isBusiness?: boolean;
   businessName?: string;

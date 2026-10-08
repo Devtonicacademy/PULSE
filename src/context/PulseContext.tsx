@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   Moment,
   MomentCategory,
@@ -27,11 +27,17 @@ import {
 import { calculateDistanceKm, isWithinRadius, applyPrivacyBlur, getApproximateAreaName } from '../utils/geoUtils';
 import { isFirebaseConfigured } from '../services/firebaseClient';
 import {
-  subscribeToFirebaseMoments,
+  subscribeToNearbyMoments,
+  subscribeToMyReactions,
+  subscribeToActivityZones,
+  subscribeToBusinesses,
+  subscribeToBusinessPosts,
+  fetchUserActivityCounts,
   saveMomentToFirebase,
-  updateFirebaseReaction,
+  setMomentReaction,
   saveCommentToFirebase
 } from '../services/firebaseSyncService';
+import { deriveProfileStats } from '../utils/gamification';
 import {
   signInWithEmail,
   signUpWithEmail,
@@ -267,9 +273,18 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [currentUser, userProfile]);
 
+  // Moments that came from Firestore are re-fetched on load, so only local ones are stored
+  const remoteIdsRef = useRef<Set<string>>(new Set());
+  const myReactionsRef = useRef<Map<string, ReactionType> | null>(null);
+  const [statsVersion, setStatsVersion] = useState(0);
+  const refreshStats = () => setStatsVersion((v) => v + 1);
+
   // Sync moments & comments to local storage
   useEffect(() => {
-    localStorage.setItem('pulse_moments', JSON.stringify(moments));
+    localStorage.setItem(
+      'pulse_moments',
+      JSON.stringify(moments.filter((m) => !remoteIdsRef.current.has(m.id)))
+    );
   }, [moments]);
 
   useEffect(() => {
@@ -295,22 +310,30 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // 4. Real-Time Sync via Firebase Firestore (Project: quizapp-project-c5e0e)
+  // 4. Real-time sync via Firebase Firestore (project quizapp-project-c5e0e).
+  // Only the moments inside the radius are read (geohash ranges), and the query is redone when the
+  // location or radius changes.
   useEffect(() => {
     if (!isFirebaseConfigured) {
       console.log('[PULSE Firebase] Firestore credentials omitted or uninitialized; running with reactive local / demo mode.');
       return;
     }
 
-    console.log('[PULSE Firebase] Subscribing to live Firestore moments (quizapp-project-c5e0e)');
-    const unsubscribe = subscribeToFirebaseMoments((liveMoments) => {
+    const unsubscribe = subscribeToNearbyMoments(currentLocation, radiusKm, (remote) => {
+      const mine = myReactionsRef.current;
+      const nextRemote = new Map(
+        remote.map((m) => [m.id, mine ? { ...m, userReaction: mine.get(m.id) } : m])
+      );
       setMoments((prev) => {
-        const map = new Map(prev.map((m) => [m.id, m]));
-        liveMoments.forEach((lm) => {
-          const existing = map.get(lm.id);
-          map.set(lm.id, existing ? { ...existing, ...lm } : lm);
+        // Drop moments that left the radius, expired or were deleted; keep local-only ones
+        const kept = prev.filter((m) => !remoteIdsRef.current.has(m.id) || nextRemote.has(m.id));
+        const byId = new Map(kept.map((m) => [m.id, m]));
+        nextRemote.forEach((rm, id) => {
+          const existing = byId.get(id);
+          byId.set(id, existing ? { ...existing, ...rm } : rm);
         });
-        return Array.from(map.values());
+        remoteIdsRef.current = new Set(nextRemote.keys());
+        return Array.from(byId.values());
       });
     });
 
@@ -319,7 +342,63 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unsubscribe();
       }
     };
+  }, [currentLocation.latitude, currentLocation.longitude, radiusKm]);
+
+  // 4b. The signed-in user's own reactions, so the UI shows what they picked on any device
+  const firebaseUid = currentUser?.uid;
+  useEffect(() => {
+    myReactionsRef.current = null;
+    if (!isFirebaseConfigured || !firebaseUid) {
+      setMoments((prev) =>
+        prev.some((m) => remoteIdsRef.current.has(m.id) && m.userReaction)
+          ? prev.map((m) => (remoteIdsRef.current.has(m.id) ? { ...m, userReaction: undefined } : m))
+          : prev
+      );
+      return;
+    }
+
+    const unsubscribe = subscribeToMyReactions(firebaseUid, (mine) => {
+      myReactionsRef.current = mine;
+      setMoments((prev) =>
+        prev.map((m) =>
+          remoteIdsRef.current.has(m.id) && m.userReaction !== mine.get(m.id)
+            ? { ...m, userReaction: mine.get(m.id) }
+            : m
+        )
+      );
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [firebaseUid]);
+
+  // 4c. Activity zones and business pins come from Firestore when it has them; the demo seeds stay otherwise
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsubscribers = [
+      subscribeToActivityZones(setActivityZones),
+      subscribeToBusinesses(setBusinesses),
+      subscribeToBusinessPosts(setBusinessPosts)
+    ];
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
   }, []);
+
+  // 4d. Points, reputation and the moment count are derived from the user's real activity
+  useEffect(() => {
+    if (!isFirebaseConfigured || !firebaseUid) return;
+    let cancelled = false;
+    fetchUserActivityCounts(firebaseUid).then((counts) => {
+      if (!counts || cancelled) return;
+      setUserProfile((prev) =>
+        prev.id === firebaseUid
+          ? { ...prev, ...deriveProfileStats(counts, currentUser?.isAnonymous) }
+          : prev
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUid, userProfile.id, statsVersion]);
 
   // Request browser geolocation if user desires
   const useBrowserLocation = () => {
@@ -462,6 +541,9 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const dismissToast = () => setActiveToast(null);
 
+  // Signed in to Firebase: server data and derived stats apply; otherwise everything stays local
+  const isSynced = Boolean(isFirebaseConfigured && currentUser);
+
   // Moment actions
   const addMoment = (data: {
     title: string;
@@ -506,8 +588,8 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isBlurred: data.blurPrivacy,
       approxAddress: `${getApproximateAreaName(lat, lng)} (near ${currentLocation.name})`,
       reactions: {
-        helpful: 1,
-        trending: 1,
+        helpful: 0,
+        trending: 0,
         confirmed: 0,
         interested: 0,
         going: 0
@@ -519,18 +601,34 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Save to Firebase Firestore if configured (quizapp-project-c5e0e)
     if (isFirebaseConfigured) {
-      saveMomentToFirebase(newMoment).catch((err) =>
-        console.warn('[PULSE Firebase] Error saving moment to Firestore:', err)
-      );
+      saveMomentToFirebase(newMoment).then((result) => {
+        if (result.ok) {
+          refreshStats();
+        } else if (result.reason !== 'offline') {
+          triggerToast({
+            id: `notif-post-${Date.now()}`,
+            type: 'alert',
+            title: 'Saved on this device only',
+            message:
+              result.reason === 'denied'
+                ? 'You can post one moment every 2 minutes. Wait a moment and try again to broadcast it live.'
+                : 'Could not reach the live map. Your moment is saved on this device.',
+            createdAt: new Date().toISOString(),
+            isRead: false
+          });
+        }
+      });
     }
 
-    // Reward user with gamification reputation points
-    setUserProfile((prev) => ({
-      ...prev,
-      points: prev.points + 15,
-      reputation: Math.min(100, prev.reputation + 2),
-      createdMomentsCount: prev.createdMomentsCount + 1
-    }));
+    // Local demo profiles earn points on the spot; signed-in users' points come from their real activity
+    if (!isSynced) {
+      setUserProfile((prev) => ({
+        ...prev,
+        points: prev.points + 15,
+        reputation: Math.min(100, prev.reputation + 2),
+        createdMomentsCount: prev.createdMomentsCount + 1
+      }));
+    }
 
     // Trigger celebration confetti
     try {
@@ -574,27 +672,23 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setMoments((prev) => prev.map((m) => (m.id === momentId ? applyReactionToggle(m, reactionType) : m)));
     }
 
-    // Reward points
-    setUserProfile((prev) => ({
-      ...prev,
-      points: prev.points + 2
-    }));
+    // Local demo profiles earn points on the spot; signed-in users' points come from their real activity
+    if (!isSynced) {
+      setUserProfile((prev) => ({
+        ...prev,
+        points: prev.points + 2
+      }));
+    }
 
-    // Sync to Firebase Firestore if configured. Mirror the local transition exactly:
-    // switching reactions must also decrement the previous one.
-    if (isFirebaseConfigured && !businessPost) {
-      const previous = moments.find((m) => m.id === momentId)?.userReaction;
-      const deltas: [ReactionType, number][] =
-        previous === reactionType
-          ? [[reactionType, -1]]
-          : previous
-          ? [[previous, -1], [reactionType, 1]]
-          : [[reactionType, 1]];
-      deltas.forEach(([type, delta]) =>
-        updateFirebaseReaction(momentId, type, delta).catch((err) =>
-          console.warn('[PULSE Firebase] Error syncing reaction to Firestore:', err)
-        )
-      );
+    // One reaction per user: tapping your current one removes it, another one switches to it.
+    // Only moments that live in Firestore are synced (demo moments are local).
+    if (isSynced && remoteIdsRef.current.has(momentId)) {
+      const current = moments.find((m) => m.id === momentId);
+      const previous = current?.userReaction;
+      const next = previous === reactionType ? undefined : reactionType;
+      setMomentReaction(momentId, previous, next, current?.bonusMinutes ?? 0).then((ok) => {
+        if (ok) refreshStats();
+      });
     }
   };
 
@@ -627,16 +721,18 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       )
     );
 
-    setUserProfile((prev) => ({
-      ...prev,
-      points: prev.points + 5
-    }));
+    if (!isSynced) {
+      setUserProfile((prev) => ({
+        ...prev,
+        points: prev.points + 5
+      }));
+    }
 
-    // Sync comment to Firebase Firestore if configured
-    if (isFirebaseConfigured) {
-      saveCommentToFirebase(newComment).catch((err) =>
-        console.warn('[PULSE Firebase] Error saving comment to Firestore:', err)
-      );
+    // Sync comment to Firebase Firestore (only on moments that live there)
+    if (isSynced && remoteIdsRef.current.has(momentId)) {
+      saveCommentToFirebase(newComment).then((ok) => {
+        if (ok) refreshStats();
+      });
     }
 
     return newComment;
