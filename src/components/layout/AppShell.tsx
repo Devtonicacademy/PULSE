@@ -36,6 +36,7 @@ import {
 
 // Three.js only downloads when someone opens the Pulse 3D explore mode
 const Pulse3DMap = lazy(() => import('../map/Pulse3DMap'));
+const OnboardingSurvey = lazy(() => import('../onboarding/OnboardingSurvey'));
 
 // 'map' is the MapLibre map; 'pulse3d' is the walkable Three.js city
 type MapEngine = 'map' | 'pulse3d';
@@ -68,7 +69,9 @@ export const AppShell: React.FC = () => {
     filteredMoments,
     isAuthModalOpen,
     setIsAuthModalOpen,
-    isAuthenticated
+    isAuthenticated,
+    isSurveyOpen,
+    avatarConfig
   } = usePulse();
 
   const { isInstalled, isInstallable, promptToInstall } = usePWAInstall();
@@ -128,6 +131,7 @@ export const AppShell: React.FC = () => {
             enable3dBuildings: true,
             autoGeolocate: true,
             showUserMarker: true,
+            avatarConfig,
             showNavigationControl: true,
             showGeolocateControl: true,
             show3dControls: true,
@@ -803,6 +807,12 @@ export const AppShell: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {isSurveyOpen && (
+        <Suspense fallback={null}>
+          <OnboardingSurvey />
+        </Suspense>
+      )}
 
       {/* Consolidated Quick Settings & Preferences Modal (Mobile & Tablet) */}
       {showQuickSettings && (

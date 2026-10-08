@@ -1,9 +1,14 @@
 import * as THREE from 'three';
 import { ANCHORS } from '../../../theme/tokens';
+import { AvatarConfig, AvatarInstance, createAvatar } from '../../avatar/avatarModel';
+
+/** The avatar is ~1.8 m tall; scaled up so it reads from the street-level camera */
+const CHARACTER_SCALE = 2.4;
 
 /**
  * The player marker: a glowing orb with a pulsing ground ring, a cyan heading cone
- * on the ground and a direction arrow — the 3D counterpart of PulseMap's avatar.
+ * on the ground and a direction arrow. Once the user has finished onboarding, setCharacter()
+ * swaps the orb for their customized 3D avatar (the ring and heading cone stay).
  */
 export class UserAvatar {
   readonly group = new THREE.Group();
@@ -14,6 +19,12 @@ export class UserAvatar {
 
   private headingGroup = new THREE.Group();
   private ring: THREE.Mesh;
+  private orbParts: THREE.Object3D[] = [];
+  private character: AvatarInstance | null = null;
+  private characterRequest = 0;
+  private lastMove = { x: 0, y: 0, time: 0 };
+  private speed = 0;
+  private lastElapsed = 0;
   private disposables: { dispose: () => void }[] = [];
 
   constructor() {
@@ -89,6 +100,7 @@ export class UserAvatar {
     arrow.position.set(0, 2.4, -3.6);
 
     this.headingGroup.add(cone, arrow);
+    this.orbParts = [orb, halo, arrow];
     this.group.add(this.ring, this.headingGroup, orb, halo);
     this.disposables.push(
       orbGeometry, orbMaterial, haloGeometry, haloMaterial, ringGeometry, ringMaterial,
@@ -96,9 +108,45 @@ export class UserAvatar {
     );
   }
 
+  /** Shows the customized 3D avatar in place of the orb (pass null to go back to the orb) */
+  async setCharacter(config: AvatarConfig | null) {
+    const request = ++this.characterRequest;
+    if (!config) {
+      this.character?.dispose();
+      this.character = null;
+      this.orbParts.forEach((o) => (o.visible = true));
+      return;
+    }
+    if (this.character) {
+      this.character.setConfig(config);
+      return;
+    }
+    try {
+      const instance = await createAvatar(config);
+      if (request !== this.characterRequest) {
+        instance.dispose();
+        return;
+      }
+      instance.object.scale.setScalar(CHARACTER_SCALE);
+      instance.object.rotation.y = Math.PI; // the model faces +z, the scene's forward is -z
+      this.headingGroup.add(instance.object);
+      this.character = instance;
+      this.orbParts.forEach((o) => (o.visible = false));
+    } catch (err) {
+      console.warn('[PULSE 3D] Avatar model failed to load, keeping the orb:', err);
+    }
+  }
+
   setPosition(x: number, y: number) {
     this.position = { x, y };
     this.group.position.set(x, 0, -y);
+    // Ground speed drives the walk cycle (measured over the time between position updates)
+    const now = performance.now();
+    const dt = (now - this.lastMove.time) / 1000;
+    if (this.lastMove.time && dt > 0.02 && dt < 2) {
+      this.speed = Math.hypot(x - this.lastMove.x, y - this.lastMove.y) / dt;
+    }
+    this.lastMove = { x, y, time: now };
   }
 
   setHeading(degrees: number) {
@@ -113,9 +161,18 @@ export class UserAvatar {
     this.ring.scale.setScalar(1 + t * 1.8);
     (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - t);
     this.group.scale.setScalar(Math.min(4, Math.max(1, cameraDistance / 140)));
+    if (this.character) {
+      // Stopped for a moment means standing still
+      if (performance.now() - this.lastMove.time > 400) this.speed = 0;
+      const dt = Math.min(0.1, Math.max(0, elapsedSeconds - this.lastElapsed));
+      this.character.update(dt, this.speed, elapsedSeconds);
+    }
+    this.lastElapsed = elapsedSeconds;
   }
 
   dispose() {
+    this.characterRequest++;
+    this.character?.dispose();
     this.disposables.forEach((d) => d.dispose());
     this.group.removeFromParent();
   }

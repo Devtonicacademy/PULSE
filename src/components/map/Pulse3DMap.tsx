@@ -67,6 +67,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   onClearNavigation,
   onLocationFound,
   onLocationError,
+  avatarConfig = null,
   className = '',
   style,
   children
@@ -116,6 +117,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   }, [centerLat, centerLng]);
   const [buildingsVisible, setBuildingsVisible] = useState(enable3dBuildings);
   const [isLocating, setIsLocating] = useState(false);
+  // True once the first GPS attempt has resolved (a fix, or the active hub as the fallback)
+  const [locationResolved, setLocationResolved] = useState(false);
   const [activeRoute, setActiveRoute] = useState<NavigationRoute | null>(null);
   const [isSimulatingWalk, setIsSimulatingWalk] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
@@ -188,6 +191,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const locateUser = useCallback(
     (shouldFly: boolean) => {
       const fallback = () => {
+        setLocationResolved(true);
         const [x, y] = lngLatToMeters(...lastCenterRef.current);
         moveUser(x, y);
         if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
@@ -200,6 +204,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setIsLocating(false);
+          setLocationResolved(true);
           const { latitude, longitude, heading } = position.coords;
           const [x, y] = lngLatToMeters(longitude, latitude);
           moveUser(x, y, heading != null && !Number.isNaN(heading) ? heading : user.current.heading);
@@ -484,6 +489,11 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     moveUser(x, y);
     applyCameraMode(cameraModeRef.current, { x, y });
   }, [centerLng, centerLat, applyCameraMode, moveUser]);
+
+  // Onboarded users get their 3D avatar instead of the orb, once their location is known
+  useEffect(() => {
+    void avatarRef.current?.setCharacter(locationResolved ? avatarConfig : null);
+  }, [avatarConfig, locationResolved]);
 
   useEffect(() => {
     momentLayerRef.current?.sync(moments);

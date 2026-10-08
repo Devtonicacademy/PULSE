@@ -60,6 +60,7 @@ import { escapeHtml } from '../../utils/htmlUtils';
 import { createMomentFlyerElement } from './momentFlyer';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { ANCHORS } from '../../theme/tokens';
+import type { AvatarConfig } from '../avatar/avatarConfig';
 
 export interface UserCoordinates {
   latitude: number;
@@ -112,6 +113,8 @@ export interface PulseMapProps {
   onClearNavigation?: () => void;
   /** Opens the Pulse 3D explore / walk mode (shows a "Walk in 3D" button when provided) */
   onWalkIn3D?: () => void;
+  /** The user's customized 3D avatar; shown in place of the orb once their location is known */
+  avatarConfig?: AvatarConfig | null;
   /** Whether the map accepts interactive user gestures (pan, pinch, zoom, tilt) (default: true) */
   interactive?: boolean;
   /** Extra container CSS class names */
@@ -199,6 +202,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       navigationDestination: propNavDestination = null,
       onClearNavigation,
       onWalkIn3D,
+      avatarConfig = null,
       interactive = true,
       className = '',
       style,
@@ -220,6 +224,35 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
     const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+    // Portrait of the user's 3D avatar, shown on the flat map's marker in place of the orb
+    const avatarPortraitRef = useRef<string | null>(null);
+    const applyAvatarPortrait = useCallback(() => {
+      const orb = userMarkerRef.current?.getElement().querySelector<HTMLElement>('#pulse-avatar-orb');
+      if (!orb) return;
+      const portrait = avatarPortraitRef.current;
+      if (portrait) {
+        orb.style.cssText =
+          'position: relative; z-index: 2; width: 40px; height: 40px; border-radius: 9999px; overflow: hidden; border: 2px solid #FFFFFF; box-shadow: 0 0 16px var(--signal); background: #0A0E17;';
+        orb.innerHTML = `<img src="${portrait}" alt="" style="width: 100%; height: 100%; object-fit: cover;" />`;
+      }
+    }, []);
+    useEffect(() => {
+      let cancelled = false;
+      avatarPortraitRef.current = null;
+      if (!avatarConfig) return;
+      // Three.js loads on demand: the flat map itself never needs it
+      import('../avatar/avatarModel')
+        .then((m) => m.renderAvatarPortrait(avatarConfig, 96))
+        .then((url) => {
+          if (cancelled) return;
+          avatarPortraitRef.current = url;
+          applyAvatarPortrait();
+        })
+        .catch((err) => console.warn('[PULSE] Avatar portrait failed:', err));
+      return () => {
+        cancelled = true;
+      };
+    }, [avatarConfig, applyAvatarPortrait]);
     const momentMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     // Marker click handlers outlive renders; read the freshest copy of each moment from here
     const latestMomentsRef = useRef<Moment[]>(moments);
@@ -334,7 +367,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             <div style="position: absolute; width: 32px; height: 32px; border-radius: 9999px; background: rgba(var(--signal-rgb), 0.35); border: 1.5px solid var(--signal);"></div>
             
             <!-- Avatar Core Orb -->
-            <div style="position: relative; z-index: 2; width: 24px; height: 24px; border-radius: 9999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px var(--signal); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: white;">
+            <div id="pulse-avatar-orb" style="position: relative; z-index: 2; width: 24px; height: 24px; border-radius: 9999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px var(--signal); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: white;">
               ⚡
             </div>
             
@@ -348,6 +381,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           })
             .setLngLat([lng, lat])
             .addTo(mapRef.current);
+          applyAvatarPortrait();
         } else {
           userMarkerRef.current.setLngLat([lng, lat]);
 

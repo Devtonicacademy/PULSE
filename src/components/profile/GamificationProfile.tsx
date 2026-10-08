@@ -83,7 +83,9 @@ export const GamificationProfile: React.FC = () => {
     isAuthenticated,
     isAdmin,
     setIsAuthModalOpen,
-    logout
+    logout,
+    avatarConfig,
+    openSurvey
   } = usePulse();
   const { isInstalled, promptToInstall, isIOS } = usePWAInstall();
   const [activeTab, setActiveTab] = useState<'badges' | 'active' | 'archived'>('badges');
@@ -128,6 +130,14 @@ export const GamificationProfile: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={openSurvey}
+              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-signal-300 border border-signal-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              title="Customize your 3D avatar"
+            >
+              <span aria-hidden>🧍</span>
+              <span>{avatarConfig ? 'Edit avatar' : 'Set up avatar'}</span>
+            </button>
             {!isAuthenticated ? (
               <button
                 onClick={() => setIsAuthModalOpen(true)}

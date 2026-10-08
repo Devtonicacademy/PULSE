@@ -152,7 +152,18 @@ interface PulseContextType {
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (profileData: Partial<UserProfile>) => Promise<void>;
+
+  // Sign-in survey and the user's 3D avatar (null until the survey is finished)
+  surveyAnswers: SurveyAnswers | null;
+  avatarConfig: AvatarConfig | null;
+  isSurveyOpen: boolean;
+  openSurvey: () => void;
+  closeSurvey: () => void;
+  completeSurvey: (answers: SurveyAnswers, avatar: AvatarConfig) => void;
 }
+
+import { AvatarConfig, loadStoredAvatar, storeAvatar } from '../components/avatar/avatarConfig';
+import { SurveyAnswers, loadSurvey, storeSurvey } from '../utils/survey';
 
 const PulseContext = createContext<PulseContextType | undefined>(undefined);
 
@@ -295,6 +306,10 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [surveyAnswers, setSurveyAnswers] = useState<SurveyAnswers | null>(null);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
+  const [isSurveyOpen, setIsSurveyOpen] = useState(false);
+  const surveyDismissedFor = useRef<Set<string>>(new Set());
   const [isBusinessMode, setIsBusinessMode] = useState(false);
   const [activeToast, setActiveToast] = useState<NotificationItem | null>(null);
 
@@ -337,6 +352,32 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('pulse_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
+
+  // Sign-in survey: load this user's saved answers and avatar, or ask on their first sign-in
+  useEffect(() => {
+    const id = userProfile.id;
+    const answers = loadSurvey(id);
+    const avatar = loadStoredAvatar(id);
+    setSurveyAnswers(answers);
+    setAvatarConfig(answers ? avatar : null);
+    if (!answers && isAuthenticated && !surveyDismissedFor.current.has(id)) setIsSurveyOpen(true);
+    if (answers) setRadiusKm(answers.radiusKm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile.id, isAuthenticated]);
+
+  const closeSurvey = () => {
+    surveyDismissedFor.current.add(userProfile.id);
+    setIsSurveyOpen(false);
+  };
+
+  const completeSurvey = (answers: SurveyAnswers, avatar: AvatarConfig) => {
+    storeSurvey(userProfile.id, answers);
+    storeAvatar(userProfile.id, avatar);
+    setSurveyAnswers(answers);
+    setAvatarConfig(avatar);
+    setRadiusKm(answers.radiusKm);
+    setIsSurveyOpen(false);
+  };
 
   // 3b. Firebase Auth State Listener
   useEffect(() => {
@@ -1243,7 +1284,13 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loginWithGoogle,
         loginAsGuest,
         logout,
-        updateUserProfile
+        updateUserProfile,
+        surveyAnswers,
+        avatarConfig,
+        isSurveyOpen,
+        openSurvey: () => setIsSurveyOpen(true),
+        closeSurvey,
+        completeSurvey
       }}
     >
       {children}
