@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { ReputationBadge, Moment } from '../../types/pulse';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { AdminModerationPanel } from '../moderation/AdminModerationPanel';
 import {
   Award,
   Shield,
@@ -80,6 +81,7 @@ export const GamificationProfile: React.FC = () => {
     isFirebaseConfigured,
     currentUser,
     isAuthenticated,
+    isAdmin,
     setIsAuthModalOpen,
     logout
   } = usePulse();
@@ -372,6 +374,8 @@ export const GamificationProfile: React.FC = () => {
           </div>
         </div>
       )}
+
+      {isAdmin && <AdminModerationPanel />}
     </div>
   );
 };

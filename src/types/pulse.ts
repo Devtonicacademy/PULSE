@@ -50,6 +50,13 @@ export interface Moment {
   distanceKm?: number;
   /** Minutes added to expiresAt by trending / confirmed reactions (from Firestore) */
   bonusMinutes?: number;
+  /** Confirmed reactions made by people who were near the moment (from Firestore) */
+  confirmedNearby?: number;
+  reportCount?: number;
+  /** Hidden by reports until an admin reviews it */
+  hidden?: boolean;
+  /** Whether the viewer's own "confirmed" reaction was made nearby */
+  userReactionNearby?: boolean;
   isVerified?: boolean;
   isBusiness?: boolean;
   businessName?: string;

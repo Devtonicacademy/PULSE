@@ -35,8 +35,20 @@ import {
   fetchUserActivityCounts,
   saveMomentToFirebase,
   setMomentReaction,
-  saveCommentToFirebase
+  saveCommentToFirebase,
+  saveReport,
+  checkIsAdmin,
+  isNearMoment,
+  StoredReaction
 } from '../services/firebaseSyncService';
+import {
+  notificationPermission,
+  isAlertNotificationsEnabled,
+  enableAlertNotifications,
+  disableAlertNotifications,
+  showAlertNotification,
+  NotificationSupport
+} from '../services/alertNotifications';
 import { deriveProfileStats } from '../utils/gamification';
 import {
   signInWithEmail,
@@ -92,6 +104,8 @@ interface PulseContextType {
 
   // Actions
   addMoment: (data: {
+    /** Where the moment is; defaults to the active hub. Pass the device GPS fix when there is one. */
+    location?: { latitude: number; longitude: number };
     title: string;
     description: string;
     category: MomentCategory;
@@ -103,6 +117,15 @@ interface PulseContextType {
   addComment: (momentId: string, content: string, parentId?: string) => Comment;
   toggleCommentLike: (commentId: string) => void;
   reportMoment: (momentId: string, reason: string, notes?: string) => void;
+  /** Whether the signed-in user is listed as a moderator (admins collection) */
+  isAdmin: boolean;
+  /** On-device "new alert near you" notifications (no push server) */
+  alertNotifications: {
+    permission: NotificationSupport;
+    enabled: boolean;
+    enable: () => Promise<void>;
+    disable: () => void;
+  };
   addBusinessPost: (post: {
     title: string;
     offer: string;
@@ -206,6 +229,21 @@ function applyReactionToggle(m: Moment, reactionType: ReactionType): Moment {
   };
 }
 
+/** A recent device GPS fix, or null when it is unavailable or denied (never prompts twice in a row) */
+function getGpsFix(): Promise<{ latitude: number; longitude: number } | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 5 * 60 * 1000 }
+    );
+  });
+}
+
 export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // 1. Location state
   const [currentLocation, setCurrentLocation] = useState(DEFAULT_COORDS);
@@ -275,7 +313,11 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Moments that came from Firestore are re-fetched on load, so only local ones are stored
   const remoteIdsRef = useRef<Set<string>>(new Set());
-  const myReactionsRef = useRef<Map<string, ReactionType> | null>(null);
+  const myReactionsRef = useRef<Map<string, StoredReaction> | null>(null);
+  const userIdRef = useRef('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationSupport>(() => notificationPermission());
+  const [alertNotificationsOn, setAlertNotificationsOn] = useState(() => isAlertNotificationsEnabled());
   const [statsVersion, setStatsVersion] = useState(0);
   const refreshStats = () => setStatsVersion((v) => v + 1);
 
@@ -319,11 +361,42 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
+    const subscribedAt = Date.now();
+    const seenIds = new Set<string>();
+
     const unsubscribe = subscribeToNearbyMoments(currentLocation, radiusKm, (remote) => {
       const mine = myReactionsRef.current;
       const nextRemote = new Map(
-        remote.map((m) => [m.id, mine ? { ...m, userReaction: mine.get(m.id) } : m])
+        remote.map((m) => [
+          m.id,
+          mine ? { ...m, userReaction: mine.get(m.id)?.type, userReactionNearby: mine.get(m.id)?.nearby } : m
+        ])
       );
+
+      // A brand-new alert inside the radius raises an in-app (and, if enabled, OS) notification.
+      // Everything that arrives in the first seconds is the initial load, not news.
+      const settling = Date.now() - subscribedAt < 5000;
+      remote.forEach((m) => {
+        if (seenIds.has(m.id)) return;
+        seenIds.add(m.id);
+        const fresh = Date.now() - new Date(m.createdAt).getTime() < 15 * 60 * 1000;
+        if (settling || !fresh || m.category !== 'alerts' || m.hidden || m.userId === userIdRef.current) return;
+        const dist = calculateDistanceKm(currentLocation.latitude, currentLocation.longitude, m.latitude, m.longitude);
+        const where = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
+        const notif: NotificationItem = {
+          id: `alert-${m.id}`,
+          type: 'alert',
+          title: `🚨 New alert ${where} from you`,
+          message: m.title,
+          momentId: m.id,
+          distanceKm: dist,
+          createdAt: new Date().toISOString(),
+          isRead: false
+        };
+        setNotifications((prev) => (prev.some((n) => n.id === notif.id) ? prev : [notif, ...prev]));
+        triggerToast(notif);
+        void showAlertNotification({ momentId: m.id, title: 'New alert near you', body: `${m.title} (${where} away)` });
+      });
       setMoments((prev) => {
         // Drop moments that left the radius, expired or were deleted; keep local-only ones
         const kept = prev.filter((m) => !remoteIdsRef.current.has(m.id) || nextRemote.has(m.id));
@@ -351,7 +424,9 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!isFirebaseConfigured || !firebaseUid) {
       setMoments((prev) =>
         prev.some((m) => remoteIdsRef.current.has(m.id) && m.userReaction)
-          ? prev.map((m) => (remoteIdsRef.current.has(m.id) ? { ...m, userReaction: undefined } : m))
+          ? prev.map((m) =>
+              remoteIdsRef.current.has(m.id) ? { ...m, userReaction: undefined, userReactionNearby: undefined } : m
+            )
           : prev
       );
       return;
@@ -361,8 +436,9 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       myReactionsRef.current = mine;
       setMoments((prev) =>
         prev.map((m) =>
-          remoteIdsRef.current.has(m.id) && m.userReaction !== mine.get(m.id)
-            ? { ...m, userReaction: mine.get(m.id) }
+          remoteIdsRef.current.has(m.id) &&
+          (m.userReaction !== mine.get(m.id)?.type || m.userReactionNearby !== mine.get(m.id)?.nearby)
+            ? { ...m, userReaction: mine.get(m.id)?.type, userReactionNearby: mine.get(m.id)?.nearby }
             : m
         )
       );
@@ -381,6 +457,38 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       subscribeToBusinessPosts(setBusinessPosts)
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+  }, []);
+
+  // 4e. Moderators (admins collection) get the review panel on their profile
+  useEffect(() => {
+    userIdRef.current = userProfile.id;
+    if (!isFirebaseConfigured || !firebaseUid || currentUser?.isAnonymous) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    checkIsAdmin(firebaseUid).then((admin) => {
+      if (!cancelled) setIsAdmin(admin);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUid, userProfile.id]);
+
+  // 4f. Clicking an OS notification focuses the app; the service worker tells us which moment
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'pulse-open-moment') return;
+      setActiveTab('map');
+      setMoments((current) => {
+        const found = current.find((m) => m.id === event.data.momentId);
+        if (found) setSelectedMoment(found);
+        return current;
+      });
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, []);
 
   // 4d. Points, reputation and the moment count are derived from the user's real activity
@@ -431,7 +539,8 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const now = new Date().getTime();
 
     // Combine active moments and business posts so verified pins can appear in feed
-    const allCandidateMoments: Moment[] = [...moments];
+    // Moments hidden by reports wait for review; only their author still sees them
+    const allCandidateMoments: Moment[] = moments.filter((m) => !m.hidden || m.userId === userProfile.id);
 
     businessPosts.forEach((bp) => {
       if (!allCandidateMoments.some((m) => m.id === bp.id)) {
@@ -477,7 +586,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return true;
       })
       .sort((a, b) => b.engagementScore - a.engagementScore);
-  }, [moments, businessPosts, businessReactions, currentLocation, radiusKm, selectedCategory, searchQuery]);
+  }, [moments, businessPosts, businessReactions, currentLocation, radiusKm, selectedCategory, searchQuery, userProfile.id]);
 
   const selectedMoment = useMemo(() => {
     if (!selectedMomentRef) return null;
@@ -546,6 +655,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Moment actions
   const addMoment = (data: {
+    location?: { latitude: number; longitude: number };
     title: string;
     description: string;
     category: MomentCategory;
@@ -553,8 +663,8 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     lifespanHours: number;
     blurPrivacy: boolean;
   }): Moment => {
-    let lat = currentLocation.latitude;
-    let lng = currentLocation.longitude;
+    let lat = data.location?.latitude ?? currentLocation.latitude;
+    let lng = data.location?.longitude ?? currentLocation.longitude;
 
     // Feature 13: Privacy Blurring
     if (data.blurPrivacy) {
@@ -598,6 +708,19 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setMoments((prev) => [newMoment, ...prev]);
+
+    // Posted from a GPS fix outside the current radius: move the map there so the author sees it
+    if (
+      data.location &&
+      calculateDistanceKm(currentLocation.latitude, currentLocation.longitude, lat, lng) > radiusKm
+    ) {
+      const areaName = getApproximateAreaName(data.location.latitude, data.location.longitude);
+      setCurrentLocation({
+        latitude: data.location.latitude,
+        longitude: data.location.longitude,
+        name: areaName !== 'Local Area' ? areaName : 'My Live GPS'
+      });
+    }
 
     // Save to Firebase Firestore if configured (quizapp-project-c5e0e)
     if (isFirebaseConfigured) {
@@ -684,11 +807,20 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Only moments that live in Firestore are synced (demo moments are local).
     if (isSynced && remoteIdsRef.current.has(momentId)) {
       const current = moments.find((m) => m.id === momentId);
-      const previous = current?.userReaction;
-      const next = previous === reactionType ? undefined : reactionType;
-      setMomentReaction(momentId, previous, next, current?.bonusMinutes ?? 0).then((ok) => {
+      const previous: StoredReaction | undefined = current?.userReaction
+        ? { type: current.userReaction, nearby: Boolean(current.userReactionNearby) }
+        : undefined;
+      const next = previous?.type === reactionType ? undefined : reactionType;
+      void (async () => {
+        // Confirming an alert counts as "nearby" only with a real GPS fix close to it
+        const position = next === 'confirmed' ? await getGpsFix() : null;
+        const ok = await setMomentReaction(momentId, previous, next, {
+          currentBonusMinutes: current?.bonusMinutes ?? 0,
+          position,
+          moment: current
+        });
         if (ok) refreshStats();
-      });
+      })();
     }
   };
 
@@ -753,16 +885,39 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const reportMoment = (momentId: string, reason: string, notes?: string) => {
-    console.log(`[PULSE Trust & Safety] Moment ${momentId} reported for ${reason}: ${notes || ''}`);
-    const notif: NotificationItem = {
-      id: `report-${Date.now()}`,
-      type: 'alert',
-      title: '🛡️ Report Received',
-      message: 'Thank you for keeping Pulse safe. Our automated moderators are reviewing this moment.',
-      createdAt: new Date().toISOString(),
-      isRead: false
-    };
-    triggerToast(notif);
+    const toast = (title: string, message: string) =>
+      triggerToast({
+        id: `report-${Date.now()}`,
+        type: 'alert',
+        title,
+        message,
+        createdAt: new Date().toISOString(),
+        isRead: false
+      });
+
+    // Demo moments and local-only sessions have no server to report to
+    if (!isSynced || !remoteIdsRef.current.has(momentId)) {
+      toast('🛡️ Report Received', 'Thank you for keeping Pulse safe. This demo moment is local, so nothing was sent.');
+      return;
+    }
+
+    void saveReport(momentId, reason, notes).then((result) => {
+      if (result.ok) {
+        toast(
+          '🛡️ Report Received',
+          result.hidden
+            ? 'Thanks. Enough people reported this moment that it is now hidden until a moderator reviews it.'
+            : 'Thank you for keeping Pulse safe. A moderator will review it if others report it too.'
+        );
+      } else if (result.reason === 'guest') {
+        toast('Sign in to report', 'Reports come from signed-in accounts so they cannot be spammed. Sign in or create an account first.');
+        setIsAuthModalOpen(true);
+      } else if (result.reason === 'denied') {
+        toast('Could not send the report', 'You may have already reported this moment, or it is your own.');
+      } else {
+        toast('Could not send the report', 'Check your connection and try again.');
+      }
+    });
   };
 
   const addBusinessPost = (post: {
@@ -1055,6 +1210,20 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addComment,
         toggleCommentLike,
         reportMoment,
+        isAdmin,
+        alertNotifications: {
+          permission: notifPermission,
+          enabled: alertNotificationsOn && notifPermission === 'granted',
+          enable: async () => {
+            const result = await enableAlertNotifications();
+            setNotifPermission(result);
+            setAlertNotificationsOn(result === 'granted');
+          },
+          disable: () => {
+            disableAlertNotifications();
+            setAlertNotificationsOn(false);
+          }
+        },
         addBusinessPost,
         markNotificationRead,
         markAllNotificationsRead,

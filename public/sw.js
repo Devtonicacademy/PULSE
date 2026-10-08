@@ -106,6 +106,9 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // The photo API is never cached (uploaded photos under /photos/ are, as same-origin assets)
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
+
   if (event.request.mode === 'navigate') {
     handleNavigation(event);
   } else if (url.origin === self.location.origin) {
@@ -114,4 +117,20 @@ self.addEventListener('fetch', (event) => {
     handleRuntimeAsset(event);
   }
   // Everything else (Firebase, ...) goes straight to the network
+});
+
+// Clicking an alert notification focuses the app (or opens it) and tells it which moment to show
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const momentId = event.notification.data && event.notification.data.momentId;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((client) => 'focus' in client);
+      if (open) {
+        open.postMessage({ type: 'pulse-open-moment', momentId });
+        return open.focus();
+      }
+      return self.clients.openWindow('/');
+    })
+  );
 });

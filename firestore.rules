@@ -30,6 +30,25 @@ service cloud.firestore {
       return type in ['helpful', 'trending', 'confirmed', 'interested', 'going'];
     }
 
+    // Admins are listed by hand in the admins collection (Firebase console); no client can write it
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Anonymous guests can browse, react and post, but cannot report (free accounts would make
+    // report-based hiding trivial to abuse)
+    function isRealAccount() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // A photo is an https link, or one of the author's own uploads served by the PULSE server
+    function isValidPhotoUrl(url, uid) {
+      return url is string
+             && url.size() <= 500
+             && (url.matches('^https://.*')
+                 || url.matches('^/photos/' + uid + '/[0-9a-f-]{36}[.](webp|jpg)$'));
+    }
+
     function momentPath(momentId) {
       return /databases/$(database)/documents/moments/$(momentId);
     }
@@ -66,6 +85,28 @@ service cloud.firestore {
                  && typeAfter(momentId, uid) in ['trending', 'confirmed']);
     }
 
+    // 1 when this user's reaction is "confirmed" and they said they were nearby, else 0
+    function confirmedNearbyBefore(momentId, uid) {
+      return exists(reactionPath(momentId, uid))
+             && get(reactionPath(momentId, uid)).data.type == 'confirmed'
+             && get(reactionPath(momentId, uid)).data.get('nearby', false) == true ? 1 : 0;
+    }
+
+    function confirmedNearbyAfter(momentId, uid) {
+      return existsAfter(reactionPath(momentId, uid))
+             && getAfter(reactionPath(momentId, uid)).data.type == 'confirmed'
+             && getAfter(reactionPath(momentId, uid)).data.get('nearby', false) == true ? 1 : 0;
+    }
+
+    // "Nearby" has to be backed by coordinates within about 1.6 km (a lat/long box) of the moment
+    function nearbyClaimValid(momentId, data) {
+      return data.get('nearby', false) != true
+             || (data.get('lat', null) is number
+                 && data.get('lng', null) is number
+                 && math.abs(data.lat - get(momentPath(momentId)).data.latitude) <= 0.015
+                 && math.abs(data.lng - get(momentPath(momentId)).data.longitude) <= 0.015);
+    }
+
     // The moment's counters must move by exactly what the user's reaction document did.
     // `before` and `after` are the moment's reaction map and bonus around this batch.
     function countersMatchReaction(momentId, uid, beforeData, afterData) {
@@ -74,6 +115,8 @@ service cloud.firestore {
           && afterData.reactions.confirmed == beforeData.reactions.confirmed + counterDelta(momentId, uid, 'confirmed')
           && afterData.reactions.interested == beforeData.reactions.interested + counterDelta(momentId, uid, 'interested')
           && afterData.reactions.going == beforeData.reactions.going + counterDelta(momentId, uid, 'going')
+          && afterData.get('confirmedNearby', 0)
+             == beforeData.get('confirmedNearby', 0) + confirmedNearbyAfter(momentId, uid) - confirmedNearbyBefore(momentId, uid)
           && bonusOk(momentId, uid, beforeData.get('bonusMinutes', 0), afterData.get('bonusMinutes', 0));
     }
 
@@ -101,8 +144,11 @@ service cloud.firestore {
                          'category', 'latitude', 'longitude', 'geohash', 'photoUrl',
                          'createdAt', 'expiresAt', 'engagementScore', 'viewsCount',
                          'isArchived', 'isBlurred', 'approxAddress', 'reactions',
-                         'commentCount', 'bonusMinutes', 'updatedAt'
+                         'commentCount', 'bonusMinutes', 'confirmedNearby', 'reportCount',
+                         'hidden', 'updatedAt'
                        ])
+                    && (!('photoUrl' in request.resource.data)
+                        || isValidPhotoUrl(request.resource.data.photoUrl, request.auth.uid))
                     && isBoundedString(request.resource.data.title, 150)
                     && isBoundedString(request.resource.data.description, 2000)
                     && isValidCategory(request.resource.data.category)
@@ -119,6 +165,9 @@ service cloud.firestore {
                     && request.resource.data.engagementScore == 50
                     && request.resource.data.viewsCount == 1
                     && request.resource.data.get('bonusMinutes', 0) == 0
+                    && request.resource.data.get('confirmedNearby', 0) == 0
+                    && request.resource.data.get('reportCount', 0) == 0
+                    && request.resource.data.get('hidden', false) == false
                     && request.resource.data.isArchived == false
                     && cooldownPassed(request.auth.uid)
                     && postStampedNow(request.auth.uid);
@@ -129,10 +178,12 @@ service cloud.firestore {
           && request.resource.data.userId == resource.data.userId
           && onlyChanges(['title', 'description', 'photoUrl', 'isArchived', 'updatedAt'])
           && isBoundedString(request.resource.data.title, 150)
-          && isBoundedString(request.resource.data.description, 2000))
+          && isBoundedString(request.resource.data.description, 2000)
+          && (!('photoUrl' in request.resource.data)
+              || isValidPhotoUrl(request.resource.data.photoUrl, request.auth.uid)))
         // Reaction counters, in the same batch as the user's own reaction document
         || (signedIn()
-          && onlyChanges(['reactions', 'bonusMinutes', 'updatedAt'])
+          && onlyChanges(['reactions', 'bonusMinutes', 'confirmedNearby', 'updatedAt'])
           && countersMatchReaction(momentId, request.auth.uid, resource.data, request.resource.data))
         // Comment counter, in the same batch as a brand-new comment by this user
         || (signedIn()
@@ -142,14 +193,29 @@ service cloud.firestore {
           && !exists(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId))
           && existsAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId))
           && getAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId)).data.momentId == momentId
-          && getAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId)).data.userId == request.auth.uid);
+          && getAfter(/databases/$(database)/documents/comments/$(request.resource.data.lastCommentId)).data.userId == request.auth.uid)
+        // Report counter, in the same batch as this user's (single, new) report. The third
+        // distinct report hides the moment until an admin reviews it.
+        || (isRealAccount()
+          && onlyChanges(['reportCount', 'hidden', 'updatedAt'])
+          && resource.data.userId != request.auth.uid
+          && request.resource.data.reportCount == resource.data.get('reportCount', 0) + 1
+          && request.resource.data.get('hidden', false) == (resource.data.get('hidden', false) || request.resource.data.reportCount >= 3)
+          && !exists(/databases/$(database)/documents/reports/$(momentId + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/reports/$(momentId + '_' + request.auth.uid)))
+        // An admin restores a reviewed moment (the reports stay, so the same people cannot re-hide it)
+        || (isAdmin()
+          && onlyChanges(['reportCount', 'hidden', 'updatedAt'])
+          && request.resource.data.reportCount == 0
+          && request.resource.data.get('hidden', false) == false);
 
-      allow delete: if isUser(resource.data.userId);
+      allow delete: if isUser(resource.data.userId) || isAdmin();
 
       // One reaction per user per moment; the user can switch it or take it back.
       match /reactions/{uid} {
         allow create, update: if isUser(uid)
-                              && request.resource.data.keys().hasOnly(['type', 'userId', 'createdAt', 'updatedAt'])
+                              && request.resource.data.keys().hasOnly(['type', 'userId', 'createdAt', 'updatedAt', 'nearby', 'lat', 'lng'])
+                              && nearbyClaimValid(momentId, request.resource.data)
                               && isReactionType(request.resource.data.type)
                               && request.resource.data.userId == uid
                               && exists(momentPath(momentId))
@@ -190,6 +256,28 @@ service cloud.firestore {
                     && onlyChanges(['content', 'updatedAt'])
                     && isBoundedString(request.resource.data.content, 1000);
       allow delete: if isUser(resource.data.userId);
+    }
+
+    // Reports: one per real (non-anonymous) account per moment (the id is momentId_uid), written
+    // together with the moment's report counter. Only admins can read or clear them.
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isRealAccount()
+                    && request.resource.data.keys().hasOnly(['momentId', 'reporterId', 'reason', 'notes', 'createdAt'])
+                    && reportId == request.resource.data.momentId + '_' + request.auth.uid
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.reason in ['spam', 'harassment', 'false_information', 'dangerous_content']
+                    && (!('notes' in request.resource.data)
+                        || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500))
+                    && exists(momentPath(request.resource.data.momentId))
+                    && getAfter(momentPath(request.resource.data.momentId)).data.get('reportCount', 0)
+                       == get(momentPath(request.resource.data.momentId)).data.get('reportCount', 0) + 1;
+      allow delete: if isAdmin();
+    }
+
+    // A signed-in user can check whether they are listed as an admin; nobody can edit the list from the app
+    match /admins/{adminId} {
+      allow read: if isUser(adminId);
     }
 
     // Profiles hold email addresses, so only the owner can read or write them. Points,

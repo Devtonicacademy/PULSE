@@ -1,7 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { MomentCategory } from '../../types/pulse';
 import {
+  compressPhoto,
+  uploadPhoto,
+  canUploadPhotos,
+  formatBytes,
+  PhotoUploadError
+} from '../../services/photoUploadService';
+import { getApproximateAreaName } from '../../utils/geoUtils';
+import {
+  Camera,
+  Loader2,
+  Crosshair,
   X,
   Sparkles,
   MapPin,
@@ -47,7 +58,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { currentLocation, addMoment, userProfile } = usePulse();
+  const { currentLocation, addMoment, userProfile, currentUser } = usePulse();
 
   const [category, setCategory] = useState<MomentCategory>('events');
   const [title, setTitle] = useState('');
@@ -58,11 +69,100 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Photo picked from the camera or gallery: compressed on the device, then uploaded
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [photo, setPhoto] = useState<{
+    status: 'compressing' | 'uploading' | 'done' | 'error';
+    preview?: string;
+    bytes?: number;
+    width?: number;
+    height?: number;
+    message?: string;
+  } | null>(null);
+  const photoBusy = photo?.status === 'compressing' || photo?.status === 'uploading';
+  const uploadsAvailable = Boolean(currentUser) && canUploadPhotos();
+
+  // GPS fix for this moment (falls back to the active hub when unavailable or denied)
+  const [gps, setGps] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'ready' | 'unavailable'>('idle');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!navigator.geolocation) {
+      setGpsStatus('unavailable');
+      return;
+    }
+    let cancelled = false;
+    setGpsStatus('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (cancelled) return;
+        setGps({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
+        setGpsStatus('ready');
+      },
+      () => {
+        if (cancelled) return;
+        setGps(null);
+        setGpsStatus('unavailable');
+      },
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (photo?.preview) URL.revokeObjectURL(photo.preview);
+    };
+  }, [photo?.preview]);
+
   if (!isOpen) return null;
+
+  const handlePhotoPicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow picking the same file again
+    if (!file) return;
+
+    setError(null);
+    setPhoto({ status: 'compressing' });
+    try {
+      const compressed = await compressPhoto(file);
+      const preview = URL.createObjectURL(compressed.blob);
+      setPhoto({
+        status: 'uploading',
+        preview,
+        bytes: compressed.blob.size,
+        width: compressed.width,
+        height: compressed.height
+      });
+      const url = await uploadPhoto(compressed);
+      setPhotoUrl(url);
+      setPhoto((prev) => (prev ? { ...prev, status: 'done' } : prev));
+    } catch (err) {
+      setPhoto((prev) => ({
+        ...(prev ?? {}),
+        status: 'error',
+        message: err instanceof PhotoUploadError ? err.message : 'Could not process that photo.'
+      }));
+    }
+  };
+
+  const removePhoto = () => {
+    setPhoto(null);
+    if (photoUrl.startsWith('/photos/')) setPhotoUrl('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (photoBusy) {
+      setError('Your photo is still uploading. One moment...');
+      return;
+    }
 
     // Validation
     if (!title.trim() || title.length < 5) {
@@ -78,6 +178,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
     try {
       addMoment({
+        location: gps ? { latitude: gps.latitude, longitude: gps.longitude } : undefined,
         title: title.trim(),
         description: description.trim(),
         category,
@@ -90,6 +191,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       setTitle('');
       setDescription('');
       setPhotoUrl('');
+      setPhoto(null);
       setIsSubmitting(false);
       onClose();
     } catch (err: any) {
@@ -205,6 +307,58 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Photo Attachment (Optional)
             </label>
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoPicked} data-testid="photo-camera" />
+            <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoPicked} data-testid="photo-gallery" />
+            <div className="flex items-center gap-2 mb-2">
+              <button
+                type="button"
+                disabled={!uploadsAvailable || photoBusy}
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-cyan-400/40 disabled:opacity-40 transition-colors"
+              >
+                <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Take photo</span>
+              </button>
+              <button
+                type="button"
+                disabled={!uploadsAvailable || photoBusy}
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-cyan-400/40 disabled:opacity-40 transition-colors"
+              >
+                <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                <span>From gallery</span>
+              </button>
+            </div>
+            {!uploadsAvailable && (
+              <p className="text-[10px] text-slate-500 mb-2">
+                Sign in to upload your own photo, or pick a sample / paste an image link below.
+              </p>
+            )}
+            {photo && (
+              <div className="flex items-center gap-3 p-2 mb-2 rounded-xl bg-slate-900/70 border border-white/10" data-testid="photo-status">
+                {photo.preview ? (
+                  <img src={photo.preview} alt="Your photo" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 text-[11px]">
+                  {photo.status === 'compressing' && <span className="text-slate-300">Shrinking photo...</span>}
+                  {photo.status === 'uploading' && <span className="text-slate-300">Uploading...</span>}
+                  {photo.status === 'done' && <span className="text-emerald-400 font-semibold">Photo ready</span>}
+                  {photo.status === 'error' && <span className="text-rose-300">{photo.message}</span>}
+                  {photo.bytes !== undefined && (
+                    <div className="text-slate-500 mt-0.5">
+                      {formatBytes(photo.bytes)} · {photo.width}×{photo.height}
+                    </div>
+                  )}
+                </div>
+                <button type="button" onClick={removePhoto} className="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
               {SAMPLE_PHOTOS.map((p, idx) => (
                 <button
@@ -225,7 +379,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               ))}
             </div>
             <input
-              type="url"
+              type="text"
+              inputMode="url"
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
               placeholder="Or paste any custom image URL..."
@@ -269,8 +424,18 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 GPS Verification:
               </span>
-              <span className="text-[11px] font-medium text-emerald-400">
-                Verified at {currentLocation.name}
+              <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1 text-right" data-testid="gps-status">
+                {gpsStatus === 'locating' && (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" /> Finding your GPS location...
+                  </>
+                )}
+                {gpsStatus === 'ready' && gps && (
+                  <>
+                    <Crosshair className="w-3 h-3" /> GPS: {getApproximateAreaName(gps.latitude, gps.longitude)} (±{Math.round(gps.accuracy)}m)
+                  </>
+                )}
+                {(gpsStatus === 'unavailable' || gpsStatus === 'idle') && <>Using {currentLocation.name}</>}
               </span>
             </div>
 

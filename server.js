@@ -1,31 +1,23 @@
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createApp } from './server/app.js';
+import { storageFromEnv } from './server/photoStorage.js';
+import { createTokenVerifier } from './server/firebaseAuth.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'quizapp-project-c5e0e';
 
-// Serve static assets from Vite build directory
-app.use(express.static(path.join(__dirname, 'dist'), {
-  maxAge: '1d',
-  setHeaders: (res, filePath) => {
-    // Aggressive caching for hashed assets
-    if (filePath.includes('/assets/')) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
-  }
-}));
-
-// SPA Fallback: Any unmatched route serves index.html for client-side routing
-// Express 5 compatible middleware fallback
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+const storage = storageFromEnv();
+const verifyToken = createTokenVerifier({
+  projectId: PROJECT_ID,
+  emulator: Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST)
 });
 
+const app = createApp({ storage, verifyToken, distDir: path.join(__dirname, 'dist') });
+
 app.listen(PORT, HOST, () => {
-  console.log(`⚡ [PULSE] Live Production Server running on http://${HOST}:${PORT}`);
+  console.log(`⚡ [PULSE] Live Production Server running on http://${HOST}:${PORT} (photos: ${storage.kind})`);
 });

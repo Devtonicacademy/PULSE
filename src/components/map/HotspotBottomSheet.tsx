@@ -254,6 +254,20 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
             </div>
           </div>
 
+          {selectedMoment.category === 'alerts' && selectedMoment.confirmedNearby !== undefined && (
+            <div
+              className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-200"
+              data-testid="confirmed-nearby"
+            >
+              <CheckCircle2 className="w-4 h-4 text-rose-300 shrink-0" />
+              <span>
+                {selectedMoment.confirmedNearby > 0
+                  ? `Confirmed by ${selectedMoment.confirmedNearby} ${selectedMoment.confirmedNearby === 1 ? 'person' : 'people'} nearby`
+                  : 'Not confirmed yet. Near it? Tap Verified to confirm.'}
+              </span>
+            </div>
+          )}
+
           {/* 3D First-Person Wayfinding Navigation Trigger */}
           {onStartNavigation && (
             <button

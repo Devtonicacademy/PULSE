@@ -31,7 +31,7 @@ const TYPE_ICONS: Record<NotificationType, { icon: any; color: string; bg: strin
 export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
   onSelectMoment
 }) => {
-  const { notifications, markNotificationRead, markAllNotificationsRead } = usePulse();
+  const { notifications, markNotificationRead, markAllNotificationsRead, alertNotifications } = usePulse();
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -61,6 +61,34 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
           </button>
         )}
       </div>
+
+      {/* On-device alert notifications: asked for here, when the user opens their alerts */}
+      {alertNotifications.permission !== 'unsupported' && (
+        <div className="p-3.5 rounded-2xl glass-panel border border-white/10 flex items-center justify-between gap-3" data-testid="alert-notifications">
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-white">Alert notifications</div>
+            <p className="text-[11px] text-slate-400 leading-snug">
+              {alertNotifications.permission === 'denied'
+                ? 'Notifications are blocked in your browser settings.'
+                : alertNotifications.enabled
+                ? 'You will be notified of new alerts nearby while Pulse is open.'
+                : 'Get notified of new alerts in your radius while Pulse is open (this device only).'}
+            </p>
+          </div>
+          {alertNotifications.permission !== 'denied' && (
+            <button
+              onClick={() => (alertNotifications.enabled ? alertNotifications.disable() : void alertNotifications.enable())}
+              className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-colors ${
+                alertNotifications.enabled
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  : 'bg-white/5 text-slate-200 border-white/15 hover:bg-white/10'
+              }`}
+            >
+              {alertNotifications.enabled ? 'On' : 'Turn on'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Notifications List */}
       <div className="space-y-3">

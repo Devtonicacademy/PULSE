@@ -12,6 +12,11 @@ import {
   increment,
   serverTimestamp,
   getCountFromServer,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  runTransaction,
   Unsubscribe,
   DocumentData
 } from 'firebase/firestore';
@@ -57,7 +62,7 @@ export function withoutUndefined<T extends object>(data: T): Partial<T> {
 const ZERO_REACTIONS = { helpful: 0, trending: 0, confirmed: 0, interested: 0, going: 0 };
 
 /** Turns a Firestore moment document into the app's Moment (counters come from the server, never the client) */
-function momentFromDoc(id: string, data: DocumentData): Moment {
+export function momentFromDoc(id: string, data: DocumentData): Moment {
   const reactions = { ...ZERO_REACTIONS, ...(data.reactions || {}) };
   const commentCount = Number(data.commentCount) || 0;
   const totalReactions = Object.values(reactions).reduce<number>((sum, n) => sum + Number(n || 0), 0);
@@ -88,7 +93,10 @@ function momentFromDoc(id: string, data: DocumentData): Moment {
     approxAddress: data.approxAddress || 'Nearby Moment',
     reactions,
     commentCount,
-    bonusMinutes: Number(data.bonusMinutes) || 0
+    bonusMinutes: Number(data.bonusMinutes) || 0,
+    confirmedNearby: Number(data.confirmedNearby) || 0,
+    reportCount: Number(data.reportCount) || 0,
+    hidden: Boolean(data.hidden)
   };
 }
 
@@ -202,6 +210,9 @@ export async function saveMomentToFirebase(moment: Moment): Promise<SaveResult> 
         reactions: { ...ZERO_REACTIONS },
         commentCount: 0,
         bonusMinutes: 0,
+        confirmedNearby: 0,
+        reportCount: 0,
+        hidden: false,
         updatedAt: now
       })
     );
@@ -215,19 +226,46 @@ export async function saveMomentToFirebase(moment: Moment): Promise<SaveResult> 
   }
 }
 
+/** A reaction as stored: its type and whether the user was near the moment when confirming */
+export interface StoredReaction {
+  type: ReactionType;
+  nearby: boolean;
+}
+
+/** About 1.5 km: the rules accept a lat/long box of 0.015 degrees, so stay a little inside it */
+const NEARBY_BOX_DEGREES = 0.014;
+
+export function isNearMoment(
+  position: { latitude: number; longitude: number } | null | undefined,
+  moment: { latitude: number; longitude: number }
+): boolean {
+  return Boolean(
+    position &&
+      Math.abs(position.latitude - moment.latitude) <= NEARBY_BOX_DEGREES &&
+      Math.abs(position.longitude - moment.longitude) <= NEARBY_BOX_DEGREES
+  );
+}
+
 /**
  * Sets, switches or removes the signed-in user's single reaction on a moment. The reaction
  * document (moments/{id}/reactions/{uid}) and the moment's counters change in one batch, and the
  * security rules check that the counters moved by exactly what the reaction document did.
+ *
+ * `position` is the user's GPS fix (rounded to ~100 m before it is stored); a "confirmed"
+ * reaction made near the moment also counts toward "confirmed by N people nearby".
  */
 export async function setMomentReaction(
   momentId: string,
-  previous: ReactionType | undefined,
+  previous: StoredReaction | undefined,
   next: ReactionType | undefined,
-  currentBonusMinutes = 0
+  options: {
+    currentBonusMinutes?: number;
+    position?: { latitude: number; longitude: number } | null;
+    moment?: { latitude: number; longitude: number };
+  } = {}
 ): Promise<boolean> {
   const user = auth?.currentUser;
-  if (!db || !canWrite() || !user || previous === next) {
+  if (!db || !canWrite() || !user || previous?.type === next) {
     return false;
   }
 
@@ -236,16 +274,31 @@ export async function setMomentReaction(
     const batch = writeBatch(db);
     const reactionRef = doc(db, MOMENTS_COLLECTION, momentId, 'reactions', user.uid);
     const counters: Record<string, unknown> = { updatedAt: now };
+    const nearby = next === 'confirmed' && Boolean(options.moment) && isNearMoment(options.position, options.moment!);
 
-    if (previous) counters[`reactions.${previous}`] = increment(-1);
+    if (previous) counters[`reactions.${previous.type}`] = increment(-1);
     if (next) counters[`reactions.${next}`] = increment(1);
+    if (previous?.type === 'confirmed' && previous.nearby) counters.confirmedNearby = increment(-1);
+    if (nearby) counters.confirmedNearby = increment(1);
     // Trending / confirmed reactions extend the moment's life by 30 minutes, up to 4 hours in total
-    if ((next === 'trending' || next === 'confirmed') && currentBonusMinutes < 240) {
+    if ((next === 'trending' || next === 'confirmed') && (options.currentBonusMinutes ?? 0) < 240) {
       counters.bonusMinutes = increment(30);
     }
 
     if (next) {
-      batch.set(reactionRef, { type: next, userId: user.uid, createdAt: now, updatedAt: now });
+      const round = (n: number) => Math.round(n * 1000) / 1000; // ~110 m
+      batch.set(
+        reactionRef,
+        withoutUndefined({
+          type: next,
+          userId: user.uid,
+          createdAt: now,
+          updatedAt: now,
+          nearby: nearby || undefined,
+          lat: nearby ? round(options.position!.latitude) : undefined,
+          lng: nearby ? round(options.position!.longitude) : undefined
+        })
+      );
     } else {
       batch.delete(reactionRef);
     }
@@ -259,13 +312,13 @@ export async function setMomentReaction(
 }
 
 /**
- * Streams the signed-in user's own reactions ({ momentId -> type }) so the UI shows what they
+ * Streams the signed-in user's own reactions ({ momentId -> reaction }) so the UI shows what they
  * reacted to on any device. Uses a collection-group query backed by a field override in
  * firestore.indexes.json.
  */
 export function subscribeToMyReactions(
   uid: string,
-  onUpdate: (reactions: Map<string, ReactionType>) => void
+  onUpdate: (reactions: Map<string, StoredReaction>) => void
 ): Unsubscribe | null {
   if (!db || !isFirebaseConfigured) {
     return null;
@@ -276,10 +329,11 @@ export function subscribeToMyReactions(
     return onSnapshot(
       q,
       (snapshot) => {
-        const mine = new Map<string, ReactionType>();
+        const mine = new Map<string, StoredReaction>();
         snapshot.docs.forEach((docSnap) => {
           const momentId = docSnap.ref.parent.parent?.id;
-          if (momentId) mine.set(momentId, docSnap.data().type as ReactionType);
+          const data = docSnap.data();
+          if (momentId) mine.set(momentId, { type: data.type as ReactionType, nearby: Boolean(data.nearby) });
         });
         onUpdate(mine);
       },
@@ -439,3 +493,128 @@ export const subscribeToBusinesses = (onUpdate: (businesses: Business[]) => void
 
 export const subscribeToBusinessPosts = (onUpdate: (posts: BusinessPost[]) => void) =>
   subscribeToCollection<BusinessPost>('businessPosts', onUpdate);
+
+/** Distinct reports that hide a moment until an admin reviews it (the security rules use the same number) */
+export const REPORT_HIDE_THRESHOLD = 3;
+
+export const REPORT_REASONS = ['spam', 'harassment', 'false_information', 'dangerous_content'] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+export type ReportResult = { ok: true; hidden: boolean } | { ok: false; reason: 'offline' | 'guest' | 'denied' | 'error' };
+
+/**
+ * Files a report in the reports collection and bumps the moment's report counter in one
+ * transaction; the third distinct report also hides the moment. Reporting needs a real
+ * (non-anonymous) account, and each account can report a moment once.
+ */
+export async function saveReport(momentId: string, reason: string, notes?: string): Promise<ReportResult> {
+  const user = auth?.currentUser;
+  if (!db || !user) {
+    return { ok: false, reason: 'offline' };
+  }
+  if (user.isAnonymous) {
+    return { ok: false, reason: 'guest' };
+  }
+  if (!REPORT_REASONS.includes(reason as ReportReason)) {
+    return { ok: false, reason: 'error' };
+  }
+
+  try {
+    const firestore = db;
+    const momentRef = doc(firestore, MOMENTS_COLLECTION, momentId);
+    const hidden = await runTransaction(firestore, async (tx) => {
+      const snap = await tx.get(momentRef);
+      if (!snap.exists()) throw new Error('moment-missing');
+      const reportCount = (Number(snap.data().reportCount) || 0) + 1;
+      const willHide = Boolean(snap.data().hidden) || reportCount >= REPORT_HIDE_THRESHOLD;
+      tx.set(
+        doc(firestore, 'reports', `${momentId}_${user.uid}`),
+        withoutUndefined({
+          momentId,
+          reporterId: user.uid,
+          reason,
+          notes: notes?.trim() ? notes.trim().slice(0, 500) : undefined,
+          createdAt: new Date().toISOString()
+        })
+      );
+      tx.update(momentRef, { reportCount, hidden: willHide, updatedAt: new Date().toISOString() });
+      return willHide;
+    });
+    return { ok: true, hidden };
+  } catch (error) {
+    console.warn('[PULSE Firebase] Failed to save report:', error);
+    return { ok: false, reason: failureReason(error) };
+  }
+}
+
+/** Whether the signed-in user is listed in the admins collection (managed by hand in the Firebase console) */
+export async function checkIsAdmin(uid: string): Promise<boolean> {
+  if (!db || !isFirebaseConfigured) return false;
+  try {
+    return (await getDoc(doc(db, 'admins', uid))).exists();
+  } catch {
+    return false;
+  }
+}
+
+export interface ReportEntry {
+  id: string;
+  reporterId: string;
+  reason: string;
+  notes?: string;
+  createdAt: string;
+}
+
+/** Admin review queue: moments hidden by reports, with a live feed */
+export function subscribeToHiddenMoments(onUpdate: (moments: Moment[]) => void): Unsubscribe | null {
+  if (!db || !isFirebaseConfigured) return null;
+  try {
+    return onSnapshot(
+      query(collection(db, MOMENTS_COLLECTION), where('hidden', '==', true)),
+      (snapshot) => onUpdate(snapshot.docs.map((d) => momentFromDoc(d.id, d.data()))),
+      (err) => console.warn('[PULSE Firebase] Error in review queue subscription:', err)
+    );
+  } catch (err) {
+    console.warn('[PULSE Firebase] Could not set up review queue:', err);
+    return null;
+  }
+}
+
+export async function fetchReportsForMoment(momentId: string): Promise<ReportEntry[]> {
+  if (!db) return [];
+  try {
+    const snapshot = await getDocs(query(collection(db, 'reports'), where('momentId', '==', momentId)));
+    return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ReportEntry, 'id'>) }));
+  } catch (err) {
+    console.warn('[PULSE Firebase] Could not read reports:', err);
+    return [];
+  }
+}
+
+/** Admin: put a reviewed moment back on the map (the reports stay, so the same people cannot re-hide it) */
+export async function restoreMoment(momentId: string): Promise<boolean> {
+  if (!db || !canWrite()) return false;
+  try {
+    await updateDoc(doc(db, MOMENTS_COLLECTION, momentId), {
+      hidden: false,
+      reportCount: 0,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    console.warn('[PULSE Firebase] Could not restore moment:', err);
+    return false;
+  }
+}
+
+/** Admin: remove a moment (and nothing else) after review */
+export async function deleteMomentAsAdmin(momentId: string): Promise<boolean> {
+  if (!db || !canWrite()) return false;
+  try {
+    await deleteDoc(doc(db, MOMENTS_COLLECTION, momentId));
+    return true;
+  } catch (err) {
+    console.warn('[PULSE Firebase] Could not delete moment:', err);
+    return false;
+  }
+}
