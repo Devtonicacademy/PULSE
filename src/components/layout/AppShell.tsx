@@ -151,7 +151,7 @@ export const AppShell: React.FC = () => {
                 }
               >
                 <div className="relative h-full">
-                  <Pulse3DMap {...mapProps} lightPreset="night" enableDynamicLighting>
+                  <Pulse3DMap {...mapProps} enableDynamicLighting>
                     {sheet}
                   </Pulse3DMap>
                   <button

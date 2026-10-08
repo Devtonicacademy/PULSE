@@ -37,7 +37,19 @@ import {
 } from 'lucide-react';
 import { usePulse } from '../../context/PulseContext';
 import { Moment, RadiusKm } from '../../types/pulse';
-import { buildPulseStyle, BUILDINGS_LAYER_ID } from './pulseMapStyle';
+import { buildPulseStyle, BUILDING_LAYER_IDS } from './pulseMapStyle';
+import { applyLighting, installWindowImages } from './pulseMapLighting';
+import { getLighting, lightingForMood, LightingMood } from '../../utils/sunLight';
+
+type LightingMode = 'auto' | LightingMood;
+const LIGHTING_MODE_KEY = 'pulse_lighting_mode';
+const LIGHTING_MODES: { id: LightingMode; label: string }[] = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'dawn', label: 'Dawn' },
+  { id: 'day', label: 'Day' },
+  { id: 'dusk', label: 'Dusk' },
+  { id: 'night', label: 'Night' }
+];
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import {
   getPositionAlongRoute,
@@ -245,6 +257,17 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
     const zoneMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const businessMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const is3dBuildingsRef = useRef(initialEnable3dBuildings);
+    // Lighting follows the sun at the user's location; Dawn / Day / Dusk / Night override it
+    const [lightingMode, setLightingMode] = useState<LightingMode>(() => {
+      try {
+        const saved = localStorage.getItem(LIGHTING_MODE_KEY);
+        return LIGHTING_MODES.some((m) => m.id === saved) ? (saved as LightingMode) : 'auto';
+      } catch {
+        return 'auto';
+      }
+    });
+    const lightingModeRef = useRef<LightingMode>(lightingMode);
+    lightingModeRef.current = lightingMode;
     const currentLocationRef = useRef({ longitude: 0, latitude: 0 });
     const radiusKmRef = useRef<RadiusKm>(5);
     const [showHotspotMenu, setShowHotspotMenu] = useState<boolean>(false);
@@ -276,9 +299,9 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       is3dBuildingsRef.current = enabled;
       setIs3dBuildingsEnabled(enabled);
       const map = mapRef.current;
-      if (map?.getLayer(BUILDINGS_LAYER_ID)) {
-        map.setLayoutProperty(BUILDINGS_LAYER_ID, 'visibility', enabled ? 'visible' : 'none');
-      }
+      BUILDING_LAYER_IDS.forEach((id) => {
+        if (map?.getLayer(id)) map.setLayoutProperty(id, 'visibility', enabled ? 'visible' : 'none');
+      });
     }, []);
 
     /**
@@ -870,6 +893,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         map.on('click', onMapClick);
       }
 
+      installWindowImages(map);
+
       // Style load: add the Radar overlays (hidden until switched on) and apply building state
       map.on('style.load', () => {
         const on = radarLayersRef.current;
@@ -923,13 +948,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           }
         }, before);
 
-        if (map.getLayer(BUILDINGS_LAYER_ID)) {
-          map.setLayoutProperty(
-            BUILDINGS_LAYER_ID,
-            'visibility',
-            visibility(is3dBuildingsRef.current)
-          );
-        }
+        BUILDING_LAYER_IDS.forEach((id) => {
+          if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility(is3dBuildingsRef.current));
+        });
+
+        applyLighting(map, currentLighting());
       });
 
       // Flyer cards shrink when zoomed out so a busy city doesn't pile them on top of each other
@@ -1097,6 +1120,29 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         currentMarkers.set(moment.id, newMarker);
       });
     }, [moments, isMapLoaded, onSelectMoment]);
+
+    /** The lighting for now at the user's location, or the manual override */
+    function currentLighting() {
+      const mode = lightingModeRef.current;
+      if (mode !== 'auto') return lightingForMood(mode);
+      const where = currentLocationRef.current;
+      return getLighting(new Date(), where.latitude, where.longitude);
+    }
+
+    // Repaint when the mode or place changes, and every minute as the sun moves
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !isMapLoaded) return;
+      try {
+        localStorage.setItem(LIGHTING_MODE_KEY, lightingMode);
+      } catch {
+        // storage unavailable: the choice just won't persist
+      }
+      const repaint = () => applyLighting(map, currentLighting());
+      repaint();
+      const timer = window.setInterval(repaint, 60 * 1000);
+      return () => window.clearInterval(timer);
+    }, [lightingMode, currentLocation.latitude, currentLocation.longitude, isMapLoaded]);
 
     /**
      * Radar overlays: keep the radius circle and heatmap in step with the app state
@@ -1563,6 +1609,28 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                       {radarLayers.business ? 'ON' : 'OFF'}
                     </span>
                   </button>
+
+                  <div className="pt-1">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1 flex items-center justify-between">
+                      <span>Lighting</span>
+                      <span className="normal-case text-cyan-300">{lightingMode === 'auto' ? 'follows the sun' : 'manual'}</span>
+                    </div>
+                    <div className="flex items-center gap-1" data-testid="lighting-modes">
+                      {LIGHTING_MODES.map((m) => (
+                        <button
+                          key={m.id}
+                          onClick={() => setLightingMode(m.id)}
+                          className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                            lightingMode === m.id
+                              ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40'
+                              : 'text-slate-300 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   <div className="pt-1">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1">

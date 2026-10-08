@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { Loader2, MapPinOff } from 'lucide-react';
 import type { PulseMapProps, MapLightPreset } from './PulseMap';
 import { PulseScene, LightPreset } from './pulse3d/PulseScene';
+import { getLighting } from '../../utils/sunLight';
 import { CameraRig, CameraMode, MODE_FRAMING } from './pulse3d/CameraRig';
 import { UserAvatar } from './pulse3d/UserAvatar';
 import { MapHud, WalkDirection } from './pulse3d/MapHud';
@@ -54,7 +55,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   defaultCenter = [3.4219, 6.4281],
   bearing = 0,
   initialCameraMode = 'fpv',
-  lightPreset: initialLightPreset = 'night',
+  lightPreset: requestedLightPreset,
   enable3dBuildings = true,
   autoGeolocate = true,
   showUserMarker = true,
@@ -94,7 +95,24 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const [hasData, setHasData] = useState(true);
   const [cameraMode, setCameraMode] = useState<CameraMode>(initialCameraMode);
   const [cameraNotice, setCameraNotice] = useState<string | null>(null);
-  const [lightPreset, setLightPreset] = useState<LightPreset>(initialLightPreset);
+  // Lighting follows the sun at the user's location until they pick a preset by hand
+  const sunMood = () => getLighting(new Date(), centerLat, centerLng).mood as LightPreset;
+  const initialLightPreset: LightPreset = requestedLightPreset ?? sunMood();
+  const [lightPreset, setLightPresetState] = useState<LightPreset>(initialLightPreset);
+  const manualLightRef = useRef(requestedLightPreset !== undefined);
+  const setLightPreset = (preset: LightPreset) => {
+    manualLightRef.current = true;
+    setLightPresetState(preset);
+  };
+  useEffect(() => {
+    const update = () => {
+      if (!manualLightRef.current) setLightPresetState(sunMood());
+    };
+    update();
+    const timer = window.setInterval(update, 60 * 1000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerLat, centerLng]);
   const [buildingsVisible, setBuildingsVisible] = useState(enable3dBuildings);
   const [isLocating, setIsLocating] = useState(false);
   const [activeRoute, setActiveRoute] = useState<NavigationRoute | null>(null);

@@ -9,6 +9,9 @@ export const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
 const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf';
 
 export const BUILDINGS_LAYER_ID = 'pulse-buildings-3d';
+/** A thin solid cap on every building so the window texture only shows on the walls, not the roof */
+export const ROOFS_LAYER_ID = 'pulse-roofs-3d';
+export const BUILDING_LAYER_IDS = [BUILDINGS_LAYER_ID, ROOFS_LAYER_ID];
 
 const FONT_REGULAR = ['Noto Sans Regular'];
 const FONT_BOLD = ['Noto Sans Bold'];
@@ -186,8 +189,31 @@ export function buildPulseStyle(): StyleSpecification {
           14, 0,
           14.8, ['coalesce', ['get', 'render_min_height'], 0]
         ],
-        'fill-extrusion-opacity': 0.92,
+        'fill-extrusion-opacity': 1,
         'fill-extrusion-vertical-gradient': true
+      }
+    },
+    {
+      id: ROOFS_LAYER_ID,
+      type: 'fill-extrusion',
+      source: 'openmaptiles',
+      'source-layer': 'building',
+      minzoom: 14,
+      filter: ['!=', ['get', 'hide_3d'], true],
+      paint: {
+        'fill-extrusion-color': '#1a2438',
+        'fill-extrusion-base': [
+          'interpolate', ['linear'], ['zoom'],
+          14, 0,
+          14.8, ['coalesce', ['get', 'render_height'], 6]
+        ],
+        'fill-extrusion-height': [
+          'interpolate', ['linear'], ['zoom'],
+          14, 0,
+          14.8, ['+', ['coalesce', ['get', 'render_height'], 6], 0.8]
+        ],
+        'fill-extrusion-opacity': 1,
+        'fill-extrusion-vertical-gradient': false
       }
     },
     {
