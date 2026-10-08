@@ -19,13 +19,61 @@ interface NotificationsDrawerProps {
   onSelectMoment: (momentId: string) => void;
 }
 
-const TYPE_ICONS: Record<NotificationType, { icon: any; color: string; bg: string }> = {
-  alert: { icon: AlertTriangle, color: 'text-accent-400', bg: 'bg-accent-500/20 border-accent-500/30' },
-  trending: { icon: Flame, color: 'text-amber-400', bg: 'bg-amber-500/20 border-amber-500/30' },
-  event: { icon: PartyPopper, color: 'text-purple-400', bg: 'bg-purple-500/20 border-purple-500/30' },
-  deal: { icon: Tag, color: 'text-emerald-400', bg: 'bg-emerald-500/20 border-emerald-500/30' },
-  community: { icon: Radio, color: 'text-signal-400', bg: 'bg-signal-500/20 border-signal-500/30' },
-  reward: { icon: PartyPopper, color: 'text-yellow-400', bg: 'bg-yellow-500/20 border-yellow-500/30' }
+interface TypeMeta {
+  icon: any;
+  label: string;
+  /** Icon chip */
+  chip: string;
+  /** Category pill beside the title */
+  pill: string;
+  /** Left edge stripe that separates and color-codes each alert */
+  stripe: string;
+}
+
+// Each alert category owns a hue. Full class names so Tailwind can see them.
+const TYPE_ICONS: Record<NotificationType, TypeMeta> = {
+  alert: {
+    icon: AlertTriangle,
+    label: 'Alert',
+    chip: 'bg-rose-500/20 border-rose-400/40 text-rose-300',
+    pill: 'bg-rose-500/15 border-rose-400/40 text-rose-200',
+    stripe: 'border-l-rose-400'
+  },
+  trending: {
+    icon: Flame,
+    label: 'Trending',
+    chip: 'bg-orange-500/20 border-orange-400/40 text-orange-300',
+    pill: 'bg-orange-500/15 border-orange-400/40 text-orange-200',
+    stripe: 'border-l-orange-400'
+  },
+  event: {
+    icon: PartyPopper,
+    label: 'Event',
+    chip: 'bg-violet-500/20 border-violet-400/40 text-violet-300',
+    pill: 'bg-violet-500/15 border-violet-400/40 text-violet-200',
+    stripe: 'border-l-violet-400'
+  },
+  deal: {
+    icon: Tag,
+    label: 'Deal',
+    chip: 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300',
+    pill: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200',
+    stripe: 'border-l-emerald-400'
+  },
+  community: {
+    icon: Radio,
+    label: 'Community',
+    chip: 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300',
+    pill: 'bg-cyan-500/15 border-cyan-400/40 text-cyan-200',
+    stripe: 'border-l-cyan-400'
+  },
+  reward: {
+    icon: PartyPopper,
+    label: 'Reward',
+    chip: 'bg-yellow-500/20 border-yellow-400/40 text-yellow-300',
+    pill: 'bg-yellow-500/15 border-yellow-400/40 text-yellow-200',
+    stripe: 'border-l-yellow-400'
+  }
 };
 
 export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
@@ -45,7 +93,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-white">Live Proximity Alerts</h2>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-300">
               Real-time activity radar within your selected radius
             </p>
           </div>
@@ -67,7 +115,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         <div className="p-3.5 rounded-2xl glass-panel border border-white/10 flex items-center justify-between gap-3" data-testid="alert-notifications">
           <div className="min-w-0">
             <div className="text-xs font-bold text-white">Alert notifications</div>
-            <p className="text-[11px] text-slate-400 leading-snug">
+            <p className="text-[11px] text-slate-300 leading-snug">
               {alertNotifications.permission === 'denied'
                 ? 'Notifications are blocked in your browser settings.'
                 : alertNotifications.enabled
@@ -90,19 +138,19 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         </div>
       )}
 
-      {/* Notifications List */}
-      <div className="space-y-3">
-        {notifications.length === 0 ? (
-          <div className="text-center py-16 text-xs text-slate-400 glass-panel rounded-2xl">
-            No alerts right now. You are fully caught up with your surroundings!
-          </div>
-        ) : (
-          notifications.map((item) => {
+      {/* Notifications List: one panel, rows divided by rules, each stripe-coded by category */}
+      {notifications.length === 0 ? (
+        <div className="text-center py-16 text-xs text-slate-300 glass-panel rounded-2xl">
+          No alerts right now. You are fully caught up with your surroundings!
+        </div>
+      ) : (
+        <ul className="glass-panel rounded-2xl overflow-hidden">
+          {notifications.map((item) => {
             const meta = TYPE_ICONS[item.type] || TYPE_ICONS.event;
             const Icon = meta.icon;
 
             return (
-              <div
+              <li
                 key={item.id}
                 onClick={() => {
                   markNotificationRead(item.id);
@@ -110,53 +158,60 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
                     onSelectMoment(item.momentId);
                   }
                 }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 ${
+                className={`px-4 py-4 sm:px-5 border-l-4 ${meta.stripe} border-b border-b-white/10 last:border-b-0 transition-colors cursor-pointer flex items-start gap-3.5 ${
                   item.isRead
-                    ? 'glass-panel border-white/5 opacity-75 hover:opacity-100'
-                    : 'bg-slate-900/90 border-accent-500/30 shadow-lg shadow-accent-500/5'
+                    ? 'bg-transparent hover:bg-white/5'
+                    : 'bg-white/[0.06] hover:bg-white/10'
                 }`}
               >
-                <div
-                  className={`p-2.5 rounded-xl border shrink-0 ${meta.bg} ${meta.color}`}
-                >
+                <div className={`p-2.5 rounded-xl border shrink-0 ${meta.chip}`}>
                   <Icon className="w-4 h-4" />
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h4 className="text-xs font-bold text-white leading-tight truncate">
-                      {item.title}
-                    </h4>
-                    <span className="text-[10px] text-slate-500 shrink-0">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`shrink-0 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${meta.pill}`}
+                      >
+                        {meta.label}
+                      </span>
+                      {!item.isRead && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-400 shrink-0" aria-label="Unread" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 shrink-0">
                       {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                    {item.message}
-                  </p>
+                  <h4 className="text-sm font-bold text-white leading-snug">{item.title}</h4>
 
-                  <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                    {item.distanceKm !== undefined && (
-                      <span className="flex items-center gap-1 text-signal-300">
-                        <MapPin className="w-3 h-3" />
-                        {item.distanceKm < 1
-                          ? `${Math.round(item.distanceKm * 1000)}m away`
-                          : `${item.distanceKm.toFixed(1)}km away`}
-                      </span>
-                    )}
-                    {item.momentId && (
-                      <span className="text-accent-400 font-semibold flex items-center gap-0.5 ml-auto">
-                        View Moment <ChevronRight className="w-3 h-3" />
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-xs text-slate-200 leading-relaxed mt-1">{item.message}</p>
+
+                  {(item.distanceKm !== undefined || item.momentId) && (
+                    <div className="flex items-center gap-3 text-[11px] mt-2.5 pt-2.5 border-t border-white/10">
+                      {item.distanceKm !== undefined && (
+                        <span className="flex items-center gap-1 text-signal-300 font-medium">
+                          <MapPin className="w-3 h-3" />
+                          {item.distanceKm < 1
+                            ? `${Math.round(item.distanceKm * 1000)}m away`
+                            : `${item.distanceKm.toFixed(1)}km away`}
+                        </span>
+                      )}
+                      {item.momentId && (
+                        <span className="text-accent-300 font-semibold flex items-center gap-0.5 ml-auto">
+                          View Moment <ChevronRight className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
+              </li>
             );
-          })
-        )}
-      </div>
+          })}
+        </ul>
+      )}
     </div>
   );
 };

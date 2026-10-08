@@ -454,11 +454,11 @@ export const AppShell: React.FC = () => {
            ========================================================================= */
         <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17]">
           {/* 1. DESKTOP SIDEBAR NAVIGATION (Visible on screens >= 1024px) */}
-          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none p-4 justify-between relative overflow-y-auto">
+          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none px-5 py-6 justify-between gap-6 relative overflow-y-auto">
             {/* Top Brand & Location */}
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Brand Logo */}
-              <div className="flex items-center gap-2.5 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3 pb-5 border-b border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
@@ -475,8 +475,8 @@ export const AppShell: React.FC = () => {
 
               {/* Active Zone / Location Card */}
               <div className="relative">
-                <div className="p-3 rounded-2xl glass-card-interactive border border-white/10">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                <div className="p-3.5 rounded-2xl glass-card-interactive border border-white/10">
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 mb-1.5">
                     <span className="flex items-center gap-1 font-semibold">
                       <MapPin className="w-3 h-3 text-accent-400" /> Active Hub
                     </span>
@@ -541,13 +541,13 @@ export const AppShell: React.FC = () => {
               </button>
 
               {/* Desktop Navigation Links */}
-              <nav className="pt-2 space-y-1">
+              <nav className="pt-3 space-y-1.5" aria-label="Primary">
                 <button
                   onClick={() => setActiveTab('map')}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'map'
                       ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <MapIcon className="w-4 h-4" />
@@ -556,10 +556,10 @@ export const AppShell: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('discover')}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'discover'
                       ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Compass className="w-4 h-4" />
@@ -568,10 +568,10 @@ export const AppShell: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('notifications')}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'notifications'
                       ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -587,10 +587,10 @@ export const AppShell: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'profile'
                       ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   {isBusinessMode ? (
@@ -604,9 +604,9 @@ export const AppShell: React.FC = () => {
             </div>
 
             {/* Bottom Consolidated Control Dock & User Profile */}
-            <div className="space-y-2.5 pt-3 border-t border-white/10">
+            <div className="space-y-3 pt-5 border-t border-white/10">
               {/* Consolidated Preferences Capsule */}
-              <div className="p-2.5 rounded-2xl glass-card space-y-2 text-xs">
+              <div className="p-3 rounded-2xl glass-card space-y-2.5 text-xs">
                 {/* Segmented Mode & Engine Controls in Compact Dual Grid */}
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
@@ -683,7 +683,7 @@ export const AppShell: React.FC = () => {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-white truncate">@{userProfile.username}</div>
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <div className="text-[10px] text-slate-300 flex items-center gap-1">
                     <span className="text-amber-400 font-semibold">Rep {userProfile.reputation}</span>
                     <span>• Tier 3 Scout</span>
                   </div>

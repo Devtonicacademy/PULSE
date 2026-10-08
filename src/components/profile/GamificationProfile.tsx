@@ -97,19 +97,19 @@ export const GamificationProfile: React.FC = () => {
   return (
     <div className="flex flex-col h-full overflow-y-auto pb-24 text-slate-100 p-4 sm:p-6 space-y-5 max-w-5xl mx-auto w-full">
       {/* Profile Card */}
-      <div className="rounded-3xl glass-panel p-5 border border-white/10 shadow-2xl relative overflow-hidden">
+      <div className="shrink-0 rounded-3xl glass-panel p-6 sm:p-8 border border-white/10 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-36 h-36 bg-signal-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3.5">
+        <div className="flex items-center justify-between flex-wrap gap-x-6 gap-y-4">
+          <div className="flex items-center gap-5">
             <img
               src={userProfile.avatar}
               alt={userProfile.username}
-              className="w-16 h-16 rounded-2xl object-cover border-2 border-accent-500/40 shadow-xl"
+              className="w-20 h-20 rounded-2xl object-cover border-2 border-accent-500/40 shadow-xl"
             />
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-white">@{userProfile.username}</h2>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-lg font-bold text-white">@{userProfile.username}</h2>
                 {isAuthenticated ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                     <CheckCircle2 className="w-2.5 h-2.5" />
@@ -124,15 +124,15 @@ export const GamificationProfile: React.FC = () => {
                   Tier 3 Scout
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 max-w-xs">{userProfile.bio}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-mono">{userProfile.email}</p>
+              <p className="text-xs text-slate-200 mt-2 max-w-xs leading-relaxed">{userProfile.bio}</p>
+              <p className="text-[11px] text-slate-400 mt-1.5 font-mono">{userProfile.email}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2.5">
             <button
               onClick={openSurvey}
-              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-signal-300 border border-signal-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="h-9 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all active:scale-95 bg-slate-800/80 hover:bg-slate-700 text-signal-300 border border-signal-500/30"
               title="Customize your 3D avatar"
             >
               <span aria-hidden>🧍</span>
@@ -141,7 +141,7 @@ export const GamificationProfile: React.FC = () => {
             {!isAuthenticated ? (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-accent-500/20 transition-all active:scale-95"
+                className="h-9 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all active:scale-95 bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white border border-transparent shadow-md shadow-accent-500/20"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In / Join</span>
@@ -149,59 +149,59 @@ export const GamificationProfile: React.FC = () => {
             ) : (
               <button
                 onClick={() => logout()}
-                className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs flex items-center gap-1.5 transition-colors"
+                className="h-9 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all active:scale-95 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/15"
                 title="Sign out of Pulse"
               >
                 <LogOut className="w-3.5 h-3.5 text-accent-400" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span>Sign Out</span>
               </button>
             )}
 
             <button
               onClick={() => setIsBusinessMode(true)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs flex items-center gap-1.5 transition-colors"
+              className="h-9 px-3.5 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 whitespace-nowrap transition-all active:scale-95 bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-amber-500/30"
               title="Switch to Business Mode"
             >
               <Briefcase className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Business</span>
+              <span>Business</span>
             </button>
           </div>
         </div>
 
         {/* Reputation Score & Level Progress */}
-        <div className="mt-5 p-4 rounded-2xl bg-slate-900/60 border border-white/5 space-y-2.5">
+        <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-base">⚡</span>
               <div>
                 <div className="text-xs font-bold text-white">Reputation Score</div>
-                <div className="text-[10px] text-slate-400">Trusted Community Contributor</div>
+                <div className="text-[11px] text-slate-300">Trusted Community Contributor</div>
               </div>
             </div>
             <div className="text-right">
               <span className="text-2xl font-black text-accent-400">
                 {userProfile.reputation}
               </span>
-              <span className="text-xs text-slate-500 font-bold">/100</span>
+              <span className="text-xs text-slate-400 font-bold">/100</span>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+          <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden ring-1 ring-white/10" role="progressbar" aria-valuenow={userProfile.reputation} aria-valuemin={0} aria-valuemax={100} aria-label="Reputation score">
             <div
-              className="bg-gradient-to-r from-accent-500 via-accent2-500 to-signal-400 h-2 rounded-full transition-all duration-700"
+              className="bg-gradient-to-r from-accent-500 via-accent2-500 to-signal-400 h-2.5 rounded-full transition-all duration-700"
               style={{ width: `${userProfile.reputation}%` }}
             />
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-slate-400">
+          <div className="flex items-center justify-between text-[11px] text-slate-300">
             <span>Points: {userProfile.points} pts</span>
             <span>+15 pts per verified moment created</span>
           </div>
         </div>
 
         {/* Consolidated System, Cloud Sync & Install Dock */}
-        <div className="mt-4 p-3 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="mt-6 p-3.5 rounded-2xl glass-card border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3 flex-wrap">
             {/* Cloud Sync Status */}
             <div className="flex items-center gap-1.5">
@@ -247,7 +247,7 @@ export const GamificationProfile: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+      <div className="shrink-0 flex items-center gap-2 border-b border-white/10 pb-3">
         <button
           onClick={() => setActiveTab('badges')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -285,7 +285,7 @@ export const GamificationProfile: React.FC = () => {
 
       {/* Badges Shelf View */}
       {activeTab === 'badges' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
           {(Object.keys(BADGE_CONFIG) as ReputationBadge[]).map((badgeKey) => {
             const b = BADGE_CONFIG[badgeKey];
             const isUnlocked = userProfile.badges.includes(badgeKey);
@@ -294,33 +294,37 @@ export const GamificationProfile: React.FC = () => {
             return (
               <div
                 key={badgeKey}
-                className={`p-4 rounded-2xl border transition-all ${
+                tabIndex={0}
+                className={`group h-full p-5 rounded-2xl border flex flex-col outline-none transition-all duration-300 ease-out hover:-translate-y-0.5 focus-visible:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-accent-400/60 ${
                   isUnlocked
-                    ? 'glass-panel border-white/10'
-                    : 'bg-slate-900/30 border-white/5 opacity-50'
+                    ? 'glass-panel border-white/10 hover:border-accent-400/50 hover:shadow-xl hover:shadow-accent-500/10'
+                    : 'bg-slate-900/40 border-white/10 opacity-70 hover:opacity-100 hover:border-white/25'
                 }`}
               >
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3.5">
                   <div
-                    className={`p-2.5 rounded-xl text-white shadow-lg bg-gradient-to-br ${
+                    className={`shrink-0 p-3 rounded-xl text-white shadow-lg bg-gradient-to-br ${
                       isUnlocked ? b.color : 'from-slate-800 to-slate-900 text-slate-500'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-bold text-white flex items-center gap-1.5 leading-tight">
                       <span>{b.label}</span>
                       {isUnlocked && (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
                     </h4>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[11px] text-slate-300 mt-0.5 block">
                       {isUnlocked ? 'Earned & Active' : 'Locked'}
                     </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">{b.desc}</p>
+                {/* Description slides open on hover or keyboard focus; always open on touch screens */}
+                <div className="grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out grid-rows-[0fr] opacity-0 mt-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 group-hover:mt-3 group-focus-visible:grid-rows-[1fr] group-focus-visible:opacity-100 group-focus-visible:mt-3 [@media(hover:none)]:grid-rows-[1fr] [@media(hover:none)]:opacity-100 [@media(hover:none)]:mt-3">
+                  <p className="overflow-hidden text-xs text-slate-200 leading-relaxed">{b.desc}</p>
+                </div>
               </div>
             );
           })}
