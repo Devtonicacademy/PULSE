@@ -37,6 +37,8 @@ import {
   saveMomentToFirebase,
   setMomentReaction,
   saveCommentToFirebase,
+  subscribeToFirebaseComments,
+  setCommentLikeInFirebase,
   saveReport,
   checkIsAdmin,
   isNearMoment,
@@ -117,6 +119,13 @@ interface PulseContextType {
   toggleReaction: (momentId: string, reactionType: ReactionType) => void;
   addComment: (momentId: string, content: string, parentId?: string) => Comment;
   toggleCommentLike: (commentId: string) => void;
+  /** The moment whose discussion is open (the drawer sets it); remote moments get a live comment feed */
+  setDiscussionMomentId: (momentId: string | null) => void;
+  /**
+   * local: demo / device-only thread. connecting / live: a shared thread from Firestore.
+   * offline: a shared thread whose live feed is unavailable right now.
+   */
+  discussionStatus: 'local' | 'connecting' | 'live' | 'offline';
   reportMoment: (momentId: string, reason: string, notes?: string) => void;
   /** Whether the signed-in user is listed as a moderator (admins collection) */
   isAdmin: boolean;
@@ -241,6 +250,9 @@ function applyReactionToggle(m: Moment, reactionType: ReactionType): Moment {
   };
 }
 
+/** A collision-proof id suffix (two people posting in the same millisecond must not clash) */
+const newId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 /** A recent device GPS fix, or null when it is unavailable or denied (never prompts twice in a row) */
 function getGpsFix(): Promise<{ latitude: number; longitude: number } | null> {
   return new Promise((resolve) => {
@@ -346,7 +358,11 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [moments]);
 
   useEffect(() => {
-    localStorage.setItem('pulse_comments', JSON.stringify(comments));
+    // Shared threads live in Firestore; only device-only (demo / local) discussions are kept here
+    localStorage.setItem(
+      'pulse_comments',
+      JSON.stringify(comments.filter((c) => !remoteIdsRef.current.has(c.momentId)))
+    );
   }, [comments]);
 
   // Sync user profile to local storage
@@ -500,6 +516,30 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ];
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
   }, []);
+
+  // 4d. The open discussion of a shared moment follows Firestore live: other people's comments,
+  // replies and likes arrive as they happen. Demo moments have no server thread and stay local.
+  const [discussionMomentId, setDiscussionMomentId] = useState<string | null>(null);
+  const [discussionStatus, setDiscussionStatus] = useState<'local' | 'connecting' | 'live' | 'offline'>('local');
+  useEffect(() => {
+    const momentId = discussionMomentId;
+    if (!momentId || !isFirebaseConfigured || !remoteIdsRef.current.has(momentId)) {
+      setDiscussionStatus('local');
+      return;
+    }
+    setDiscussionStatus('connecting');
+    const unsubscribe = subscribeToFirebaseComments(
+      momentId,
+      firebaseUid ?? null,
+      (remote) => {
+        setDiscussionStatus('live');
+        setComments((prev) => [...prev.filter((c) => c.momentId !== momentId), ...remote]);
+      },
+      () => setDiscussionStatus('offline')
+    );
+    if (!unsubscribe) setDiscussionStatus('offline');
+    return () => unsubscribe?.();
+  }, [discussionMomentId, firebaseUid]);
 
   // 4e. Moderators (admins collection) get the review panel on their profile
   useEffect(() => {
@@ -714,7 +754,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const expiresAt = new Date(now.getTime() + data.lifespanHours * 60 * 60 * 1000).toISOString();
 
     const newMoment: Moment = {
-      id: `moment-${Date.now()}`,
+      id: `moment-${newId()}`,
       userId: userProfile.id,
       userName: userProfile.username,
       userAvatar: userProfile.avatar,
@@ -759,26 +799,31 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    // Save to Firebase Firestore if configured (quizapp-project-c5e0e)
-    if (isFirebaseConfigured) {
-      saveMomentToFirebase(newMoment).then((result) => {
-        if (result.ok) {
-          refreshStats();
-        } else if (result.reason !== 'offline') {
-          triggerToast({
-            id: `notif-post-${Date.now()}`,
-            type: 'alert',
-            title: 'Saved on this device only',
-            message:
-              result.reason === 'denied'
-                ? 'You can post one moment every 2 minutes. Wait a moment and try again to broadcast it live.'
-                : 'Could not reach the live map. Your moment is saved on this device.',
-            createdAt: new Date().toISOString(),
-            isRead: false
-          });
-        }
+    // Broadcast: publish to Firestore so every device within range sees it live. The author is told
+    // plainly whether it went out or stayed on this device.
+    const toast = (title: string, message: string) =>
+      triggerToast({
+        id: `notif-post-${newMoment.id}`,
+        type: 'alert',
+        title,
+        message,
+        createdAt: new Date().toISOString(),
+        isRead: false
       });
-    }
+    saveMomentToFirebase(newMoment).then((result) => {
+      if (result.ok) {
+        refreshStats();
+        toast('📡 Broadcasting live', `Everyone within ${radiusKm} km of this spot can see it now.`);
+      } else if (result.reason === 'offline') {
+        toast('Saved on this device only', 'Sign in to broadcast moments so other people nearby can see them.');
+      } else if (result.reason === 'denied') {
+        // The server refused it (posting cooldown): do not leave a phantom only this device can see
+        setMoments((prev) => prev.filter((m) => m.id !== newMoment.id));
+        toast('Moment not posted', 'You can post one moment every 2 minutes. Wait a little, then broadcast it again.');
+      } else {
+        toast('Saved on this device only', 'Could not reach the live map. Your moment is saved on this device.');
+      }
+    });
 
     // Local demo profiles earn points on the spot; signed-in users' points come from their real activity
     if (!isSynced) {
@@ -863,7 +908,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addComment = (momentId: string, content: string, parentId?: string): Comment => {
     const newComment: Comment = {
-      id: `comment-${Date.now()}`,
+      id: `comment-${newId()}`,
       userId: userProfile.id,
       userName: userProfile.username,
       userAvatar: userProfile.avatar,
@@ -897,10 +942,26 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }));
     }
 
-    // Sync comment to Firebase Firestore (only on moments that live there)
+    // Sync comment to Firebase Firestore (only on moments that live there). The live feed then
+    // replaces the optimistic copy; if the server refuses it, take it back out and say so.
     if (isSynced && remoteIdsRef.current.has(momentId)) {
       saveCommentToFirebase(newComment).then((ok) => {
-        if (ok) refreshStats();
+        if (ok) {
+          refreshStats();
+          return;
+        }
+        setComments((prev) => prev.filter((c) => c.id !== newComment.id));
+        setMoments((prev) =>
+          prev.map((m) => (m.id === momentId ? { ...m, commentCount: Math.max(0, m.commentCount - 1) } : m))
+        );
+        triggerToast({
+          id: `comment-failed-${newComment.id}`,
+          type: 'alert',
+          title: "Comment didn't send",
+          message: 'Check your connection and try again.',
+          createdAt: new Date().toISOString(),
+          isRead: false
+        });
       });
     }
 
@@ -908,17 +969,31 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleCommentLike = (commentId: string) => {
-    setComments((prev) =>
-      prev.map((c) => {
-        if (c.id !== commentId) return c;
-        const liked = !c.userLiked;
-        return {
-          ...c,
-          userLiked: liked,
-          likesCount: liked ? c.likesCount + 1 : Math.max(0, c.likesCount - 1)
-        };
-      })
-    );
+    const target = comments.find((c) => c.id === commentId);
+    if (!target) return;
+    const shared = remoteIdsRef.current.has(target.momentId);
+    // A like on a shared thread belongs to an account
+    if (shared && !isSynced) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    const apply = (liked: boolean) =>
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id !== commentId
+            ? c
+            : c.userLiked === liked
+              ? c
+              : { ...c, userLiked: liked, likesCount: Math.max(0, c.likesCount + (liked ? 1 : -1)) }
+        )
+      );
+    const liked = !target.userLiked;
+    apply(liked);
+    if (shared) {
+      setCommentLikeInFirebase(commentId, liked).then((ok) => {
+        if (!ok) apply(!liked); // the live feed would correct it too; this is just quicker
+      });
+    }
   };
 
   const reportMoment = (momentId: string, reason: string, notes?: string) => {
@@ -1251,6 +1326,8 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleReaction,
         addComment,
         toggleCommentLike,
+        setDiscussionMomentId,
+        discussionStatus,
         reportMoment,
         isAdmin,
         alertNotifications: {

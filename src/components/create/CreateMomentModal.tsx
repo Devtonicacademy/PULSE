@@ -58,7 +58,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { currentLocation, addMoment, userProfile, currentUser } = usePulse();
+  const { currentLocation, addMoment, userProfile, currentUser, setIsAuthModalOpen, radiusKm } = usePulse();
 
   const [category, setCategory] = useState<MomentCategory>('events');
   const [title, setTitle] = useState('');
@@ -467,14 +467,30 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
           </div>
 
           {/* Submit Button */}
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
+            {currentUser ? (
+              <p className="text-[11px] text-emerald-300 text-center">
+                📡 Goes live to everyone within {radiusKm} km of this spot.
+              </p>
+            ) : (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/30 text-[11px] text-amber-100">
+                <span>Not signed in: only this device will see this moment.</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-2.5 py-1 rounded-md bg-amber-400 text-slate-950 font-bold shrink-0"
+                >
+                  Sign in
+                </button>
+              </div>
+            )}
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Broadcast to Pulse Radar</span>
+              <span>{currentUser ? 'Broadcast to Pulse Radar' : 'Save on this device'}</span>
             </button>
           </div>
         </form>

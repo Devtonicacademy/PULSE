@@ -2,7 +2,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import {
-  doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment,
+  doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, increment, deleteField,
   collectionGroup, query, where, getDocs, Timestamp
 } from 'firebase/firestore';
 
@@ -284,6 +284,31 @@ test('typing records need a real moment and cannot be deleted by others', async 
   await seedMoment();
   await setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob'));
   await assertFails(deleteDoc(doc(db('carol'), 'moments/m1/typing/bob')));
+});
+
+test('anyone signed in can like a comment as themselves, and take the like back', async () => {
+  await seedMoment();
+  await comment('bob');
+  await assertSucceeds(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': true }));
+  await assertSucceeds(updateDoc(doc(db('dave'), 'comments/c1'), { 'likedBy.dave': true }));
+  const likedBy = (await getDoc(doc(db('bob'), 'comments/c1'))).data().likedBy;
+  if (Object.keys(likedBy).length !== 2) throw new Error('both likes should be stored');
+  await assertSucceeds(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': deleteField() }));
+});
+
+test('cannot like as someone else, like twice as two people, or smuggle other changes in', async () => {
+  await seedMoment();
+  await comment('bob');
+  await assertFails(updateDoc(doc(anon(), 'comments/c1'), { 'likedBy.ghost': true }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.dave': true }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': false }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': true, 'likedBy.dave': true }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': true, content: 'hijacked' }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.carol': true, likesCount: 99 }));
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { likedBy: { carol: true, dave: true } }));
+  // A stranger cannot remove someone else's like either
+  await updateDoc(doc(db('dave'), 'comments/c1'), { 'likedBy.dave': true });
+  await assertFails(updateDoc(doc(db('carol'), 'comments/c1'), { 'likedBy.dave': deleteField() }));
 });
 
 test('only the author can edit or delete a comment, and likesCount is closed', async () => {

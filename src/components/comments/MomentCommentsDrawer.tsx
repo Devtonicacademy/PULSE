@@ -18,7 +18,17 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
   momentId,
   onClose
 }) => {
-  const { moments, comments, addComment, toggleCommentLike, userProfile } = usePulse();
+  const {
+    moments,
+    comments,
+    addComment,
+    toggleCommentLike,
+    userProfile,
+    currentUser,
+    setDiscussionMomentId,
+    discussionStatus,
+    setIsAuthModalOpen
+  } = usePulse();
   const [content, setContent] = useState('');
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToUser, setReplyToUser] = useState<string | null>(null);
@@ -56,6 +66,12 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
     };
   }, [momentId, me]);
 
+  // Open this moment's live feed while the drawer is showing it
+  useEffect(() => {
+    setDiscussionMomentId(momentId);
+    return () => setDiscussionMomentId(null);
+  }, [momentId, setDiscussionMomentId]);
+
   const momentComments = useMemo(
     () => (momentId ? comments.filter((c) => c.momentId === momentId) : []),
     [comments, momentId]
@@ -69,6 +85,11 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
   if (!momentId) return null;
 
   const currentMoment = moments.find((m) => m.id === momentId);
+  const shared = discussionStatus !== 'local';
+  // Shared threads take comments from accounts (anonymous guests included); a local-only guest
+  // would post into the void, so they are asked to join first
+  const mustSignIn = shared && !currentUser;
+  const canPost = !mustSignIn && discussionStatus !== 'offline';
 
   // Group top-level comments and replies
   const topLevel = momentComments.filter((c) => !c.parentId);
@@ -81,7 +102,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim() || !canPost) return;
 
     addComment(momentId, content.trim(), replyToId || undefined);
     stopTyping(momentId, me);
@@ -140,6 +161,38 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Where this thread lives: shared and live, or just on this device */}
+        <div
+          className={`px-4 py-1.5 text-[11px] flex items-center gap-2 shrink-0 border-b border-white/10 ${
+            discussionStatus === 'live'
+              ? 'text-emerald-300 bg-emerald-500/10'
+              : discussionStatus === 'offline'
+                ? 'text-rose-300 bg-rose-500/10'
+                : 'text-slate-300 bg-white/5'
+          }`}
+          role="status"
+          data-testid="discussion-status"
+          data-status={discussionStatus}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              discussionStatus === 'live'
+                ? 'bg-emerald-400 animate-pulse'
+                : discussionStatus === 'offline'
+                  ? 'bg-rose-400'
+                  : discussionStatus === 'connecting'
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-slate-400'
+            }`}
+          />
+          <span>
+            {discussionStatus === 'live' && 'Live: everyone on this moment sees new comments instantly'}
+            {discussionStatus === 'connecting' && 'Connecting to the live discussion…'}
+            {discussionStatus === 'offline' && "Can't reach the live discussion right now. Reopen to retry."}
+            {discussionStatus === 'local' && 'Demo moment: this discussion is saved on this device only'}
+          </span>
         </div>
 
         {/* Comments Scrollable Area */}
@@ -223,6 +276,18 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
 
         {/* Input Bar */}
         <form onSubmit={handleSend} className="p-3 border-t border-white/10 glass-panel shrink-0">
+          {mustSignIn && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-800 text-[11px] text-slate-200">
+              <span>Join to take part in this live discussion.</span>
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-2.5 py-1 rounded-md bg-signal-500 text-slate-950 font-bold"
+              >
+                Sign in
+              </button>
+            </div>
+          )}
           {replyToUser && (
             <div className="flex items-center justify-between px-3 py-1.5 mb-2 rounded-lg bg-slate-800 text-[11px] text-signal-300">
               <span>Replying to @{replyToUser}</span>
@@ -247,13 +312,14 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
               onChange={(e) => handleChange(e.target.value)}
               onBlur={() => stopTyping(momentId, me)}
               maxLength={1000}
+              disabled={!canPost}
               aria-label="Write a comment"
               placeholder={`Comment as @${userProfile.username}...`}
               className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-signal-500"
             />
             <button
               type="submit"
-              disabled={!content.trim()}
+              disabled={!content.trim() || !canPost}
               aria-label="Send comment"
               className="p-2.5 rounded-xl bg-signal-500 hover:bg-signal-600 disabled:opacity-40 text-slate-950 font-bold transition-all shrink-0"
             >

@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
+  deleteField,
   updateDoc,
   runTransaction,
   Unsubscribe,
@@ -377,11 +378,15 @@ export async function saveCommentToFirebase(comment: Comment): Promise<boolean> 
 }
 
 /**
- * Subscribes to real-time comments for a specific moment from Firestore
+ * Subscribes to real-time comments for a specific moment from Firestore. Likes live on each
+ * comment as a `likedBy` map (uid -> true): the count is the map's size and `userLiked` is whether
+ * `viewerUid` is in it. `onError` is told when the live feed is unavailable (rules, network).
  */
 export function subscribeToFirebaseComments(
   momentId: string,
-  onCommentsUpdate: (comments: Comment[]) => void
+  viewerUid: string | null,
+  onCommentsUpdate: (comments: Comment[]) => void,
+  onError?: (err: Error) => void
 ): Unsubscribe | null {
   if (!db || !isFirebaseConfigured) {
     return null;
@@ -398,6 +403,7 @@ export function subscribeToFirebaseComments(
       (snapshot) => {
         const liveComments: Comment[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
+          const likedBy: Record<string, unknown> = data.likedBy && typeof data.likedBy === 'object' ? data.likedBy : {};
           return {
             id: docSnap.id,
             userId: data.userId || 'scout',
@@ -407,8 +413,8 @@ export function subscribeToFirebaseComments(
             parentId: data.parentId,
             content: data.content || '',
             createdAt: data.createdAt || new Date().toISOString(),
-            likesCount: data.likesCount || 0,
-            userLiked: Boolean(data.userLiked)
+            likesCount: Object.keys(likedBy).length,
+            userLiked: Boolean(viewerUid && likedBy[viewerUid])
           };
         });
 
@@ -418,11 +424,30 @@ export function subscribeToFirebaseComments(
       },
       (err) => {
         console.warn('[PULSE Firebase] Error in comments subscription:', err);
+        onError?.(err);
       }
     );
   } catch (err) {
     console.warn('[PULSE Firebase] Could not set up comments subscription:', err);
+    onError?.(err instanceof Error ? err : new Error(String(err)));
     return null;
+  }
+}
+
+/** Likes or unlikes a comment as the signed-in user (touches only their own entry in likedBy) */
+export async function setCommentLikeInFirebase(commentId: string, liked: boolean): Promise<boolean> {
+  const uid = auth?.currentUser?.uid;
+  if (!db || !canWrite() || !uid) {
+    return false;
+  }
+  try {
+    await updateDoc(doc(db, COMMENTS_COLLECTION, commentId), {
+      [`likedBy.${uid}`]: liked ? true : deleteField()
+    });
+    return true;
+  } catch (error) {
+    console.warn('[PULSE Firebase] Failed to update comment like:', error);
+    return false;
   }
 }
 

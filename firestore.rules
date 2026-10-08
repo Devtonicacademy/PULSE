@@ -265,9 +265,15 @@ service cloud.firestore {
                     && getAfter(momentPath(request.resource.data.momentId)).data.get('lastCommentId', '') == commentId
                     && getAfter(momentPath(request.resource.data.momentId)).data.commentCount
                        == get(momentPath(request.resource.data.momentId)).data.commentCount + 1;
-      allow update: if isUser(resource.data.userId)
+      allow update: if (isUser(resource.data.userId)
                     && onlyChanges(['content', 'updatedAt'])
-                    && isBoundedString(request.resource.data.content, 1000);
+                    && isBoundedString(request.resource.data.content, 1000))
+                    // A like: the signed-in user sets or clears only their own entry in likedBy.
+                    // The like count shown is the size of that map, so there is no counter to forge.
+                    || (signedIn()
+                    && onlyChanges(['likedBy'])
+                    && request.resource.data.get('likedBy', {}).diff(resource.data.get('likedBy', {})).affectedKeys().hasOnly([request.auth.uid])
+                    && request.resource.data.get('likedBy', {}).get(request.auth.uid, true) == true);
       allow delete: if isUser(resource.data.userId);
     }
 
