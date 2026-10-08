@@ -1,3 +1,4 @@
+import { locate } from '../../services/locationService';
 import React, { useEffect, useRef, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { MomentCategory } from '../../types/pulse';
@@ -89,25 +90,20 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    if (!navigator.geolocation) {
-      setGpsStatus('unavailable');
-      return;
-    }
     let cancelled = false;
     setGpsStatus('locating');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (cancelled) return;
-        setGps({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy });
+    // The moment's position must be real: no IP guess here, and it does not change how the rest of
+    // the app reports the user's location. A fresh fix, since the user may have moved.
+    locate({ ipFallback: false, report: false, fresh: true }).then(({ fix }) => {
+      if (cancelled) return;
+      if (fix && fix.source === 'gps') {
+        setGps({ latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy });
         setGpsStatus('ready');
-      },
-      () => {
-        if (cancelled) return;
+      } else {
         setGps(null);
         setGpsStatus('unavailable');
-      },
-      { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
-    );
+      }
+    });
     return () => {
       cancelled = true;
     };

@@ -95,3 +95,42 @@ test('nonsense coordinates from a service are rejected', async () => {
     close();
   }
 });
+
+// ---- Behind a proxy (Railway): the visitor's address is in headers, not req.ip -------------------
+
+import { clientIp } from '../server/clientIp.js';
+
+const req = (headers = {}, ip = '') => ({ headers, ip });
+
+test('clientIp prefers X-Real-IP (what Railway documents), then the first public X-Forwarded-For entry', () => {
+  // req.ip is the proxy's public edge address: the exact mistake that located visitors in London
+  assert.equal(clientIp(req({ 'x-real-ip': '105.127.11.4' }, '212.50.1.9')), '105.127.11.4');
+  assert.equal(clientIp(req({ 'x-forwarded-for': '105.127.11.4, 100.64.0.2, 212.50.1.9' }, '212.50.1.9')), '105.127.11.4');
+  assert.equal(clientIp(req({ 'x-forwarded-for': '10.0.0.5, 105.127.11.4' }, '100.64.0.2')), '105.127.11.4', 'skips private hops');
+  assert.equal(clientIp(req({ 'x-real-ip': '::ffff:105.127.11.4' })), '105.127.11.4');
+  assert.equal(clientIp(req({ 'x-real-ip': 'not-an-ip' }, '8.8.8.8')), '8.8.8.8', 'garbage headers fall back to req.ip');
+  assert.equal(clientIp(req({}, '127.0.0.1')), '127.0.0.1');
+});
+
+test('the geo route looks up the visitor from X-Real-IP, not the proxy hop', async () => {
+  const looked = [];
+  const app = express();
+  app.set('trust proxy', 1);
+  app.use((r, _res, next) => {
+    Object.defineProperty(r, 'ip', { value: '212.50.1.9' }); // the proxy's own address
+    next();
+  });
+  app.use(createGeoRouter({ fetchImpl: async (url) => {
+    looked.push(String(url));
+    return { ok: true, json: async () => ({ success: true, latitude: 6.45, longitude: 3.39, city: 'Lagos', country: 'Nigeria' }) };
+  } }));
+  const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
+  try {
+    const res = await fetch(`http://localhost:${server.address().port}/api/geo/ip`, { headers: { 'x-real-ip': '105.127.11.4' } });
+    assert.equal((await res.json()).city, 'Lagos');
+    assert.match(looked[0], /105\.127\.11\.4/);
+    assert.doesNotMatch(looked[0], /212\.50\.1\.9/);
+  } finally {
+    server.close();
+  }
+});

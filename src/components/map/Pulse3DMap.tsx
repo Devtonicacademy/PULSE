@@ -21,7 +21,7 @@ import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapPr
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
-import { locate } from '../../services/locationService';
+import { getLocationStatus, locate, refineLocation, reportGpsFix, watchLocation, LocationFix } from '../../services/locationService';
 
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
@@ -188,9 +188,33 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     [moveUser]
   );
 
-  /** One-shot GPS fix; falls back to the active hub without bothering the user */
+  const onLocationFoundRef = useRef(onLocationFound);
+  onLocationFoundRef.current = onLocationFound;
+  const refineCancelRef = useRef<(() => void) | null>(null);
+
+  /** Puts the avatar on a fix (and optionally flies the camera there), then tells the app */
+  const applyFix = useCallback(
+    (fix: LocationFix, fly: boolean, reason: 'auto' | 'user') => {
+      if (!sceneRef.current) return; // the map was rebuilt or closed while the lookup ran
+      setLocationResolved(true);
+      const { latitude, longitude, heading } = fix;
+      const [x, y] = lngLatToMeters(longitude, latitude);
+      moveUser(x, y, heading ?? user.current.heading);
+      if (fly) applyCameraMode(cameraModeRef.current, { x, y });
+      onLocationFoundRef.current?.(
+        { latitude, longitude, accuracy: fix.accuracy, heading: fix.heading, speed: fix.speed, source: fix.source, place: fix.place },
+        reason
+      );
+    },
+    [applyCameraMode, moveUser]
+  );
+
+  /**
+   * Finds the user. `explicit` is "find me now" (the locate button): always a fresh position, and
+   * the camera flies there. The automatic look at startup may reuse a recent position.
+   */
   const locateUser = useCallback(
-    (shouldFly: boolean) => {
+    (shouldFly: boolean, explicit = shouldFly) => {
       const fallback = () => {
         setLocationResolved(true);
         const [x, y] = lngLatToMeters(...lastCenterRef.current);
@@ -198,30 +222,25 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
       };
       setIsLocating(true);
-      locate().then(({ fix, problem }) => {
+      locate({ fresh: explicit }).then(({ fix, problem }) => {
         setIsLocating(false);
+        if (!sceneRef.current) return;
         if (!fix) {
           console.info('[PULSE 3D] No location available; staying on the active hub:', problem);
           onLocationError?.(new Error(`Location unavailable (${problem ?? 'unknown'})`));
           fallback();
           return;
         }
-        setLocationResolved(true);
-        const { latitude, longitude, heading } = fix;
-        const [x, y] = lngLatToMeters(longitude, latitude);
-        moveUser(x, y, heading ?? user.current.heading);
-        if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
-        onLocationFound?.({
-          latitude,
-          longitude,
-          accuracy: fix.accuracy,
-          heading: fix.heading,
-          speed: fix.speed
-        });
+        applyFix(fix, shouldFly, explicit ? 'user' : 'auto');
+        // A coarse fix is sharpened in the background
+        refineCancelRef.current?.();
+        refineCancelRef.current = refineLocation(fix, (better) => applyFix(better, false, 'auto'));
       });
     },
-    [applyCameraMode, moveUser, onLocationFound, onLocationError]
+    [applyCameraMode, applyFix, moveUser, onLocationError]
   );
+  const locateUserRef = useRef(locateUser);
+  locateUserRef.current = locateUser;
 
   const startNavigation = useCallback(
     async (destination: { latitude: number; longitude: number; title: string; category?: string }) => {
@@ -422,22 +441,37 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       });
     pulseScene.start();
 
-    // Live GPS: moves the avatar only (the camera stays where the user put it)
-    let watchId: number | null = null;
+    // Live position: moves the avatar (the camera stays where the user put it). It also comes back by
+    // itself if permission is granted later, and falls back to the IP position when the browser gives up.
+    let stopWatch: (() => void) | null = null;
     if (autoGeolocate) {
-      locateUser(false);
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            if (simAnimationRef.current) return;
-            const [wx, wy] = lngLatToMeters(pos.coords.longitude, pos.coords.latitude);
-            const h = pos.coords.heading;
-            moveUser(wx, wy, h != null && !Number.isNaN(h) ? h : user.current.heading);
-          },
-          (err) => console.info('[PULSE 3D] GPS watch note:', err.message),
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
-        );
-      }
+      locateUserRef.current(false, false);
+      let announcedGps = false;
+      let fellBack = false;
+      stopWatch = watchLocation({
+        onFix: (fix) => {
+          if (simAnimationRef.current) return;
+          const [wx, wy] = lngLatToMeters(fix.longitude, fix.latitude);
+          moveUser(wx, wy, fix.heading ?? user.current.heading);
+          // The first real fix after an approximate (IP) or missing one upgrades the app's idea of "here"
+          const wasApproximate = getLocationStatus().source !== 'gps';
+          reportGpsFix();
+          if (wasApproximate && !announcedGps) {
+            announcedGps = true;
+            onLocationFoundRef.current?.(
+              { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, heading: fix.heading, speed: fix.speed, source: 'gps' },
+              'auto'
+            );
+          }
+        },
+        onProblem: (problem) => {
+          console.info('[PULSE 3D] GPS watch note:', problem);
+          if (!fellBack) {
+            fellBack = true;
+            locateUserRef.current(false, false);
+          }
+        }
+      });
     }
 
     // Compass heading on phones
@@ -454,7 +488,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     }
 
     return () => {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      stopWatch?.();
+      refineCancelRef.current?.();
       window.removeEventListener('deviceorientation', handleOrientation);
       if (simAnimationRef.current) cancelAnimationFrame(simAnimationRef.current);
       if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current);

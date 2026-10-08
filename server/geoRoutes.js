@@ -1,5 +1,7 @@
-import net from 'node:net';
 import express from 'express';
+import { clientIp, isPrivateAddress } from './clientIp.js';
+
+export { isPrivateAddress };
 
 const LOOKUP_TIMEOUT_MS = 4000;
 const CACHE_MS = 60 * 60 * 1000;
@@ -8,25 +10,6 @@ const CACHE_LIMIT = 500;
 const IP_ACCURACY_KM = 25;
 
 const asNumber = (value) => (value === null || value === undefined || value === '' ? NaN : Number(value));
-
-/** Addresses that mean "this machine / this network", which no public lookup can place */
-export function isPrivateAddress(ip) {
-  if (!ip || !net.isIP(ip)) return true;
-  if (net.isIPv6(ip)) {
-    const lower = ip.toLowerCase();
-    return lower === '::1' || lower === '::' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80');
-  }
-  const [a, b] = ip.split('.').map(Number);
-  return (
-    a === 10 ||
-    a === 127 ||
-    a === 0 ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 169 && b === 254) ||
-    (a === 100 && b >= 64 && b <= 127)
-  );
-}
 
 const PROVIDERS = [
   {
@@ -76,7 +59,7 @@ export function createGeoRouter({ fetchImpl = fetch, now = Date.now, timeoutMs =
 
   router.get('/api/geo/ip', async (req, res) => {
     res.set('Cache-Control', 'private, max-age=600');
-    const ip = (req.ip || '').replace(/^::ffff:/, '');
+    const ip = clientIp(req);
     if (isPrivateAddress(ip)) {
       res.status(404).json({ error: 'This address cannot be located.' });
       return;

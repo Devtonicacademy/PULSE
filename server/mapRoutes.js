@@ -1,4 +1,5 @@
 import express from 'express';
+import { clientIp } from './clientIp.js';
 import { gzip } from 'node:zlib';
 import { promisify } from 'node:util';
 
@@ -77,7 +78,8 @@ export function createMapRouter({ coverage, now = Date.now, tileWaitMs = TILE_WA
       return;
     }
     const cutoff = now() - 60 * 60 * 1000;
-    const recent = (starts.get(req.ip) ?? []).filter((t) => t > cutoff);
+    const visitor = clientIp(req) || req.ip;
+    const recent = (starts.get(visitor) ?? []).filter((t) => t > cutoff);
     const existing = coverage.findJob(latitude, longitude, Number(radiusKm) || MAX_RADIUS_KM);
     if (!existing) {
       if (recent.length >= hourlyLimit) {
@@ -85,7 +87,7 @@ export function createMapRouter({ coverage, now = Date.now, tileWaitMs = TILE_WA
         return;
       }
       recent.push(now());
-      starts.set(req.ip, recent);
+      starts.set(visitor, recent);
     }
     const job = coverage.startCoverage(latitude, longitude, Number(radiusKm) || MAX_RADIUS_KM);
     const origin = originFor(latitude, longitude);

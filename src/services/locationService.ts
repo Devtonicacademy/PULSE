@@ -1,11 +1,18 @@
 /**
- * Finding the user. Order of preference:
- *   1. The browser's own location (GPS / Wi-Fi), when the site is allowed to use it.
- *   2. An approximate position from the user's IP address (the server's /api/geo/ip), when the
+ * Finding the user. Every part of the app that needs a position goes through here.
+ *
+ * locate(), in order:
+ *   1. The browser's own location when the site is allowed to use it: a quick low-accuracy
+ *      attempt first (fast, and a cached fix is fine), then one high-accuracy retry when that
+ *      fails with "unavailable" or "timed out" (a phone with GPS but no network provider).
+ *   2. An approximate position from the user's IP address (the server's /api/geo/ip) when the
  *      browser's location is blocked, unavailable or too slow. City-level only.
  *   3. Nothing: the caller keeps the active city hub.
  * The permission state is checked first, so a blocked site goes straight to the backup (and the
  * user is told how to turn precise location on) instead of waiting for a prompt that never comes.
+ *
+ * refineLocation() sharpens a coarse fix in the background; watchLocation() follows the user and
+ * comes back by itself when the permission is granted later.
  */
 import { useSyncExternalStore } from 'react';
 
@@ -33,21 +40,31 @@ export interface LocateResult {
 }
 
 export interface LocateOptions {
-  /** How long to wait for the browser before using the backup */
+  /** Wait for the first, quick attempt at most this long (ms) */
   gpsTimeoutMs?: number;
   /** Use the IP-based backup when the browser's location fails (default true) */
   ipFallback?: boolean;
+  /** The user asked for their position right now: never accept a remembered fix */
+  fresh?: boolean;
+  /** Tell the rest of the app how the user was located (default true; false for side lookups) */
+  report?: boolean;
 }
 
-/** The browser pieces locate() needs, replaceable in tests */
+/** The browser pieces the service needs, replaceable in tests */
 export interface LocateEnvironment {
-  geolocation?: Pick<Geolocation, 'getCurrentPosition'>;
+  geolocation?: Pick<Geolocation, 'getCurrentPosition'> & Partial<Pick<Geolocation, 'watchPosition' | 'clearWatch'>>;
   permissions?: Pick<Permissions, 'query'>;
   fetchImpl?: typeof fetch;
   isSecureContext?: boolean;
 }
 
-const DEFAULT_GPS_TIMEOUT_MS = 8000;
+/** First attempt: quick, low accuracy (network / Wi-Fi), a fix up to this old is fine */
+const QUICK_TIMEOUT_MS = 8000;
+const QUICK_MAX_AGE_MS = 60 * 1000;
+/** Retry after "unavailable" / "timeout": ask for real GPS and give it time to warm up */
+const PRECISE_TIMEOUT_MS = 20000;
+/** A low-accuracy fix worse than this (meters) is sharpened in the background */
+export const COARSE_ACCURACY_M = 150;
 const IP_TIMEOUT_MS = 5000;
 
 function browserEnvironment(): LocateEnvironment {
@@ -72,11 +89,14 @@ export async function getLocationPermission(env: LocateEnvironment = browserEnvi
 }
 
 /** Calls `onChange` when the user changes this site's location permission (e.g. in the address bar) */
-export function watchLocationPermission(onChange: (permission: LocationPermission) => void): () => void {
+export function watchLocationPermission(
+  onChange: (permission: LocationPermission) => void,
+  permissions: Pick<Permissions, 'query'> | undefined = typeof navigator !== 'undefined' ? navigator.permissions : undefined
+): () => void {
   let status: PermissionStatus | null = null;
   let stopped = false;
   const handler = () => status && onChange(status.state);
-  navigator.permissions
+  permissions
     ?.query({ name: 'geolocation' as PermissionName })
     .then((s) => {
       if (stopped) return;
@@ -90,21 +110,34 @@ export function watchLocationPermission(onChange: (permission: LocationPermissio
   };
 }
 
-function browserFix(geolocation: Pick<Geolocation, 'getCurrentPosition'>, timeoutMs: number): Promise<LocationFix | LocationProblem> {
+function toFix(pos: GeolocationPosition): LocationFix {
+  return {
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+    accuracy: pos.coords.accuracy,
+    heading: pos.coords.heading != null && !Number.isNaN(pos.coords.heading) ? pos.coords.heading : null,
+    speed: pos.coords.speed ?? null,
+    source: 'gps'
+  };
+}
+
+const problemOf = (err: { code?: number }): LocationProblem =>
+  err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable';
+
+function browserFix(
+  geolocation: Pick<Geolocation, 'getCurrentPosition'>,
+  options: PositionOptions
+): Promise<LocationFix | LocationProblem> {
   return new Promise((resolve) => {
-    geolocation.getCurrentPosition(
-      (pos) =>
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          heading: pos.coords.heading != null && !Number.isNaN(pos.coords.heading) ? pos.coords.heading : null,
-          speed: pos.coords.speed ?? null,
-          source: 'gps'
-        }),
-      (err) => resolve(err.code === 1 ? 'denied' : err.code === 3 ? 'timeout' : 'unavailable'),
-      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60_000 }
-    );
+    try {
+      geolocation.getCurrentPosition(
+        (pos) => resolve(toFix(pos)),
+        (err) => resolve(problemOf(err)),
+        options
+      );
+    } catch {
+      resolve('unavailable');
+    }
   });
 }
 
@@ -131,9 +164,25 @@ export async function ipLocation(fetchImpl: typeof fetch | undefined = browserEn
   }
 }
 
+// Callers that ask at the same moment (a map mounting while the notice retries) share one lookup,
+// so the user is prompted once and the answers cannot cross.
+const inFlight = new Map<string, Promise<LocateResult>>();
+
 /** Finds the user: the browser's location if allowed, else the IP backup, else no fix */
-export async function locate(options: LocateOptions = {}, env: LocateEnvironment = browserEnvironment()): Promise<LocateResult> {
-  const { gpsTimeoutMs = DEFAULT_GPS_TIMEOUT_MS, ipFallback = true } = options;
+export function locate(options: LocateOptions = {}, env?: LocateEnvironment): Promise<LocateResult> {
+  const key = `${options.ipFallback ?? true}|${options.fresh ?? false}|${options.report ?? true}|${options.gpsTimeoutMs ?? ''}`;
+  if (!env) {
+    const running = inFlight.get(key);
+    if (running) return running;
+    const promise = runLocate(options, browserEnvironment()).finally(() => inFlight.delete(key));
+    inFlight.set(key, promise);
+    return promise;
+  }
+  return runLocate(options, env);
+}
+
+async function runLocate(options: LocateOptions, env: LocateEnvironment): Promise<LocateResult> {
+  const { gpsTimeoutMs = QUICK_TIMEOUT_MS, ipFallback = true, fresh = false, report = true } = options;
   const permission = await getLocationPermission(env);
 
   let problem: LocationProblem | null = null;
@@ -142,9 +191,18 @@ export async function locate(options: LocateOptions = {}, env: LocateEnvironment
   else if (permission === 'denied') problem = 'denied'; // asking again would only fail again
 
   if (!problem && env.geolocation) {
-    const result = await browserFix(env.geolocation, gpsTimeoutMs);
+    // Quick, low-accuracy attempt (a remembered fix is fine unless the user asked for "now")
+    let result = await browserFix(env.geolocation, {
+      enableHighAccuracy: false,
+      timeout: gpsTimeoutMs,
+      maximumAge: fresh ? 0 : QUICK_MAX_AGE_MS
+    });
+    // "Unavailable" or "too slow" is not "no": phones often answer only when GPS is requested
+    if (typeof result === 'string' && (result === 'unavailable' || result === 'timeout')) {
+      result = await browserFix(env.geolocation, { enableHighAccuracy: true, timeout: PRECISE_TIMEOUT_MS, maximumAge: 0 });
+    }
     if (typeof result !== 'string') {
-      publishStatus({ source: 'gps', permission: 'granted', problem: null, place: null });
+      if (report) publishStatus({ source: 'gps', permission: 'granted', problem: null, place: null });
       return { fix: result, permission: 'granted', problem: null };
     }
     problem = result;
@@ -152,13 +210,86 @@ export async function locate(options: LocateOptions = {}, env: LocateEnvironment
 
   const finalPermission = problem === 'denied' ? 'denied' : permission;
   const fix = ipFallback ? await ipLocation(env.fetchImpl) : null;
-  publishStatus({
-    source: fix ? 'ip' : 'hub',
-    permission: finalPermission,
-    problem,
-    place: fix?.place ?? null
-  });
+  if (report) {
+    publishStatus({ source: fix ? 'ip' : 'hub', permission: finalPermission, problem, place: fix?.place ?? null });
+  }
   return { fix, permission: finalPermission, problem };
+}
+
+/**
+ * A coarse GPS fix (network / cell based, hundreds of meters or kilometers off) is sharpened in
+ * the background with one high-accuracy request. `onBetter` runs only when the new fix is clearly
+ * more accurate. Returns a function that cancels the callback.
+ */
+export function refineLocation(
+  fix: LocationFix,
+  onBetter: (better: LocationFix) => void,
+  env: LocateEnvironment = browserEnvironment()
+): () => void {
+  let cancelled = false;
+  if (fix.source !== 'gps' || fix.accuracy <= COARSE_ACCURACY_M || !env.geolocation) return () => undefined;
+  browserFix(env.geolocation, { enableHighAccuracy: true, timeout: PRECISE_TIMEOUT_MS, maximumAge: 0 }).then((result) => {
+    if (cancelled || typeof result === 'string') return;
+    if (result.accuracy < fix.accuracy * 0.7) onBetter(result);
+  });
+  return () => {
+    cancelled = true;
+  };
+}
+
+export interface LocationWatchHandlers {
+  onFix: (fix: LocationFix) => void;
+  /** The browser stopped giving positions (blocked, or no signal) */
+  onProblem?: (problem: LocationProblem) => void;
+}
+
+/**
+ * Follows the user. Unlike a bare watchPosition it stops quietly when the permission is taken
+ * away, starts again by itself when it is granted later, and tells the caller about problems so
+ * it can fall back to the IP position instead of staying silent.
+ */
+export function watchLocation(handlers: LocationWatchHandlers, env: LocateEnvironment = browserEnvironment()): () => void {
+  const geo = env.geolocation;
+  if (!geo?.watchPosition || !geo.clearWatch) {
+    handlers.onProblem?.('unsupported');
+    return () => undefined;
+  }
+  let id: number | null = null;
+  let stopped = false;
+
+  const begin = () => {
+    if (stopped || id !== null) return;
+    id = geo.watchPosition!(
+      (pos) => handlers.onFix(toFix(pos)),
+      (err) => {
+        const problem = problemOf(err);
+        if (problem === 'denied') end(); // the permission is gone; the permission watcher restarts it if it returns
+        // A timeout is not fatal for a watch: the browser keeps trying and reports the next fix
+        if (problem !== 'timeout') handlers.onProblem?.(problem);
+      },
+      // Long timeout: a watch is allowed to be patient, and a short one just spams errors
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 15000 }
+    );
+  };
+  const end = () => {
+    if (id !== null) geo.clearWatch!(id);
+    id = null;
+  };
+
+  begin();
+  const stopPermissionWatch = watchLocationPermission((state) => {
+    if (state === 'granted') begin();
+    else if (state === 'denied') {
+      end();
+      handlers.onProblem?.('denied');
+    }
+  }, env.permissions);
+
+  return () => {
+    stopped = true;
+    end();
+    stopPermissionWatch();
+  };
 }
 
 /** Plain-language explanation and the way out, for each reason the browser's location was not used */
@@ -195,6 +326,19 @@ export function describeLocationProblem(problem: LocationProblem, usingApproxima
   }
 }
 
+/** The label for a hub that follows the user's own position */
+export function hubNameFor(fix: Pick<LocationFix, 'source' | 'place'>, areaName?: string): string {
+  if (fix.source === 'ip') return `${fix.place || 'Near you'} (approx.)`;
+  return areaName && areaName !== 'Local Area' ? areaName : 'My location';
+}
+
+/** The compact hub label for tight spaces: "Lagos, Nigeria (approx.)" -> "~Lagos" (the ~ marks an approximate spot) */
+export function shortHubName(name: string): string {
+  const approx = /\(approx\.\)\s*$/.test(name);
+  const base = name.replace(/\s*\(approx\.\)\s*$/, '').split(',')[0].trim();
+  return approx ? `~${base}` : base;
+}
+
 // --- Shared status, so the whole app can tell the user how they were located -----------------
 
 export interface LocationStatus {
@@ -211,6 +355,11 @@ const listeners = new Set<() => void>();
 function publishStatus(next: LocationStatus) {
   status = next;
   listeners.forEach((listener) => listener());
+}
+
+/** A real GPS position arrived by another route (the watch): the app is no longer "approximate" */
+export function reportGpsFix() {
+  if (status.source !== 'gps') publishStatus({ source: 'gps', permission: 'granted', problem: null, place: null });
 }
 
 export const getLocationStatus = () => status;

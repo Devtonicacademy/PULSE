@@ -15,6 +15,10 @@ import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { AuthModal } from '../auth/AuthModal';
 import { LocationNotice } from './LocationNotice';
+import { getApproximateAreaName } from '../../utils/geoUtils';
+import { planHubMove } from '../../utils/hubFollow';
+import { hubNameFor, shortHubName } from '../../services/locationService';
+import type { LocationReason, UserCoordinates } from '../map/PulseMap';
 import { MAP_ORIGIN_ID, setMapOrigin } from '../../utils/mapProjection';
 import { originFor } from '../../utils/mapOrigin';
 import { CoverageStatus, startMapCoverage } from '../../services/mapCoverageService';
@@ -119,16 +123,38 @@ export const AppShell: React.FC = () => {
     coverageStop.current = startMapCoverage(latitude, longitude, setCoverage);
   }, []);
   useEffect(() => () => coverageStop.current?.(), []);
+  // True once the user picked a hub by hand: the automatic look at startup then leaves it alone
+  const hubPinned = useRef(false);
+  // A real GPS position has been seen this session (an approximate one must not replace it later)
+  const haveGps = useRef(false);
   const handleLocationFound = useCallback(
-    (coords: { latitude: number; longitude: number }) => {
-      // A fix in another part of the world becomes the active location (and so the map origin)
-      if (originFor(coords.latitude, coords.longitude).id !== MAP_ORIGIN_ID) {
-        setCurrentLocation({ name: 'Your location', latitude: coords.latitude, longitude: coords.longitude });
+    (coords: UserCoordinates, reason: LocationReason = 'auto') => {
+      // The active hub follows the real position (also inside the Lagos area, where the map origin
+      // does not change), unless the user chose a hub on purpose. "Find me" always wins.
+      const decision = planHubMove(locationRef.current, coords, hubPinned.current, reason, haveGps.current);
+      if (coords.source === 'gps') haveGps.current = true;
+      if (decision.unpin) hubPinned.current = false;
+      if (decision.move) {
+        const fix = { source: coords.source ?? 'gps', place: coords.place };
+        setCurrentLocation({
+          name: hubNameFor(fix, getApproximateAreaName(coords.latitude, coords.longitude)),
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        });
       }
       beginCoverage(coords.latitude, coords.longitude);
     },
     [beginCoverage, setCurrentLocation]
   );
+  const chooseHub = (loc: { name: string; latitude: number; longitude: number }) => {
+    hubPinned.current = true;
+    setCurrentLocation(loc);
+  };
+  // "Use my location": always the real position, even if a hub was picked before
+  const findMe = () => {
+    hubPinned.current = false;
+    useBrowserLocation();
+  };
   // No GPS: cover the active hub instead
   const handleLocationError = useCallback(
     () => beginCoverage(locationRef.current.latitude, locationRef.current.longitude),
@@ -259,11 +285,11 @@ export const AppShell: React.FC = () => {
 
   // Helper renderer for mobile/compact bottom navigation bar
   const renderBottomNav = () => (
-    <nav className="shrink-0 h-16 glass-bottom-bar px-3 flex items-center justify-around z-30 pb-[env(safe-area-inset-bottom)]">
+    <nav className="relative z-40 shrink-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] glass-bottom-bar px-2 sm:px-3 flex items-center justify-around">
       {/* 1. MAP (Default) */}
       <button
         onClick={() => setActiveTab('map')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
           activeTab === 'map'
             ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
@@ -276,7 +302,7 @@ export const AppShell: React.FC = () => {
       {/* 2. DISCOVER */}
       <button
         onClick={() => setActiveTab('discover')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
           activeTab === 'discover'
             ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
@@ -287,21 +313,22 @@ export const AppShell: React.FC = () => {
       </button>
 
       {/* 3. CREATE (Center Raised Action) */}
-      <div className="flex flex-col items-center justify-center px-1">
+      <div className="flex flex-col items-center justify-center px-1 shrink-0">
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="w-12 h-12 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
+          aria-label="Create live moment"
+          className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
           title="Create Live Moment"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
-        <span className="text-[10px] font-bold text-slate-400 mt-1">CREATE</span>
+        <span className="text-[10px] font-bold text-slate-300 mt-0.5">CREATE</span>
       </div>
 
       {/* 4. NOTIFICATIONS */}
       <button
         onClick={() => setActiveTab('notifications')}
-        className={`relative flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+        className={`relative flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
           activeTab === 'notifications'
             ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
@@ -319,7 +346,7 @@ export const AppShell: React.FC = () => {
       {/* 5. PROFILE / BIZ */}
       <button
         onClick={() => setActiveTab('profile')}
-        className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
           activeTab === 'profile'
             ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
@@ -394,7 +421,7 @@ export const AppShell: React.FC = () => {
                 >
                   <MapPin className="w-3 h-3 text-accent-400 shrink-0" />
                   <span className="font-semibold truncate max-w-[100px]">
-                    {currentLocation.name.split(',')[0]}
+                    {shortHubName(currentLocation.name)}
                   </span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
@@ -405,7 +432,7 @@ export const AppShell: React.FC = () => {
                       <button
                         key={loc.name}
                         onClick={() => {
-                          setCurrentLocation(loc);
+                          chooseHub(loc);
                           setShowLocationDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-1.5 rounded-xl transition-colors ${
@@ -487,7 +514,7 @@ export const AppShell: React.FC = () => {
                     onClick={() => setShowLocationDropdown(!showLocationDropdown)}
                     className="w-full text-left font-bold text-xs text-white truncate flex items-center justify-between hover:text-accent-300 transition-colors"
                   >
-                    <span className="truncate">{currentLocation.name.split(',')[0]}</span>
+                    <span className="truncate">{shortHubName(currentLocation.name)}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
                   </button>
                 </div>
@@ -502,7 +529,7 @@ export const AppShell: React.FC = () => {
                       <button
                         key={loc.name}
                         onClick={() => {
-                          setCurrentLocation(loc);
+                          chooseHub(loc);
                           setShowLocationDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
@@ -519,7 +546,7 @@ export const AppShell: React.FC = () => {
                     ))}
                     <button
                       onClick={() => {
-                        useBrowserLocation();
+                        findMe();
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
@@ -696,27 +723,27 @@ export const AppShell: React.FC = () => {
           {/* 2. MAIN APP CONTENT CONTAINER */}
           <div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden relative">
             {/* Mobile / Tablet Compact Top Header (Hidden on lg: desktop) */}
-            <header className="lg:hidden px-3.5 py-2.5 shrink-0 glass-header flex items-center justify-between z-30 relative">
+            <header className="lg:hidden px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] shrink-0 glass-header flex items-center justify-between gap-2 z-30 relative">
               {/* Logo & Brand */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
+                  <span className="hidden min-[420px]:inline font-extrabold text-sm tracking-tight text-white">PULSE</span>
+                  <span className="hidden min-[420px]:block w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
                 </div>
               </div>
 
               {/* Location Switcher */}
-              <div className="relative">
+              <div className="relative min-w-0">
                 <button
                   onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-white/20 text-xs text-white shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 max-w-full rounded-full glass-card hover:border-white/20 text-xs text-white shadow-sm transition-all"
                 >
                   <MapPin className="w-3.5 h-3.5 text-accent-400 shrink-0" />
-                  <span className="font-semibold truncate max-w-[100px] sm:max-w-[130px]">
-                    {currentLocation.name.split(',')[0]}
+                  <span className="font-semibold truncate max-w-[88px] min-[420px]:max-w-[110px] sm:max-w-[130px]">
+                    {shortHubName(currentLocation.name)}
                   </span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
@@ -730,7 +757,7 @@ export const AppShell: React.FC = () => {
                       <button
                         key={loc.name}
                         onClick={() => {
-                          setCurrentLocation(loc);
+                          chooseHub(loc);
                           setShowLocationDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
@@ -747,7 +774,7 @@ export const AppShell: React.FC = () => {
                     ))}
                     <button
                       onClick={() => {
-                        useBrowserLocation();
+                        findMe();
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
@@ -761,7 +788,7 @@ export const AppShell: React.FC = () => {
               </div>
 
               {/* Consolidated Right Controls: Score + Preferences + Auth */}
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div
                   onClick={() => setActiveTab('discover')}
                   className="cursor-pointer px-2.5 py-1 rounded-full bg-gradient-to-r from-accent-500/20 to-accent2-500/20 border border-accent-500/30 flex items-center gap-1"
@@ -774,10 +801,11 @@ export const AppShell: React.FC = () => {
                 {!isAuthenticated && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
+                    aria-label="Join or sign in"
                     className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/30 text-[10px] font-bold shadow-sm transition-all"
                   >
                     <LogIn className="w-3 h-3" />
-                    <span>Join</span>
+                    <span className="hidden min-[360px]:inline">Join</span>
                   </button>
                 )}
 
@@ -795,7 +823,7 @@ export const AppShell: React.FC = () => {
             <main className="flex-1 relative overflow-hidden">{renderActiveScreen()}</main>
 
             {/* Mobile / Tablet Bottom Navigation (Hidden on lg: desktop) */}
-            <div className="lg:hidden">{renderBottomNav()}</div>
+            <div className="relative z-40 shrink-0 lg:hidden">{renderBottomNav()}</div>
           </div>
         </div>
       )}
@@ -806,7 +834,7 @@ export const AppShell: React.FC = () => {
         onClose={() => setForceShowInstallPrompt(false)}
       />
 
-      <LocationNotice onRetry={useBrowserLocation} isLocating={isLocating} />
+      <LocationNotice onRetry={findMe} isLocating={isLocating} />
 
       {/* Real-time Notification In-App Toast Banner */}
       {activeToast && (

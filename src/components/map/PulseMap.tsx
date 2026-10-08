@@ -7,7 +7,7 @@ import React, {
   useMemo,
   forwardRef
 } from 'react';
-import { locate } from '../../services/locationService';
+import { locate, refineLocation, reportGpsFix, getLocationStatus, watchLocation } from '../../services/locationService';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
@@ -69,7 +69,13 @@ export interface UserCoordinates {
   accuracy?: number;
   heading?: number | null;
   speed?: number | null;
+  /** How the position was found; an IP position is approximate (tens of kilometers) */
+  source?: 'gps' | 'ip';
+  place?: string;
 }
+
+/** `user`: the person asked for their position (recenter button); `auto`: the app looked on its own */
+export type LocationReason = 'auto' | 'user';
 
 export type MapLightPreset = 'night' | 'dusk' | 'dawn' | 'day';
 export type CameraMode = 'fpv' | 'aerial' | 'overview';
@@ -125,7 +131,7 @@ export interface PulseMapProps {
   /** Callback fired when the map instance finishes loading */
   onMapLoad?: (map: maplibregl.Map) => void;
   /** Callback fired when the user's GPS coordinates are resolved and centered */
-  onLocationFound?: (coords: UserCoordinates) => void;
+  onLocationFound?: (coords: UserCoordinates, reason?: LocationReason) => void;
   /** Callback fired if geolocation request fails or permission is denied */
   onLocationError?: (error: GeolocationPositionError | Error) => void;
   /** Click event listener on map canvas */
@@ -763,33 +769,47 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
     /**
      * Resilient 2-Phase Geolocation (No timeout errors)
      */
+    const refineCancelRef = useRef<(() => void) | null>(null);
+    const onLocationFoundRef = useRef(onLocationFound);
+    onLocationFoundRef.current = onLocationFound;
+    const locateAndCenterUserRef = useRef<((shouldFly?: boolean, explicit?: boolean) => void) | null>(null);
     const locateAndCenterUser = useCallback(
-      (shouldFly = true) => {
+      (shouldFly = true, explicit = shouldFly) => {
         setIsLocating(true);
 
-        locate().then(({ fix }) => {
+        const applyFix = (fix: Awaited<ReturnType<typeof locate>>['fix'] & object, fly: boolean, reason: LocationReason) => {
+          const coords: UserCoordinates = {
+            latitude: fix.latitude,
+            longitude: fix.longitude,
+            accuracy: fix.accuracy,
+            heading: fix.heading,
+            speed: fix.speed,
+            source: fix.source,
+            place: fix.place
+          };
+          const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearingRef.current;
+          setUserCoords(coords);
+          userCoordsRef.current = coords;
+          setUserBearing(heading);
+          userBearingRef.current = heading;
+
+          if (mapRef.current) {
+            updateUserMarker(coords.longitude, coords.latitude, heading);
+            if (fly) {
+              applyCameraMode(cameraMode, [coords.longitude, coords.latitude], heading);
+            }
+          }
+          onLocationFound?.(coords, reason);
+        };
+
+        // "Find me" always asks for a fresh position; the automatic look at startup may reuse a recent one
+        locate({ fresh: explicit }).then(({ fix }) => {
           setIsLocating(false);
           if (fix) {
-            const coords: UserCoordinates = {
-              latitude: fix.latitude,
-              longitude: fix.longitude,
-              accuracy: fix.accuracy,
-              heading: fix.heading,
-              speed: fix.speed
-            };
-            const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearingRef.current;
-            setUserCoords(coords);
-            userCoordsRef.current = coords;
-            setUserBearing(heading);
-            userBearingRef.current = heading;
-
-            if (mapRef.current) {
-              updateUserMarker(coords.longitude, coords.latitude, heading);
-              if (shouldFly) {
-                applyCameraMode(cameraMode, [coords.longitude, coords.latitude], heading);
-              }
-            }
-            onLocationFound?.(coords);
+            applyFix(fix, shouldFly, explicit ? 'user' : 'auto');
+            // A coarse fix is sharpened in the background
+            refineCancelRef.current?.();
+            refineCancelRef.current = refineLocation(fix, (better) => applyFix(better, false, 'auto'));
             return;
           }
 
@@ -808,6 +828,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       },
       [applyCameraMode, cameraMode, stableCenter, onLocationFound, updateUserMarker]
     );
+
+    locateAndCenterUserRef.current = locateAndCenterUser;
 
     /**
      * Expose imperative handle methods
@@ -1002,27 +1024,42 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       map.on('style.load', markReady);
       map.on('load', markReady);
 
-      // Continuous Geolocation Watch Position
-      let watchId: number | null = null;
-      if (navigator.geolocation && autoGeolocate) {
-        watchId = navigator.geolocation.watchPosition(
-          (pos) => {
+      // Continuous position: follows the user, and comes back by itself if permission is granted later
+      let stopWatch: (() => void) | null = null;
+      if (autoGeolocate) {
+        let announcedGps = false;
+        let fellBack = false;
+        stopWatch = watchLocation({
+          onFix: (fix) => {
             const coords: UserCoordinates = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-              heading: pos.coords.heading,
-              speed: pos.coords.speed
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+              accuracy: fix.accuracy,
+              heading: fix.heading,
+              speed: fix.speed,
+              source: 'gps'
             };
-
             const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearingRef.current;
             userCoordsRef.current = coords;
             userBearingRef.current = heading;
             updateUserMarker(coords.longitude, coords.latitude, heading);
+            // The first real fix after an approximate (IP) or missing one upgrades the app's idea of "here"
+            const wasApproximate = getLocationStatus().source !== 'gps';
+            reportGpsFix();
+            if (wasApproximate && !announcedGps) {
+              announcedGps = true;
+              onLocationFoundRef.current?.(coords, 'auto');
+            }
           },
-          (err) => console.info('[PULSE Geolocation watch note]:', err.message),
-          { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 }
-        );
+          onProblem: (problem) => {
+            console.info('[PULSE Geolocation watch note]:', problem);
+            // The browser stopped giving positions: let locate() work out the fallback and tell the user
+            if (!fellBack) {
+              fellBack = true;
+              locateAndCenterUserRef.current?.(false, false);
+            }
+          }
+        });
       }
 
       // Device Compass Orientation for Real-time Heading
@@ -1044,7 +1081,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       }
 
       return () => {
-        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        stopWatch?.();
+        refineCancelRef.current?.();
         window.removeEventListener('deviceorientation', handleDeviceOrientation);
         clearWayfindingMarkers();
         // Markers die with the map; drop refs so a rebuilt map re-creates them

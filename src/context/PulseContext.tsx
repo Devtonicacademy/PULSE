@@ -26,7 +26,7 @@ import {
 } from '../services/mockData';
 import { calculateDistanceKm, isWithinRadius, applyPrivacyBlur, getApproximateAreaName } from '../utils/geoUtils';
 import { isFirebaseConfigured } from '../services/firebaseClient';
-import { locate } from '../services/locationService';
+import { hubNameFor, locate } from '../services/locationService';
 import {
   subscribeToNearbyMoments,
   subscribeToMyReactions,
@@ -253,19 +253,14 @@ function applyReactionToggle(m: Moment, reactionType: ReactionType): Moment {
 /** A collision-proof id suffix (two people posting in the same millisecond must not clash) */
 const newId = () => crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-/** A recent device GPS fix, or null when it is unavailable or denied (never prompts twice in a row) */
-function getGpsFix(): Promise<{ latitude: number; longitude: number } | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 5 * 60 * 1000 }
-    );
-  });
+/**
+ * The device's own GPS position, or null when it is unavailable or denied. Used to back claims
+ * like "I am near this alert", so it never falls back to an IP guess and never changes what the
+ * rest of the app says about how the user was located.
+ */
+async function getGpsFix(): Promise<{ latitude: number; longitude: number } | null> {
+  const { fix } = await locate({ ipFallback: false, report: false, gpsTimeoutMs: 5000 });
+  return fix && fix.source === 'gps' ? { latitude: fix.latitude, longitude: fix.longitude } : null;
 }
 
 export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -594,19 +589,13 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Either way the app learns how it was located (see useLocationStatus) so it can say so.
   const useBrowserLocation = () => {
     setIsLocating(true);
-    locate()
+    locate({ fresh: true })
       .then(({ fix }) => {
         if (!fix) return; // stay on the active hub; the notice explains why
-        const areaName = getApproximateAreaName(fix.latitude, fix.longitude);
         setCurrentLocation({
           latitude: fix.latitude,
           longitude: fix.longitude,
-          name:
-            fix.source === 'ip'
-              ? fix.place || 'Near you (approximate)'
-              : areaName !== 'Local Area'
-                ? areaName
-                : 'My Live GPS'
+          name: hubNameFor(fix, getApproximateAreaName(fix.latitude, fix.longitude))
         });
       })
       .finally(() => setIsLocating(false));
