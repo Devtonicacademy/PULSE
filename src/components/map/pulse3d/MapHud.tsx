@@ -321,7 +321,7 @@ export const MapHud: React.FC<MapHudProps> = ({
 
       {/* WASD walking pad */}
       {showControls && (
-        <div className="absolute bottom-6 left-4 z-20 pointer-events-auto">
+        <div className="absolute bottom-[calc(var(--area-sheet-h,0px)+1.5rem)] transition-[bottom] duration-300 left-4 z-20 pointer-events-auto">
           <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
             <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
               <Gamepad2 className="w-3 h-3 text-signal-400" />
@@ -354,7 +354,7 @@ export const MapHud: React.FC<MapHudProps> = ({
         </div>
       )}
 
-      <div className="absolute bottom-6 right-4 z-20 flex flex-col gap-2">
+      <div className="absolute bottom-[calc(var(--area-sheet-h,0px)+1.5rem)] transition-[bottom] duration-300 right-4 z-20 flex flex-col gap-2">
         <button
           onClick={onRecenter}
           disabled={isLocating}

@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { PulseMap } from '../map/PulseMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
+import { AreaSheet } from '../map/AreaSheet';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
 import { MomentCommentsDrawer } from '../comments/MomentCommentsDrawer';
@@ -55,6 +56,8 @@ export const AppShell: React.FC = () => {
     notifications,
     isBusinessMode,
     setIsBusinessMode,
+    selectedMoment,
+    selectedZone,
     setSelectedMoment,
     moments,
     activeToast,
@@ -135,11 +138,14 @@ export const AppShell: React.FC = () => {
             className: 'h-full'
           };
           const sheet = (
-            <HotspotBottomSheet
-              onOpenComments={(id) => setActiveCommentMomentId(id)}
-              onOpenReport={(id) => setActiveReportMomentId(id)}
-              onStartNavigation={startNavigation}
-            />
+            <>
+              <AreaSheet />
+              <HotspotBottomSheet
+                onOpenComments={(id) => setActiveCommentMomentId(id)}
+                onOpenReport={(id) => setActiveReportMomentId(id)}
+                onStartNavigation={startNavigation}
+              />
+            </>
           );
           if (mapEngine === 'pulse3d') {
             return (
@@ -153,15 +159,17 @@ export const AppShell: React.FC = () => {
                 <div className="relative h-full">
                   <Pulse3DMap {...mapProps} enableDynamicLighting>
                     {sheet}
+                    {!(selectedMoment || selectedZone) && (
+                      <button
+                        onClick={() => setMapEngine('map')}
+                        className="absolute bottom-[calc(var(--area-sheet-h,0px)+6rem)] transition-[bottom] duration-300 right-4 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10"
+                        title="Back to the map"
+                      >
+                        <MapIcon className="w-3.5 h-3.5 text-signal-400" />
+                        <span>Back to map</span>
+                      </button>
+                    )}
                   </Pulse3DMap>
-                  <button
-                    onClick={() => setMapEngine('map')}
-                    className="absolute bottom-24 right-4 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10"
-                    title="Back to the map"
-                  >
-                    <MapIcon className="w-3.5 h-3.5 text-signal-400" />
-                    <span>Back to map</span>
-                  </button>
                 </div>
               </Suspense>
             );

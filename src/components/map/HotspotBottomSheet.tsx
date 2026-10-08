@@ -24,7 +24,7 @@ interface HotspotBottomSheetProps {
   onStartNavigation?: (moment: Moment) => void;
 }
 
-const CATEGORY_META: Record<
+export const CATEGORY_META: Record<
   MomentCategory,
   { label: string; icon: string; badgeClass: string }
 > = {
