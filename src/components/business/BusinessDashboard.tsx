@@ -11,8 +11,41 @@ import {
   Sparkles,
   DollarSign,
   Radio,
-  CheckCircle2
+  CheckCircle2,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus
 } from 'lucide-react';
+
+type Trend = 'up' | 'down' | 'flat';
+
+const TREND_STYLES: Record<Trend, { icon: React.ElementType; chip: string; label: string }> = {
+  up: { icon: ArrowUpRight, chip: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30', label: 'Trending up' },
+  down: { icon: ArrowDownRight, chip: 'bg-rose-500/15 text-rose-300 border-rose-400/30', label: 'Trending down' },
+  flat: { icon: Minus, chip: 'bg-slate-500/15 text-slate-300 border-slate-400/30', label: 'Holding steady' }
+};
+
+// Direction of each headline metric against last week
+const STAT_TRENDS: Record<'views' | 'reach' | 'clicks' | 'engagement', Trend> = {
+  views: 'up',
+  reach: 'up',
+  clicks: 'flat',
+  engagement: 'up'
+};
+
+const TrendIcon: React.FC<{ trend: Trend }> = ({ trend }) => {
+  const { icon: Icon, chip, label } = TREND_STYLES[trend];
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-5 h-5 rounded-full border ${chip}`}
+      title={label}
+      role="img"
+      aria-label={label}
+    >
+      <Icon className="w-3 h-3" />
+    </span>
+  );
+};
 
 export const BusinessDashboard: React.FC = () => {
   const {
@@ -97,7 +130,10 @@ export const BusinessDashboard: React.FC = () => {
               <span className="text-[10px] uppercase font-bold tracking-wider">Views</span>
               <Eye className="w-3.5 h-3.5 text-signal-400" />
             </div>
-            <div className="text-lg font-black text-white">{biz.stats.views.toLocaleString()}</div>
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-white">{biz.stats.views.toLocaleString()}</div>
+              <TrendIcon trend={STAT_TRENDS.views} />
+            </div>
             <div className="text-[10px] text-emerald-400 font-medium">↑ +18% this week</div>
           </div>
 
@@ -106,7 +142,10 @@ export const BusinessDashboard: React.FC = () => {
               <span className="text-[10px] uppercase font-bold tracking-wider">Reach</span>
               <Radio className="w-3.5 h-3.5 text-accent-400" />
             </div>
-            <div className="text-lg font-black text-white">{biz.stats.reach.toLocaleString()}</div>
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-white">{biz.stats.reach.toLocaleString()}</div>
+              <TrendIcon trend={STAT_TRENDS.reach} />
+            </div>
             <div className="text-[10px] text-slate-400">Within 10km radius</div>
           </div>
 
@@ -115,7 +154,10 @@ export const BusinessDashboard: React.FC = () => {
               <span className="text-[10px] uppercase font-bold tracking-wider">Pin Clicks</span>
               <MousePointer className="w-3.5 h-3.5 text-amber-400" />
             </div>
-            <div className="text-lg font-black text-white">{biz.stats.clicks}</div>
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-white">{biz.stats.clicks}</div>
+              <TrendIcon trend={STAT_TRENDS.clicks} />
+            </div>
             <div className="text-[10px] text-amber-400 font-medium">Hotspot referrals</div>
           </div>
 
@@ -124,7 +166,10 @@ export const BusinessDashboard: React.FC = () => {
               <span className="text-[10px] uppercase font-bold tracking-wider">Engagement</span>
               <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
             </div>
-            <div className="text-lg font-black text-white">{biz.stats.engagementRate}%</div>
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-white">{biz.stats.engagementRate}%</div>
+              <TrendIcon trend={STAT_TRENDS.engagement} />
+            </div>
             <div className="text-[10px] text-purple-400 font-medium">Industry Top 5%</div>
           </div>
         </div>
@@ -142,7 +187,7 @@ export const BusinessDashboard: React.FC = () => {
         </div>
         <button
           onClick={() => setIsCreatingPin(true)}
-          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-accent2-500 to-accent-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-transform"
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-300 via-amber-400 to-orange-400 hover:from-amber-200 hover:to-orange-300 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 border border-amber-200/70 ring-2 ring-amber-300/30 shadow-lg shadow-amber-400/40 active:scale-95 transition-all"
         >
           <Plus className="w-4 h-4" /> Drop Live Pin
         </button>
@@ -253,7 +298,7 @@ export const BusinessDashboard: React.FC = () => {
         {businessPosts.map((post) => (
           <div
             key={post.id}
-            className="p-4 rounded-2xl glass-panel border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl"
+            className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/25 via-amber-600/10 to-slate-900/90 border border-amber-400/50 border-l-4 border-l-amber-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xl shadow-amber-950/40"
           >
             <div>
               <div className="flex items-center gap-2 mb-1">
