@@ -1,6 +1,34 @@
 import * as THREE from 'three';
 import { MapTile, FlatPoints, TileSurface } from './tileFormat';
 import { PulseMaterials } from './materials';
+
+/**
+ * A tile is built in two steps so the heavy one can run in a Web Worker:
+ *  1. buildTileGeometry: pure number crunching (triangulation, walls, props) -> typed arrays
+ *  2. assembleTileGroup: wraps those arrays in meshes on the main thread (cheap)
+ */
+export interface LayerData {
+  name: LayerName;
+  renderOrder: number;
+  attributes: Record<string, { array: Float32Array; itemSize: number }>;
+}
+
+export type LayerName = 'land' | 'water' | 'green' | 'sand' | 'roads' | 'buildings' | 'trees' | 'lamps';
+
+export interface TileGeometry {
+  tx: number;
+  ty: number;
+  origin: [number, number];
+  layers: LayerData[];
+}
+
+function layer(name: LayerName, renderOrder: number, attrs: Record<string, [number[], number]>): LayerData {
+  const attributes: LayerData['attributes'] = {};
+  for (const [key, [values, itemSize]] of Object.entries(attrs)) {
+    attributes[key] = { array: new Float32Array(values), itemSize };
+  }
+  return { name, renderOrder, attributes };
+}
 import { ANCHORS } from '../../../theme/tokens';
 
 const hex = (c: string) => parseInt(c.slice(1), 16);
@@ -282,7 +310,7 @@ function pushRooftopClutter(
   }
 }
 
-function buildBuildings(tile: MapTile, material: THREE.Material): THREE.Mesh | null {
+function buildBuildings(tile: MapTile): LayerData | null {
   const buf: BuildingBuffers = { positions: [], normals: [], colors: [], facade: [], surface: [] };
   const color = new THREE.Color();
   const roofColor = new THREE.Color();
@@ -360,19 +388,16 @@ function buildBuildings(tile: MapTile, material: THREE.Material): THREE.Mesh | n
   });
 
   if (!buf.positions.length) return null;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(buf.positions, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(buf.normals, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(buf.colors, 3));
-  geometry.setAttribute('aFacade', new THREE.Float32BufferAttribute(buf.facade, 4));
-  geometry.setAttribute('aSurface', new THREE.Float32BufferAttribute(buf.surface, 2));
-  geometry.computeBoundingSphere();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = 'buildings';
-  return mesh;
+  return layer('buildings', 0, {
+    position: [buf.positions, 3],
+    normal: [buf.normals, 3],
+    color: [buf.colors, 3],
+    aFacade: [buf.facade, 4],
+    aSurface: [buf.surface, 2]
+  });
 }
 
-function buildRoads(tile: MapTile, material: THREE.Material): THREE.Mesh | null {
+function buildRoads(tile: MapTile): LayerData | null {
   const positions: number[] = [];
   const normals: number[] = [];
   const uvs: number[] = [];
@@ -425,56 +450,216 @@ function buildRoads(tile: MapTile, material: THREE.Material): THREE.Mesh | null 
   }
 
   if (!positions.length) return null;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setAttribute('aEdgeColor', new THREE.Float32BufferAttribute(edgeColors, 3));
-  geometry.computeBoundingSphere();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = 'roads';
-  mesh.renderOrder = 2;
-  return mesh;
+  return layer('roads', 2, { position: [positions, 3], normal: [normals, 3], uv: [uvs, 2], aEdgeColor: [edgeColors, 3] });
 }
 
-function buildSurfaces(polygons: TileSurface[], y: number, material: THREE.Material, name: string) {
+function buildSurfaces(polygons: TileSurface[], y: number, name: LayerName): LayerData | null {
   const positions: number[] = [];
   const normals: number[] = [];
   for (const [outerFlat, ...holeFlats] of polygons) {
     pushCap(positions, normals, toRing(outerFlat), holeFlats.map(toRing), y);
   }
   if (!positions.length) return null;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geometry.computeBoundingSphere();
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.name = name;
-  mesh.renderOrder = 1;
-  return mesh;
+  return layer(name, 1, { position: [positions, 3], normal: [normals, 3] });
 }
 
-export function buildTileGroup(tile: MapTile, materials: PulseMaterials, tileSize: number): THREE.Group {
-  const group = new THREE.Group();
-  group.name = `tile_${tile.tx}_${tile.ty}`;
-  group.position.set(tile.origin[0], 0, -tile.origin[1]);
+// --- Street props: trees in parks and lamp posts along the main roads --------------------
 
+const TREE_SPACING = 11; // meters between trees in a park
+const MAX_TREES_PER_TILE = 350;
+const LAMP_SPACING = 34;
+const LAMP_MAX_ROAD_CLASS = 5; // up to residential streets
+const MAX_LAMPS_PER_TILE = 220;
+const POLE_HEIGHT = 5.2;
+const TRUNK_COLOR = new THREE.Color(0x4a3a2a);
+const POLE_COLOR = new THREE.Color(0x2a2f3a);
+const LAMP_GLOW = new THREE.Color(1.6, 1.15, 0.6); // above 1 so the bloom pass picks it up
+const CANOPY_COLORS = [0x1f5a32, 0x256b3a, 0x2f7a3f, 0x1a4d2c, 0x3b7f3d].map((c) => new THREE.Color(c));
+
+interface PropBuffers {
+  positions: number[];
+  normals: number[];
+  colors: number[];
+}
+
+/** One flat-shaded triangle whose normal faces away from `inside` */
+function pushFlatTriangle(
+  buf: PropBuffers,
+  a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3,
+  inside: THREE.Vector3, color: THREE.Color
+) {
+  const normal = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).normalize();
+  const centroid = new THREE.Vector3().add(a).add(b).add(c).multiplyScalar(1 / 3);
+  const flip = normal.dot(centroid.sub(inside)) < 0;
+  const [p, q, r] = flip ? [a, c, b] : [a, b, c];
+  if (flip) normal.negate();
+  for (const v of [p, q, r]) {
+    buf.positions.push(v.x, v.y, v.z);
+    buf.normals.push(normal.x, normal.y, normal.z);
+    buf.colors.push(color.r, color.g, color.b);
+  }
+}
+
+/** Prism (or pyramid frustum) standing on the ground at map point (x, y) */
+function pushPrism(
+  buf: PropBuffers, x: number, y: number, base: number, top: number,
+  baseRadius: number, topRadius: number, sides: number, color: THREE.Color
+) {
+  const ring = (radius: number, height: number) =>
+    Array.from({ length: sides }, (_, i) => {
+      const t = ((i + 0.5) / sides) * Math.PI * 2;
+      return new THREE.Vector3(x + Math.cos(t) * radius, height, -(y + Math.sin(t) * radius));
+    });
+  const lo = ring(baseRadius, base);
+  const hi = ring(topRadius, top);
+  const inside = new THREE.Vector3(x, (base + top) / 2, -y);
+  for (let i = 0; i < sides; i++) {
+    const j = (i + 1) % sides;
+    pushFlatTriangle(buf, lo[i], lo[j], hi[j], inside, color);
+    pushFlatTriangle(buf, lo[i], hi[j], hi[i], inside, color);
+  }
+  const apex = new THREE.Vector3(x, top, -y);
+  for (let i = 0; i < sides; i++) pushFlatTriangle(buf, hi[i], hi[(i + 1) % sides], apex, inside, color);
+}
+
+/** Six-sided bipyramid canopy: cheap, flat shaded and reads as foliage from a distance */
+function pushCanopy(buf: PropBuffers, x: number, y: number, mid: number, radius: number, up: number, down: number, color: THREE.Color) {
+  const sides = 6;
+  const ring = Array.from({ length: sides }, (_, i) => {
+    const t = (i / sides) * Math.PI * 2 + 0.3;
+    return new THREE.Vector3(x + Math.cos(t) * radius, mid, -(y + Math.sin(t) * radius));
+  });
+  const top = new THREE.Vector3(x, mid + up, -y);
+  const bottom = new THREE.Vector3(x, mid - down, -y);
+  const inside = new THREE.Vector3(x, mid, -y);
+  for (let i = 0; i < sides; i++) {
+    const j = (i + 1) % sides;
+    pushFlatTriangle(buf, ring[i], ring[j], top, inside, color);
+    pushFlatTriangle(buf, ring[i], ring[j], bottom, inside, color);
+  }
+}
+
+function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData | null } {
+  const solid: PropBuffers = { positions: [], normals: [], colors: [] };
+  const glow: PropBuffers = { positions: [], normals: [], colors: [] };
+  const rand = mulberry32(((tile.tx * 73856093) ^ (tile.ty * 19349663)) >>> 0);
+
+  // Trees on a jittered grid inside each park polygon
+  let trees = 0;
+  for (const [outerFlat, ...holeFlats] of tile.green) {
+    if (trees >= MAX_TREES_PER_TILE) break;
+    const outer = toRing(outerFlat);
+    if (outer.length < 3) continue;
+    const holes = holeFlats.map(toRing);
+    const xs = outer.map((p) => p.x);
+    const ys = outer.map((p) => p.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    for (let gx = minX + TREE_SPACING / 2; gx < maxX && trees < MAX_TREES_PER_TILE; gx += TREE_SPACING) {
+      for (let gy = minY + TREE_SPACING / 2; gy < maxY && trees < MAX_TREES_PER_TILE; gy += TREE_SPACING) {
+        const p = new THREE.Vector2(gx + (rand() - 0.5) * TREE_SPACING * 0.7, gy + (rand() - 0.5) * TREE_SPACING * 0.7);
+        if (!pointInRing(p, outer) || holes.some((h) => pointInRing(p, h))) continue;
+        const size = 0.75 + rand() * 0.6;
+        const ground = SURFACE_HEIGHT.green;
+        pushPrism(solid, p.x, p.y, ground, ground + 2 * size, 0.2 * size, 0.14 * size, 4, TRUNK_COLOR);
+        const color = CANOPY_COLORS[Math.floor(rand() * CANOPY_COLORS.length)];
+        pushCanopy(solid, p.x, p.y, ground + 2.4 * size, 1.7 * size, 2.6 * size, 1.1 * size, color);
+        trees++;
+      }
+    }
+  }
+
+  // Lamp posts down both sides of the streets, alternating
+  let lamps = 0;
+  for (const [classIndex, widthDm, isBridge, flat] of tile.roads) {
+    if (lamps >= MAX_LAMPS_PER_TILE) break;
+    if (classIndex > LAMP_MAX_ROAD_CLASS || isBridge) continue;
+    const pts = toRing(flat);
+    const offset = widthDm / 20 + 1.1;
+    let carried = rand() * LAMP_SPACING;
+    let side = rand() < 0.5 ? 1 : -1;
+    for (let i = 0; i < pts.length - 1 && lamps < MAX_LAMPS_PER_TILE; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const len = a.distanceTo(b);
+      if (len < 0.5) continue;
+      const nx = -(b.y - a.y) / len;
+      const ny = (b.x - a.x) / len;
+      for (let d = LAMP_SPACING - carried; d < len; d += LAMP_SPACING) {
+        const t = d / len;
+        const x = a.x + (b.x - a.x) * t + nx * offset * side;
+        const y = a.y + (b.y - a.y) * t + ny * offset * side;
+        side = -side;
+        const ground = 0.05;
+        pushPrism(solid, x, y, ground, ground + POLE_HEIGHT, 0.09, 0.06, 4, POLE_COLOR);
+        pushPrism(glow, x, y, ground + POLE_HEIGHT - 0.1, ground + POLE_HEIGHT + 0.35, 0.55, 0.38, 6, LAMP_GLOW);
+        lamps++;
+      }
+      carried = (carried + len) % LAMP_SPACING;
+    }
+  }
+
+  const pack = (name: LayerName, buf: PropBuffers) =>
+    buf.positions.length ? layer(name, 3, { position: [buf.positions, 3], normal: [buf.normals, 3], color: [buf.colors, 3] }) : null;
+  return { trees: pack('trees', solid), lamps: pack('lamps', glow) };
+}
+
+export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry {
   // Base: land covers the mapped tile (hiding the "no data" grid); open water otherwise
   const square: FlatPoints = [0, 0, tileSize * 10, 0, tileSize * 10, tileSize * 10, 0, tileSize * 10];
   const landPolygons: TileSurface[] =
     tile.land === 1 ? [[square]] : tile.land === 0 ? [] : tile.land.map((ring) => [ring] as TileSurface);
   const waterPolygons: TileSurface[] = tile.land === 1 ? tile.water : [[square], ...tile.water];
 
-  const meshes = [
-    buildSurfaces(landPolygons, SURFACE_HEIGHT.land, materials.land, 'land'),
-    buildSurfaces(waterPolygons, SURFACE_HEIGHT.water, materials.water, 'water'),
-    buildSurfaces(tile.green, SURFACE_HEIGHT.green, materials.green, 'green'),
-    buildSurfaces(tile.sand, SURFACE_HEIGHT.sand, materials.sand, 'sand'),
-    buildRoads(tile, materials.road),
-    buildBuildings(tile, materials.building)
-  ];
-  for (const mesh of meshes) if (mesh) group.add(mesh);
+  const props = buildProps(tile);
+  const layers = [
+    buildSurfaces(landPolygons, SURFACE_HEIGHT.land, 'land'),
+    buildSurfaces(waterPolygons, SURFACE_HEIGHT.water, 'water'),
+    buildSurfaces(tile.green, SURFACE_HEIGHT.green, 'green'),
+    buildSurfaces(tile.sand, SURFACE_HEIGHT.sand, 'sand'),
+    buildRoads(tile),
+    buildBuildings(tile),
+    props.trees,
+    props.lamps
+  ].filter((l): l is LayerData => l !== null);
+  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers };
+}
+
+/** Every transferable buffer in a built tile, for postMessage's transfer list */
+export function tileGeometryBuffers(geometry: TileGeometry): ArrayBuffer[] {
+  return geometry.layers.flatMap((l) => Object.values(l.attributes).map((a) => a.array.buffer as ArrayBuffer));
+}
+
+export function assembleTileGroup(data: TileGeometry, materials: PulseMaterials): THREE.Group {
+  const group = new THREE.Group();
+  group.name = `tile_${data.tx}_${data.ty}`;
+  group.position.set(data.origin[0], 0, -data.origin[1]);
+  const materialFor: Record<LayerName, THREE.Material> = {
+    land: materials.land,
+    water: materials.water,
+    green: materials.green,
+    sand: materials.sand,
+    roads: materials.road,
+    buildings: materials.building,
+    trees: materials.prop,
+    lamps: materials.lamp
+  };
+  for (const l of data.layers) {
+    const geometry = new THREE.BufferGeometry();
+    for (const [key, { array, itemSize }] of Object.entries(l.attributes)) {
+      geometry.setAttribute(key, new THREE.BufferAttribute(array, itemSize));
+    }
+    geometry.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geometry, materialFor[l.name]);
+    mesh.name = l.name;
+    mesh.renderOrder = l.renderOrder;
+    group.add(mesh);
+  }
   return group;
+}
+
+/** Same result without a worker (used where Web Workers are unavailable) */
+export function buildTileGroup(tile: MapTile, materials: PulseMaterials, tileSize: number): THREE.Group {
+  return assembleTileGroup(buildTileGeometry(tile, tileSize), materials);
 }
 
 export function disposeTileGroup(group: THREE.Group) {

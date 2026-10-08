@@ -13,6 +13,10 @@ export interface PulseMaterials {
   sand: THREE.MeshStandardMaterial;
   land: THREE.MeshStandardMaterial;
   ground: THREE.MeshStandardMaterial;
+  /** Trees and lamp posts (colors baked into the vertices) */
+  prop: THREE.MeshStandardMaterial;
+  /** Street lamp heads: unlit, so they glow (and feed the bloom) at night */
+  lamp: THREE.MeshBasicMaterial;
   /** Shared uniforms: animate uTime from the render loop */
   uniforms: { uTime: { value: number }; uWindowIntensity: { value: number }; uDay: { value: number } };
   dispose: () => void;
@@ -331,7 +335,10 @@ export function createPulseMaterials(): PulseMaterials {
       );
   };
 
-  const all = [building, road, water, green, sand, land, ground];
+  const prop = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, flatShading: true });
+  const lamp = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+
+  const all = [building, road, water, green, sand, land, ground, prop, lamp];
   return {
     building,
     road,
@@ -340,6 +347,8 @@ export function createPulseMaterials(): PulseMaterials {
     sand,
     land,
     ground,
+    prop,
+    lamp,
     uniforms,
     dispose: () => all.forEach((m) => m.dispose())
   };

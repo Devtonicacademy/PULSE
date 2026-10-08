@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { tileForMeters, tileKey } from '../../../utils/mapProjection';
 import { MapTile, MapTileIndex, MAP_TILES_BASE_URL } from './tileFormat';
 import { PulseMaterials } from './materials';
-import { buildTileGroup, disposeTileGroup } from './tileMeshes';
+import { assembleTileGroup, buildTileGeometry, disposeTileGroup, TileGeometry } from './tileMeshes';
+import type { TileRequest, TileResponse } from './tileWorker';
 
 export interface TileManagerOptions {
   /** Tiles whose center is within this distance of the focus are loaded */
@@ -13,11 +14,18 @@ export interface TileManagerOptions {
   maxLoadedTiles?: number;
   /** Upper bound on the load radius when the camera is high up */
   maxLoadRadiusMeters?: number;
+  /** Web Workers used for tile streaming (0 builds on the main thread) */
+  workerCount?: number;
 }
+
+/** Meshes wrapped per frame (cheap: the geometry already exists as typed arrays) */
+const ASSEMBLE_PER_FRAME = 2;
 
 /**
  * Streams map tiles in and out around a focus point (map meters, x east / y north).
- * Fetches are parallel, but meshes are built at most one per frame to avoid hitches.
+ * Downloading, parsing and geometry building happen in Web Workers; the render loop only
+ * wraps finished arrays in meshes, a couple per frame. Without Worker support the same
+ * work runs on the main thread, one tile per frame.
  */
 export class TileManager {
   readonly root = new THREE.Group();
@@ -25,7 +33,11 @@ export class TileManager {
 
   private loaded = new Map<string, THREE.Group>();
   private pending = new Set<string>();
-  private buildQueue: MapTile[] = [];
+  private buildQueue: TileGeometry[] = [];
+  private workers: Worker[] = [];
+  private nextWorker = 0;
+  private nextRequestId = 1;
+  private requests = new Map<number, string>();
   private focus: [number, number] = [0, 0];
   private disposed = false;
   private loadRadius: number;
@@ -41,6 +53,51 @@ export class TileManager {
     this.maxLoaded = options.maxLoadedTiles ?? 64;
     this.maxLoadRadius = options.maxLoadRadiusMeters ?? 2000;
     this.root.name = 'map-tiles';
+    this.startWorkers(options.workerCount ?? Math.min(2, Math.max(1, (navigator.hardwareConcurrency || 4) - 2)));
+  }
+
+  private startWorkers(count: number) {
+    if (typeof Worker === 'undefined') return;
+    try {
+      for (let i = 0; i < count; i++) {
+        const worker = new Worker(new URL('./tileWorker.ts', import.meta.url), { type: 'module' });
+        worker.onmessage = (event: MessageEvent<TileResponse>) => this.onWorkerMessage(event.data);
+        worker.onerror = (event) => {
+          console.warn('[PULSE 3D] Tile worker failed, building tiles on the main thread:', event.message);
+          this.stopWorkers();
+        };
+        this.workers.push(worker);
+      }
+    } catch (err) {
+      console.warn('[PULSE 3D] Web Workers unavailable, building tiles on the main thread:', err);
+      this.stopWorkers();
+    }
+  }
+
+  private stopWorkers() {
+    this.workers.forEach((w) => w.terminate());
+    this.workers = [];
+    // Anything still in flight is retried on the main thread
+    const orphaned = [...this.requests.values()];
+    this.requests.clear();
+    orphaned.forEach((key) => {
+      this.pending.delete(key);
+    });
+    if (!this.disposed) this.refresh();
+  }
+
+  private onWorkerMessage(msg: TileResponse) {
+    const key = this.requests.get(msg.id);
+    if (key === undefined) return;
+    this.requests.delete(msg.id);
+    if ('error' in msg) {
+      this.pending.delete(key);
+      console.warn(`[PULSE 3D] Tile ${key} failed to load:`, msg.error);
+      return;
+    }
+    // Stays "pending" until tick() wraps it, so refresh() doesn't ask for it again
+    if (!this.disposed) this.buildQueue.push(msg.geometry);
+    else this.pending.delete(key);
   }
 
   async init(): Promise<MapTileIndex> {
@@ -68,22 +125,29 @@ export class TileManager {
     this.refresh();
   }
 
-  /** Call once per frame: builds at most one queued tile */
+  /** Call once per frame: wraps a couple of finished tiles in meshes */
   tick() {
     if (this.buildQueue.length > 1) {
       this.buildQueue.sort((a, b) => this.tileDistance(a.tx, a.ty) - this.tileDistance(b.tx, b.ty));
     }
-    const tile = this.buildQueue.shift();
-    if (!tile || this.disposed) return;
-    const key = tileKey(tile.tx, tile.ty);
-    if (this.loaded.has(key) || !this.isWithin(tile.tx, tile.ty, this.unloadRadius)) return;
-    const group = buildTileGroup(tile, this.materials, this.index!.tileSize);
-    this.root.add(group);
-    this.loaded.set(key, group);
+    const limit = this.workers.length ? ASSEMBLE_PER_FRAME : 1;
+    for (let n = 0; n < limit; n++) {
+      const data = this.buildQueue.shift();
+      if (!data || this.disposed) return;
+      const key = tileKey(data.tx, data.ty);
+      this.pending.delete(key);
+      if (this.loaded.has(key) || !this.isWithin(data.tx, data.ty, this.unloadRadius)) continue;
+      const group = assembleTileGroup(data, this.materials);
+      this.root.add(group);
+      this.loaded.set(key, group);
+    }
   }
 
   dispose() {
     this.disposed = true;
+    this.workers.forEach((w) => w.terminate());
+    this.workers = [];
+    this.requests.clear();
     this.loaded.forEach((group) => disposeTileGroup(group));
     this.loaded.clear();
     this.buildQueue = [];
@@ -132,15 +196,23 @@ export class TileManager {
 
   private async fetchTile(key: string) {
     this.pending.add(key);
+    const tileSize = this.index!.tileSize;
+    if (this.workers.length) {
+      const id = this.nextRequestId++;
+      this.requests.set(id, key);
+      const request: TileRequest = { id, key, tileSize };
+      this.workers[this.nextWorker++ % this.workers.length].postMessage(request);
+      return;
+    }
     try {
       const res = await fetch(`${MAP_TILES_BASE_URL}${key}.json`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const tile = (await res.json()) as MapTile;
-      if (!this.disposed) this.buildQueue.push(tile);
+      if (!this.disposed) this.buildQueue.push(buildTileGeometry(tile, tileSize));
+      else this.pending.delete(key);
     } catch (err) {
-      console.warn(`[PULSE 3D] Tile ${key} failed to load:`, err);
-    } finally {
       this.pending.delete(key);
+      console.warn(`[PULSE 3D] Tile ${key} failed to load:`, err);
     }
   }
 }

@@ -154,6 +154,7 @@ export class PulseScene {
     this.renderer.toneMappingExposure = p.exposure;
     // Facades switch to plaster/concrete colours and the ground lightens with daylight
     this.materials.uniforms.uDay.value = p.daylight;
+    this.materials.lamp.visible = p.daylight < 0.5; // street lamps only glow after dark
     // Bloom is for neon at night; in daylight it would just haze bright plaster walls
     if (this.bloomPass) {
       this.bloomPass.strength = BLOOM_STRENGTH * (1 - p.daylight * 0.85);
