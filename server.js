@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { createApp } from './server/app.js';
 import { storageFromEnv } from './server/photoStorage.js';
 import { createTokenVerifier } from './server/firebaseAuth.js';
+import { createOverpassClient } from './server/osm/overpass.js';
+import { createCoverageService } from './server/osm/coverage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,7 +18,13 @@ const verifyToken = createTokenVerifier({
   emulator: Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST)
 });
 
-const app = createApp({ storage, verifyToken, distDir: path.join(__dirname, 'dist') });
+const coverage = createCoverageService({
+  storage,
+  overpass: createOverpassClient({ log: (message) => console.warn('[PULSE map]', message) }),
+  log: (message) => console.warn('[PULSE map]', message)
+});
+
+const app = createApp({ storage, verifyToken, distDir: path.join(__dirname, 'dist'), coverage });
 
 app.listen(PORT, HOST, () => {
   console.log(`⚡ [PULSE] Live Production Server running on http://${HOST}:${PORT} (photos: ${storage.kind})`);

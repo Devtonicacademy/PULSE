@@ -17,7 +17,7 @@ import {
   DOWNGRADE_SAMPLE_SECONDS
 } from './pulse3d/quality';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
-import { lngLatToMeters, metersToLngLat } from '../../utils/mapProjection';
+import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapProjection';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
@@ -197,6 +197,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
       };
       if (!navigator.geolocation) {
+        onLocationError?.(new Error('Geolocation is not available'));
         fallback();
         return;
       }
@@ -418,7 +419,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       .then(() => {
         setHasData(pulseScene.tiles.hasDataAt(x, y));
         setHotspotCoverage(
-          LAGOS_HOTSPOTS.map(({ coords }) => pulseScene.tiles.hasDataAt(...lngLatToMeters(coords[0], coords[1])))
+          LAGOS_HOTSPOTS.map(({ coords }) => usesLagosData() && pulseScene.tiles.hasDataAt(...lngLatToMeters(coords[0], coords[1])))
         );
         setStatus('ready');
       })

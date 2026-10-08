@@ -1,15 +1,17 @@
 import express from 'express';
 import path from 'node:path';
 import { createPhotoRouter } from './photoRoutes.js';
+import { createMapRouter } from './mapRoutes.js';
 
 /** The PULSE web server: static app, SPA fallback and the photo API */
-export function createApp({ storage, verifyToken, distDir, photoOptions }) {
+export function createApp({ storage, verifyToken, distDir, photoOptions, coverage, mapOptions }) {
   const app = express();
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 
-  app.get('/api/health', (req, res) => res.json({ ok: true, photos: storage.kind }));
+  app.get('/api/health', (req, res) => res.json({ ok: true, photos: storage.kind, mapCoverage: Boolean(coverage) }));
   app.use(createPhotoRouter({ storage, verifyToken, ...photoOptions }));
+  if (coverage) app.use(createMapRouter({ coverage, ...mapOptions }));
 
   // Serve static assets from Vite build directory
   app.use(

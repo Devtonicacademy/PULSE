@@ -1164,6 +1164,11 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const profile = await signInAsGuest();
       setUserProfile(profile);
+      // Choosing "Continue as Guest" is a sign-in too: new guests get the survey
+      if (!loadSurvey(profile.id)) {
+        surveyDismissedFor.current.delete(profile.id);
+        setIsSurveyOpen(true);
+      }
       const notif: NotificationItem = {
         id: `auth-${Date.now()}`,
         type: 'event',

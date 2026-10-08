@@ -116,7 +116,8 @@ export class PulseScene {
 
     this.tiles = new TileManager(this.materials, {
       maxLoadedTiles: options.maxTiles,
-      maxLoadRadiusMeters: options.maxLoadRadius
+      maxLoadRadiusMeters: options.maxLoadRadius,
+      streamFromServer: true
     });
     this.scene.add(this.tiles.root);
 

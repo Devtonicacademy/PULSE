@@ -1,21 +1,36 @@
 /**
- * Local flat projection shared by the tile builder (scripts/build-map-tiles.mjs)
+ * Local flat projection shared by the server's tile builder (server/osm/tileBuilder.js)
  * and the Pulse 3D map, so both agree on where every coordinate lands.
  *
- * Coordinates are meters from a fixed origin in Victoria Island: x grows east,
- * y grows north. Over the ~25 km span of Lagos we cover, an equirectangular
- * projection is accurate to well under a meter.
- *
- * Plain erasable TypeScript only: Node runs this file directly when building tiles.
+ * Coordinates are meters from an origin: x grows east, y grows north. Over the ~50 km
+ * span a tile origin covers, an equirectangular projection is accurate to about a meter.
  */
 
-export const MAP_ORIGIN = { latitude: 6.4281, longitude: 3.4219 };
+import { VI_ORIGIN } from './mapOrigin';
+
+export { VI_ORIGIN };
+
+/**
+ * The origin in use. It is the Victoria Island one for anyone near Lagos, and a coarse
+ * grid point elsewhere (see mapOrigin.ts); the scene sets it once, before building anything.
+ */
+export let MAP_ORIGIN = VI_ORIGIN;
+export let MAP_ORIGIN_ID = 'vi';
 
 /** Edge length of one map tile, in meters */
 export const TILE_SIZE_METERS = 500;
 
 const METERS_PER_DEGREE_LAT = 110574;
-const METERS_PER_DEGREE_LNG = 111320 * Math.cos((MAP_ORIGIN.latitude * Math.PI) / 180);
+let METERS_PER_DEGREE_LNG = 111320 * Math.cos((MAP_ORIGIN.latitude * Math.PI) / 180);
+
+export function setMapOrigin(origin: { latitude: number; longitude: number }, id: string) {
+  MAP_ORIGIN = origin;
+  MAP_ORIGIN_ID = id;
+  METERS_PER_DEGREE_LNG = 111320 * Math.cos((origin.latitude * Math.PI) / 180);
+}
+
+/** The pre-built Lagos tiles and walking graph only line up with the Victoria Island origin */
+export const usesLagosData = () => MAP_ORIGIN_ID === 'vi';
 
 /** [longitude, latitude] -> [x east, y north] in meters from MAP_ORIGIN */
 export function lngLatToMeters(lng: number, lat: number): [number, number] {

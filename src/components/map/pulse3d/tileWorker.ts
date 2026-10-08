@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { MapTile, MAP_TILES_BASE_URL } from './tileFormat';
+import { MapTile } from './tileFormat';
 import { buildTileGeometry, tileGeometryBuffers, TileGeometry } from './tileMeshes';
 
 /**
@@ -11,6 +11,8 @@ export interface TileRequest {
   id: number;
   key: string;
   tileSize: number;
+  /** Where to download the tile from (a pre-built file or the server's on-demand route) */
+  url: string;
 }
 
 export type TileResponse =
@@ -20,9 +22,9 @@ export type TileResponse =
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 scope.onmessage = async (event: MessageEvent<TileRequest>) => {
-  const { id, key, tileSize } = event.data;
+  const { id, key, tileSize, url } = event.data;
   try {
-    const res = await fetch(`${MAP_TILES_BASE_URL}${key}.json`);
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const tile = (await res.json()) as MapTile;
     const geometry = buildTileGeometry(tile, tileSize);

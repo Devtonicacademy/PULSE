@@ -77,7 +77,9 @@ One map engine, no token or key: **MapLibre GL** drawing free OpenStreetMap vect
 
 The **Walk in 3D** button on the map (also in the navigation card and the sidebar) opens **Pulse 3D** ([`Pulse3DMap.tsx`](src/components/map/Pulse3DMap.tsx)), a self-hosted explore mode. It renders a night/neon city from OpenStreetMap data with the same camera modes, WASD walking, avatar, moment cards and wayfinding as the map. Three.js is loaded only when it is opened.
 
-- **Coverage**: Victoria Island, Lekki Phase 1, Lagos Island, Yaba and Unilag. Elsewhere it shows a "no 3D data" grid.
+- **Default view**: the map tab opens in Pulse 3D, with the area view (zone pulse score and the live moments nearest first) in a draggable bottom sheet (peek / half / full) that steps aside when you open a moment.
+- **Coverage**: Victoria Island, Lekki Phase 1, Lagos Island, Yaba and Unilag ship pre-built. Everything else is built **on demand by the server** from OpenStreetMap (see *40 km coverage* below).
+- **Streaming**: tiles are downloaded, parsed and turned into geometry in Web Workers ([`tileWorker.ts`](src/components/map/pulse3d/tileWorker.ts)); the render loop only wraps the transferred typed arrays in meshes. Parks get trees and main streets get lamp posts that glow at night.
 - **Data quality**: OSM building heights are sparse in Lagos. Real heights exist for ~32% of Victoria Island buildings, almost none in Yaba/Lekki; the rest are estimated from building type and footprint.
 - **Rebuilding tiles** (downloads from Overpass once, cached in `.cache/`):
 
@@ -86,6 +88,28 @@ node scripts/build-map-tiles.mjs
 ```
 
 Output goes to [`public/map-tiles/`](public/map-tiles) (~2.3 MB, ~950 KB gzipped). Map data © OpenStreetMap contributors, ODbL.
+
+### 40 km coverage around the user
+
+Once the user's location is known (GPS fix, or the active hub when GPS is denied), the app asks the server to download the OpenStreetMap data for the **40 km radius around those exact coordinates**:
+
+- `POST /api/map/coverage` starts a background job; `GET /api/map/coverage?lat=&lng=` reports progress (shown as a "Map data 37%" pill). Nearest cells come first, and a tile somebody is looking at jumps the queue (it has its own lane).
+- Data is cut into 2 km cells (4 x 4 tiles of 500 m), built by the same code as the pre-built tiles ([`server/osm/tileBuilder.js`](server/osm/tileBuilder.js); the 224 pre-built tiles regenerate byte-for-byte through it), gzipped and **cached in the photo bucket** under `osm/`, so each area is downloaded from OpenStreetMap once, for everyone.
+- Tiles are served by `GET /api/map/tiles/<origin>/<tx>_<ty>.json`. Near Lagos everyone shares the Victoria Island origin (`vi`); elsewhere the origin snaps to a 0.25 degree grid, so Pulse 3D works anywhere in the world. The street-walking router is still Lagos-only (elsewhere routes are estimated).
+- Downloads come from the public [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), one request at a time per lane, spaced out, with mirrors rotated on failure. It is a shared, donated service, so background work stops at a daily cap. For real traffic point `OVERPASS_URLS` at your own instance (or load a regional extract).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OVERPASS_URLS` | public mirrors | Comma-separated Overpass endpoints |
+| `OVERPASS_MIN_GAP_MS` | `2000` | Minimum time between Overpass requests |
+| `COVERAGE_MAX_DOWNLOADS_PER_DAY` | `2500` | Background cap on cell downloads per UTC day (map viewers get +20%) |
+
+### Sign-in survey and the 3D avatar
+
+After sign-in, a four-step survey ([`OnboardingSurvey.tsx`](src/components/onboarding/OnboardingSurvey.tsx)) asks what the user wants to hear about, how and when they get around, how far to look and whether to send nearby alerts, then lets them build an avatar with a live 3D preview. Answers and the avatar are kept on the device per user (they can be reopened from the profile). Once the survey is finished **and** the user's location is known, the glowing orb in Pulse 3D is replaced by their avatar; the flat map shows a portrait of the same avatar.
+
+- The model is [`public/models/avatar.glb`](public/models/avatar.glb) (~60 KB with **Draco** compression, 4x smaller than raw), loaded with `GLTFLoader` + `DRACOLoader` (decoder in [`public/draco/`](public/draco)). Rebuild it with `node scripts/build-avatar-model.mjs`.
+- Customization is a small config ([`avatarConfig.ts`](src/components/avatar/avatarConfig.ts)): skin, hair style and color, top, bottoms, shoes, and extras (cap, glasses, headphones, backpack) with their own color. It recolors named materials and toggles named nodes, so it costs nothing to store or sync. The figure walks and idles procedurally.
 
 ---
 

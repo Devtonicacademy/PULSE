@@ -3,7 +3,7 @@
  * (public/map-tiles/walk-graph.json, built by scripts/build-map-tiles.mjs).
  * No routing server: the graph is a few hundred KB and A* runs in milliseconds.
  */
-import { lngLatToMeters, metersToLngLat } from './mapProjection';
+import { lngLatToMeters, metersToLngLat, usesLagosData } from './mapProjection';
 import {
   generateStreetNavigationRoute,
   calculateBearing,
@@ -381,7 +381,8 @@ export async function findWalkingRoute(
   destinationCategory = 'events'
 ): Promise<NavigationRoute> {
   const fallback = () => generateStreetNavigationRoute(start, destination, destinationTitle, destinationCategory);
-  const graph = await loadGraph();
+  // The street graph is Lagos-only; elsewhere the estimated route is the honest answer
+  const graph = usesLagosData() ? await loadGraph() : null;
   if (!graph) return fallback();
 
   const startPoint = lngLatToMeters(start[0], start[1]);

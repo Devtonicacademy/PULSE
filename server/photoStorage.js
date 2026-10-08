@@ -1,12 +1,19 @@
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { AwsClient } from 'aws4fetch';
 
 // Object keys are `<firebase uid>/<uuid>.<webp|jpg>`; anything else is refused before it reaches a driver
 const KEY_PATTERN = /^[A-Za-z0-9]{1,128}\/[0-9a-f-]{36}\.(webp|jpg)$/;
 
+// Cached map data lives next to the photos: `osm/<origin id>/<cellX>_<cellY>.json.gz`
+const MAP_KEY_PATTERN = /^osm\/[A-Za-z0-9._-]{1,40}\/-?\d{1,5}_-?\d{1,5}\.json\.gz$/;
+
 function assertKey(key) {
   if (!KEY_PATTERN.test(key)) throw new Error('Invalid photo key');
+}
+
+function assertMapKey(key) {
+  if (!MAP_KEY_PATTERN.test(key)) throw new Error('Invalid map data key');
 }
 
 /** Local disk storage, for development and tests */
@@ -21,6 +28,31 @@ export function createFsStorage(dir) {
     },
     async get(key) {
       assertKey(key);
+      try {
+        return await readFile(path.join(dir, key));
+      } catch (err) {
+        if (err.code === 'ENOENT') return null;
+        throw err;
+      }
+    },
+    async putMapData(key, buffer) {
+      assertMapKey(key);
+      const file = path.join(dir, key);
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, buffer);
+    },
+    async hasMapData(key) {
+      assertMapKey(key);
+      try {
+        await stat(path.join(dir, key));
+        return true;
+      } catch (err) {
+        if (err.code === 'ENOENT') return false;
+        throw err;
+      }
+    },
+    async getMapData(key) {
+      assertMapKey(key);
       try {
         return await readFile(path.join(dir, key));
       } catch (err) {
@@ -56,6 +88,29 @@ export function createS3Storage({ endpoint, bucket, region, accessKeyId, secretA
     },
     async get(key) {
       assertKey(key);
+      const res = await client.fetch(urlFor(key));
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`Bucket read failed: ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    },
+    async putMapData(key, buffer) {
+      assertMapKey(key);
+      const res = await client.fetch(urlFor(key), {
+        method: 'PUT',
+        body: buffer,
+        headers: { 'content-type': 'application/gzip' }
+      });
+      if (!res.ok) throw new Error(`Bucket upload failed: ${res.status}`);
+    },
+    async hasMapData(key) {
+      assertMapKey(key);
+      const res = await client.fetch(urlFor(key), { method: 'HEAD' });
+      if (res.status === 404) return false;
+      if (!res.ok) throw new Error(`Bucket read failed: ${res.status}`);
+      return true;
+    },
+    async getMapData(key) {
+      assertMapKey(key);
       const res = await client.fetch(urlFor(key));
       if (res.status === 404) return null;
       if (!res.ok) throw new Error(`Bucket read failed: ${res.status}`);

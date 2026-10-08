@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
 import { PulseMap } from '../map/PulseMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
@@ -14,6 +14,9 @@ import { ReportModal } from '../modals/ReportModal';
 import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { AuthModal } from '../auth/AuthModal';
+import { MAP_ORIGIN_ID, setMapOrigin } from '../../utils/mapProjection';
+import { originFor } from '../../utils/mapOrigin';
+import { CoverageStatus, startMapCoverage } from '../../services/mapCoverageService';
 import {
   Map as MapIcon,
   Compass,
@@ -95,6 +98,42 @@ export const AppShell: React.FC = () => {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  // The 3D map measures everything from an origin: Victoria Island near Lagos, a grid point
+  // elsewhere. It is set while rendering, before the map builds, and a different origin
+  // (the user is somewhere else) rebuilds the map through its key.
+  const mapOrigin = originFor(currentLocation.latitude, currentLocation.longitude);
+  if (mapOrigin.id !== MAP_ORIGIN_ID) setMapOrigin(mapOrigin, mapOrigin.id);
+
+  // Download the 40 km around the user's exact coordinates once their location is known
+  const [coverage, setCoverage] = useState<CoverageStatus | null>(null);
+  const coverageStop = useRef<(() => void) | null>(null);
+  const coverageFor = useRef('');
+  const locationRef = useRef(currentLocation);
+  locationRef.current = currentLocation;
+  const beginCoverage = useCallback((latitude: number, longitude: number) => {
+    const key = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+    if (coverageFor.current === key) return;
+    coverageFor.current = key;
+    coverageStop.current?.();
+    coverageStop.current = startMapCoverage(latitude, longitude, setCoverage);
+  }, []);
+  useEffect(() => () => coverageStop.current?.(), []);
+  const handleLocationFound = useCallback(
+    (coords: { latitude: number; longitude: number }) => {
+      // A fix in another part of the world becomes the active location (and so the map origin)
+      if (originFor(coords.latitude, coords.longitude).id !== MAP_ORIGIN_ID) {
+        setCurrentLocation({ name: 'Your location', latitude: coords.latitude, longitude: coords.longitude });
+      }
+      beginCoverage(coords.latitude, coords.longitude);
+    },
+    [beginCoverage, setCurrentLocation]
+  );
+  // No GPS: cover the active hub instead
+  const handleLocationError = useCallback(
+    () => beginCoverage(locationRef.current.latitude, locationRef.current.longitude),
+    [beginCoverage]
+  );
+
   // The moment detail sheet lives on the map tab, so opening a moment always lands there
   const openMomentOnMap = (momentId: string) => {
     const moment =
@@ -132,6 +171,8 @@ export const AppShell: React.FC = () => {
             autoGeolocate: true,
             showUserMarker: true,
             avatarConfig,
+            onLocationFound: handleLocationFound,
+            onLocationError: handleLocationError,
             showNavigationControl: true,
             showGeolocateControl: true,
             show3dControls: true,
@@ -144,6 +185,16 @@ export const AppShell: React.FC = () => {
           const sheet = (
             <>
               <AreaSheet />
+              {coverage && coverage.state !== 'done' && (
+                <div
+                  className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full glass-hud border border-signal-500/30 text-[11px] font-bold text-signal-200 pointer-events-none"
+                  title={`Downloading map data for ${coverage.radiusKm} km around you`}
+                  role="status"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal-400 animate-pulse" />
+                  {coverage.state === 'paused' ? 'Map data paused' : `Map data ${coverage.percent}%`}
+                </div>
+              )}
               <HotspotBottomSheet
                 onOpenComments={(id) => setActiveCommentMomentId(id)}
                 onOpenReport={(id) => setActiveReportMomentId(id)}
@@ -161,7 +212,7 @@ export const AppShell: React.FC = () => {
                 }
               >
                 <div className="relative h-full">
-                  <Pulse3DMap {...mapProps} enableDynamicLighting>
+                  <Pulse3DMap key={mapOrigin.id} {...mapProps} enableDynamicLighting>
                     {sheet}
                     {!(selectedMoment || selectedZone) && (
                       <button

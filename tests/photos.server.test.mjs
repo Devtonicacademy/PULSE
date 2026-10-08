@@ -51,7 +51,7 @@ after(async () => {
 
 test('health reports the storage driver', async () => {
   const res = await fetch(base + '/api/health');
-  assert.deepEqual(await res.json(), { ok: true, photos: 'fs' });
+  assert.deepEqual(await res.json(), { ok: true, photos: 'fs', mapCoverage: false });
 });
 
 test('uploads need a valid sign-in', async () => {
