@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { applyTheme } from './theme/applyTheme';
+
+applyTheme();
 
 // Register PWA Service Worker
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

@@ -95,7 +95,7 @@ export const BusinessDashboard: React.FC = () => {
           <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/5">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] uppercase font-bold tracking-wider">Views</span>
-              <Eye className="w-3.5 h-3.5 text-cyan-400" />
+              <Eye className="w-3.5 h-3.5 text-signal-400" />
             </div>
             <div className="text-lg font-black text-white">{biz.stats.views.toLocaleString()}</div>
             <div className="text-[10px] text-emerald-400 font-medium">↑ +18% this week</div>
@@ -104,7 +104,7 @@ export const BusinessDashboard: React.FC = () => {
           <div className="p-3 rounded-2xl bg-slate-900/60 border border-white/5">
             <div className="flex items-center justify-between text-slate-400 mb-1">
               <span className="text-[10px] uppercase font-bold tracking-wider">Reach</span>
-              <Radio className="w-3.5 h-3.5 text-rose-400" />
+              <Radio className="w-3.5 h-3.5 text-accent-400" />
             </div>
             <div className="text-lg font-black text-white">{biz.stats.reach.toLocaleString()}</div>
             <div className="text-[10px] text-slate-400">Within 10km radius</div>
@@ -142,7 +142,7 @@ export const BusinessDashboard: React.FC = () => {
         </div>
         <button
           onClick={() => setIsCreatingPin(true)}
-          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-transform"
+          className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-accent2-500 to-accent-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-transform"
         >
           <Plus className="w-4 h-4" /> Drop Live Pin
         </button>
@@ -240,7 +240,7 @@ export const BusinessDashboard: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-accent2-500 to-accent-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/20 active:scale-98 transition-all"
             >
               Deploy Live Pin to Map
             </button>

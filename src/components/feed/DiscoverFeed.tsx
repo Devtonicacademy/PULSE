@@ -98,7 +98,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={`Search moments, events, food in ${currentZoneName}...`}
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/40 transition-all"
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40 transition-all"
               />
               {searchQuery && (
                 <button
@@ -115,12 +115,12 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
               onClick={() => setShowFilterDrawer((prev) => !prev)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0 ${
                 showFilterDrawer
-                  ? 'bg-rose-500 text-white border-rose-400 shadow-md shadow-rose-500/25'
+                  ? 'bg-accent-500 text-white border-accent-400 shadow-md shadow-accent-500/25'
                   : 'glass-card border-white/10 text-slate-300 hover:text-white'
               }`}
               title="Filter Radius and Sort Order"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-rose-400" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-accent-400" />
               <span>{radiusKm}km</span>
               <span className="text-slate-500">•</span>
               <span className="capitalize">{feedSort}</span>
@@ -141,7 +141,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                       onClick={() => setRadiusKm(r)}
                       className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                         radiusKm === r
-                          ? 'bg-rose-500 text-white shadow-sm'
+                          ? 'bg-accent-500 text-white shadow-sm'
                           : 'bg-white/5 hover:bg-white/10 text-slate-300'
                       }`}
                     >
@@ -200,21 +200,21 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
       <div className="p-3 sm:p-5 space-y-4 max-w-7xl mx-auto w-full">
         {/* Feature 6: AI LOCAL RADAR SUMMARY CARD (Collapsible & Compact) */}
-        <div className="rounded-2xl p-3 sm:p-4 glass-card border border-rose-500/20 shadow-xl relative overflow-hidden">
+        <div className="rounded-2xl p-3 sm:p-4 glass-card border border-accent-500/20 shadow-xl relative overflow-hidden">
           <div
             className="flex items-center justify-between cursor-pointer"
             onClick={() => setIsAiSummaryExpanded(!isAiSummaryExpanded)}
           >
             <div className="flex items-center gap-2 min-w-0">
-              <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+              <div className="p-1.5 rounded-lg bg-accent-500/20 text-accent-400 border border-accent-500/30 shrink-0">
                 <Sparkles className="w-3.5 h-3.5 animate-pulse" />
               </div>
               <div className="truncate">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-300">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-accent-300">
                     AI Radar
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-accent-500/20 text-accent-300 border border-accent-500/30">
                     {aiSummary.vibeTag}
                   </span>
                 </div>
@@ -236,7 +236,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                   key={idx}
                   className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed"
                 >
-                  <span className="text-rose-400 font-bold shrink-0">•</span>
+                  <span className="text-accent-400 font-bold shrink-0">•</span>
                   <span>{bullet}</span>
                 </li>
               ))}
@@ -249,7 +249,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white uppercase tracking-wider">
-                <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <Users className="w-3.5 h-3.5 text-signal-400" />
                 <span>Temporary Pop-up Hubs</span>
               </div>
               <span className="text-[10px] text-slate-400">Disappear when activity ends</span>
@@ -260,23 +260,23 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                 <div
                   key={comm.id}
                   onClick={() => onSelectCommunity(comm.id)}
-                  className="min-w-[240px] p-3 rounded-2xl glass-panel hover:border-cyan-500/40 cursor-pointer transition-all active:scale-98 group shrink-0"
+                  className="min-w-[240px] p-3 rounded-2xl glass-panel hover:border-signal-500/40 cursor-pointer transition-all active:scale-98 group shrink-0"
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 capitalize">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-signal-500/20 text-signal-300 border border-signal-500/30 capitalize">
                       {comm.triggerType}
                     </span>
                     <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                      <Users className="w-3 h-3 text-cyan-400" /> {comm.memberCount} active
+                      <Users className="w-3 h-3 text-signal-400" /> {comm.memberCount} active
                     </span>
                   </div>
-                  <h4 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1">
+                  <h4 className="text-xs font-bold text-white group-hover:text-signal-300 transition-colors line-clamp-1">
                     {comm.name}
                   </h4>
                   <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
                     {comm.description}
                   </p>
-                  <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-cyan-400 font-medium">
+                  <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-signal-400 font-medium">
                     <span>Join live stream</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
@@ -300,7 +300,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
             </div>
           </div>
           <div className="text-right">
-            <span className="text-sm font-black text-rose-400">
+            <span className="text-sm font-black text-accent-400">
               Score: {currentPulseScore}
             </span>
             <div className="text-[9px] uppercase tracking-wider text-slate-500">
@@ -311,7 +311,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
         {/* Active Business Live Pins Filter Banner */}
         {selectedCategory === 'business_pins' && (
-          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-slate-900/70 border border-amber-500/30 text-amber-200 shadow-lg shadow-amber-950/20">
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-accent2-500/15 via-accent2-600/10 to-slate-900/70 border border-amber-500/30 text-amber-200 shadow-lg shadow-amber-950/20">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
                 <BadgeCheck className="w-4 h-4" />
@@ -361,7 +361,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                   key={moment.id}
                   className={`rounded-2xl glass-panel overflow-hidden transition-all shadow-xl group ${
                     moment.isBusiness
-                      ? 'border border-amber-500/40 bg-gradient-to-b from-amber-950/20 via-slate-900/80 to-slate-900/90 hover:border-amber-400/60 shadow-amber-950/30'
+                      ? 'border border-amber-500/40 bg-gradient-to-b from-accent2-950/20 via-slate-900/80 to-slate-900/90 hover:border-amber-400/60 shadow-amber-950/30'
                       : 'border border-white/5 hover:border-white/15'
                   }`}
                 >
@@ -399,7 +399,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
                       {/* Distance */}
                       <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 text-[11px] text-slate-200 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full">
-                        <MapPin className={`w-3 h-3 ${moment.isBusiness ? 'text-amber-400' : 'text-rose-400'}`} />
+                        <MapPin className={`w-3 h-3 ${moment.isBusiness ? 'text-amber-400' : 'text-accent-400'}`} />
                         <span>{moment.approxAddress}</span>
                         {moment.distanceKm !== undefined && (
                           <span className="font-bold text-white ml-1">
@@ -464,7 +464,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                     {/* Title & Description */}
                     <h3
                       onClick={() => onOpenMoment(moment.id)}
-                      className="text-sm sm:text-base font-bold text-white mb-1.5 cursor-pointer hover:text-rose-400 transition-colors"
+                      className="text-sm sm:text-base font-bold text-white mb-1.5 cursor-pointer hover:text-accent-400 transition-colors"
                     >
                       {moment.title}
                     </h3>
@@ -474,7 +474,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
 
                     {/* Privacy badge if blurred */}
                     {moment.isBlurred && (
-                      <div className="text-[10px] text-cyan-400 mb-2 flex items-center gap-1">
+                      <div className="text-[10px] text-signal-400 mb-2 flex items-center gap-1">
                         <span>🛡️</span> Approximate location shown for resident privacy
                       </div>
                     )}
@@ -498,7 +498,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                               onClick={() => toggleReaction(moment.id, r.type)}
                               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
                                 isReacted
-                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                                  ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
                                   : 'bg-slate-800/40 hover:bg-slate-800 text-slate-400 border border-transparent'
                               }`}
                             >
@@ -514,16 +514,16 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                         {onNavigateMoment && (
                           <button
                             onClick={() => onNavigateMoment(moment)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all shadow-sm active:scale-95"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-signal-500/15 hover:bg-signal-500/25 text-signal-300 border border-signal-500/30 transition-all shadow-sm active:scale-95"
                             title="Walk There in 3D (FPV)"
                           >
-                            <Navigation className="w-3 h-3 text-cyan-400" />
+                            <Navigation className="w-3 h-3 text-signal-400" />
                             <span className="text-[10px]">3D Walk</span>
                           </button>
                         )}
                         <button
                           onClick={() => onOpenComments(moment.id)}
-                          className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
+                          className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-slate-400 hover:text-signal-300 hover:bg-slate-800 transition-colors"
                           title="Comments"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
@@ -531,7 +531,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                         </button>
                         <button
                           onClick={() => onOpenReport(moment.id)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-accent-400 hover:bg-slate-800 transition-colors"
                           title="Report"
                         >
                           <ShieldAlert className="w-3.5 h-3.5" />

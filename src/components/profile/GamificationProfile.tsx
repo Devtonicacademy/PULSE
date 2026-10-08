@@ -31,14 +31,14 @@ const BADGE_CONFIG: Record<
   'Local Scout': {
     label: 'Local Scout',
     icon: Compass,
-    color: 'from-blue-500 to-cyan-500',
+    color: 'from-blue-500 to-signal-500',
     desc: 'Created over 5 accurate hyper-local moments.',
     unlocked: true
   },
   Trailblazer: {
     label: 'Trailblazer',
     icon: Flame,
-    color: 'from-amber-500 to-rose-500',
+    color: 'from-accent2-500 to-accent-500',
     desc: 'Authored moments that reached top trending hotspot status.',
     unlocked: true
   },
@@ -59,14 +59,14 @@ const BADGE_CONFIG: Record<
   'Safety Reporter': {
     label: 'Safety Reporter',
     icon: AlertTriangle,
-    color: 'from-rose-500 to-red-600',
+    color: 'from-accent-500 to-red-600',
     desc: 'Reported timely emergency and traffic alerts that helped the community.',
     unlocked: false
   },
   'Local Legend': {
     label: 'Local Legend',
     icon: Crown,
-    color: 'from-yellow-400 to-amber-600',
+    color: 'from-yellow-400 to-accent2-600',
     desc: 'Ranked in the top 1% community activity across the city.',
     unlocked: false
   }
@@ -96,14 +96,14 @@ export const GamificationProfile: React.FC = () => {
     <div className="flex flex-col h-full overflow-y-auto pb-24 text-slate-100 p-4 sm:p-6 space-y-5 max-w-5xl mx-auto w-full">
       {/* Profile Card */}
       <div className="rounded-3xl glass-panel p-5 border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-36 h-36 bg-signal-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3.5">
             <img
               src={userProfile.avatar}
               alt={userProfile.username}
-              className="w-16 h-16 rounded-2xl object-cover border-2 border-rose-500/40 shadow-xl"
+              className="w-16 h-16 rounded-2xl object-cover border-2 border-accent-500/40 shadow-xl"
             />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -118,7 +118,7 @@ export const GamificationProfile: React.FC = () => {
                     Guest Scout
                   </span>
                 )}
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-500/20 text-accent-300 border border-accent-500/30">
                   Tier 3 Scout
                 </span>
               </div>
@@ -131,7 +131,7 @@ export const GamificationProfile: React.FC = () => {
             {!isAuthenticated ? (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-500/20 transition-all active:scale-95"
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-accent-500/20 transition-all active:scale-95"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In / Join</span>
@@ -142,7 +142,7 @@ export const GamificationProfile: React.FC = () => {
                 className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/10 text-xs flex items-center gap-1.5 transition-colors"
                 title="Sign out of Pulse"
               >
-                <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                <LogOut className="w-3.5 h-3.5 text-accent-400" />
                 <span className="hidden sm:inline">Sign Out</span>
               </button>
             )}
@@ -169,7 +169,7 @@ export const GamificationProfile: React.FC = () => {
               </div>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-black text-rose-400">
+              <span className="text-2xl font-black text-accent-400">
                 {userProfile.reputation}
               </span>
               <span className="text-xs text-slate-500 font-bold">/100</span>
@@ -179,7 +179,7 @@ export const GamificationProfile: React.FC = () => {
           {/* Progress bar */}
           <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-rose-500 via-amber-500 to-cyan-400 h-2 rounded-full transition-all duration-700"
+              className="bg-gradient-to-r from-accent-500 via-accent2-500 to-signal-400 h-2 rounded-full transition-all duration-700"
               style={{ width: `${userProfile.reputation}%` }}
             />
           </div>
@@ -205,7 +205,7 @@ export const GamificationProfile: React.FC = () => {
 
             {/* PWA / App Status */}
             <div className="flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+              <Smartphone className="w-3.5 h-3.5 text-signal-400" />
               <span className="text-[11px] text-slate-400">
                 {isInstalled ? 'Installed App' : 'Mobile Web'}
               </span>
@@ -218,7 +218,7 @@ export const GamificationProfile: React.FC = () => {
                 onClick={() => promptToInstall()}
                 className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-colors border border-white/10"
               >
-                <Download className="w-3 h-3 text-rose-400" />
+                <Download className="w-3 h-3 text-accent-400" />
                 <span>Install App</span>
               </button>
             )}
@@ -226,7 +226,7 @@ export const GamificationProfile: React.FC = () => {
             {!isAuthenticated && (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-md shadow-rose-500/20 active:scale-95 transition-all"
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-md shadow-accent-500/20 active:scale-95 transition-all"
               >
                 <Sparkles className="w-3 h-3" />
                 <span>Save Rank</span>
@@ -257,7 +257,7 @@ export const GamificationProfile: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+          <Sparkles className="w-3.5 h-3.5 text-accent-400" />
           <span>My Live Moments ({myActiveMoments.length})</span>
         </button>
         <button
@@ -268,7 +268,7 @@ export const GamificationProfile: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Archive className="w-3.5 h-3.5 text-cyan-400" />
+          <Archive className="w-3.5 h-3.5 text-signal-400" />
           <span>Archived ({myArchivedMoments.length})</span>
         </button>
       </div>

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { MapTile, FlatPoints, TileSurface } from './tileFormat';
 import { PulseMaterials } from './materials';
+import { ANCHORS } from '../../../theme/tokens';
+
+const hex = (c: string) => parseInt(c.slice(1), 16);
 
 /**
  * Turns one map tile into a few merged meshes (one draw call per layer).
@@ -14,9 +17,9 @@ const ROOF_DARKEN = 0.7;
 
 // Glow colour per road class (motorway … track), brightest for the arterials
 const ROAD_EDGE_COLORS = [
-  0xff4fa3, 0x00f2fe, 0x00d4ff, 0x38bdf8, 0x60a5fa, 0x3b5b8c, 0x2a3f63, 0x8b7cf6, 0x2a3f63
+  0xff4fa3, hex(ANCHORS.signal), 0x00d4ff, 0x38bdf8, 0x60a5fa, 0x3b5b8c, 0x2a3f63, 0x8b7cf6, 0x2a3f63
 ].map((c) => new THREE.Color(c));
-const BRIDGE_EDGE_COLOR = new THREE.Color(0xff4757);
+const BRIDGE_EDGE_COLOR = new THREE.Color(ANCHORS.accent);
 const BRIDGE_LIFT = 0.6;
 
 const SURFACE_HEIGHT = { land: 0.01, green: 0.03, sand: 0.03, water: 0.02 };

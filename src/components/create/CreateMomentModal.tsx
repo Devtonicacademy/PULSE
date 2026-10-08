@@ -37,11 +37,11 @@ const CATEGORIES: {
   color: string;
 }[] = [
   { id: 'events', label: 'Events', icon: '🎉', desc: 'Concerts, parties, gatherings', color: 'from-purple-500/20 to-purple-600/30' },
-  { id: 'alerts', label: 'Alerts', icon: '🚨', desc: 'Traffic, road block, safety', color: 'from-rose-500/20 to-rose-600/30' },
-  { id: 'food_drinks', label: 'Food & Drinks', icon: '🍔', desc: 'Pop-ups, food trucks, tastings', color: 'from-amber-500/20 to-amber-600/30' },
+  { id: 'alerts', label: 'Alerts', icon: '🚨', desc: 'Traffic, road block, safety', color: 'from-accent-500/20 to-accent-600/30' },
+  { id: 'food_drinks', label: 'Food & Drinks', icon: '🍔', desc: 'Pop-ups, food trucks, tastings', color: 'from-accent2-500/20 to-accent2-600/30' },
   { id: 'deals', label: 'Deals', icon: '🛍️', desc: 'Flash sales, limited offers', color: 'from-pink-500/20 to-pink-600/30' },
   { id: 'activities', label: 'Activities', icon: '🏃', desc: 'Run clubs, games, workouts', color: 'from-emerald-500/20 to-emerald-600/30' },
-  { id: 'recommendations', label: 'Recommendations', icon: '💡', desc: 'Hidden spots, cafes, views', color: 'from-cyan-500/20 to-cyan-600/30' },
+  { id: 'recommendations', label: 'Recommendations', icon: '💡', desc: 'Hidden spots, cafes, views', color: 'from-signal-500/20 to-signal-600/30' },
   { id: 'lost_found', label: 'Lost & Found', icon: '🔍', desc: 'Lost pets, keys, items', color: 'from-blue-500/20 to-blue-600/30' },
   { id: 'community', label: 'Community', icon: '💬', desc: 'Local talk, book clubs, news', color: 'from-indigo-500/20 to-indigo-600/30' }
 ];
@@ -206,7 +206,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/20">
+            <div className="p-2 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/20">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -234,7 +234,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-accent-500/20 border border-accent-500/30 text-accent-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -255,7 +255,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     onClick={() => setCategory(c.id)}
                     className={`p-2.5 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-rose-500/20 border-rose-500 text-white shadow-lg shadow-rose-500/15'
+                        ? 'bg-accent-500/20 border-accent-500 text-white shadow-lg shadow-accent-500/15'
                         : 'bg-slate-900/60 border-white/5 text-slate-300 hover:border-white/10'
                     }`}
                   >
@@ -279,7 +279,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               placeholder="e.g. Secret Taco Pop-up at Freedom Park"
               maxLength={100}
               required
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/40"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40"
             />
           </div>
 
@@ -295,7 +295,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               placeholder="Give details: crowd size, vibes, entry conditions, parking or traffic status..."
               maxLength={400}
               required
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/40"
+              className="w-full px-3.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40"
             />
             <div className="text-right text-[10px] text-slate-500 mt-0.5">
               {description.length}/400 characters
@@ -314,18 +314,18 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 type="button"
                 disabled={!uploadsAvailable || photoBusy}
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-cyan-400/40 disabled:opacity-40 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-signal-400/40 disabled:opacity-40 transition-colors"
               >
-                <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                <Camera className="w-3.5 h-3.5 text-signal-400" />
                 <span>Take photo</span>
               </button>
               <button
                 type="button"
                 disabled={!uploadsAvailable || photoBusy}
                 onClick={() => galleryInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-cyan-400/40 disabled:opacity-40 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-signal-400/40 disabled:opacity-40 transition-colors"
               >
-                <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                <ImageIcon className="w-3.5 h-3.5 text-signal-400" />
                 <span>From gallery</span>
               </button>
             </div>
@@ -340,14 +340,14 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <img src={photo.preview} alt="Your photo" className="w-14 h-14 rounded-lg object-cover shrink-0" />
                 ) : (
                   <div className="w-14 h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                    <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                    <Loader2 className="w-4 h-4 animate-spin text-signal-400" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0 text-[11px]">
                   {photo.status === 'compressing' && <span className="text-slate-300">Shrinking photo...</span>}
                   {photo.status === 'uploading' && <span className="text-slate-300">Uploading...</span>}
                   {photo.status === 'done' && <span className="text-emerald-400 font-semibold">Photo ready</span>}
-                  {photo.status === 'error' && <span className="text-rose-300">{photo.message}</span>}
+                  {photo.status === 'error' && <span className="text-accent-300">{photo.message}</span>}
                   {photo.bytes !== undefined && (
                     <div className="text-slate-500 mt-0.5">
                       {formatBytes(photo.bytes)} · {photo.width}×{photo.height}
@@ -366,12 +366,12 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   key={idx}
                   onClick={() => setPhotoUrl(photoUrl === p.url ? '' : p.url)}
                   className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
-                    photoUrl === p.url ? 'border-rose-500 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
+                    photoUrl === p.url ? 'border-accent-500 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                   }`}
                 >
                   <img src={p.url} alt={p.label} className="w-full h-full object-cover" />
                   {photoUrl === p.url && (
-                    <div className="absolute inset-0 bg-rose-500/40 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-accent-500/40 flex items-center justify-center">
                       <Check className="w-3.5 h-3.5 text-white" />
                     </div>
                   )}
@@ -443,7 +443,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
             <div className="flex items-center justify-between text-xs pt-2 border-t border-white/5">
               <div>
                 <div className="text-slate-200 font-medium flex items-center gap-1.5">
-                  <EyeOff className="w-3.5 h-3.5 text-cyan-400" />
+                  <EyeOff className="w-3.5 h-3.5 text-signal-400" />
                   Privacy Location Blurring
                 </div>
                 <div className="text-[10px] text-slate-400">
@@ -454,7 +454,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 type="button"
                 onClick={() => setBlurPrivacy(!blurPrivacy)}
                 className={`w-11 h-6 rounded-full transition-colors relative ${
-                  blurPrivacy ? 'bg-cyan-500' : 'bg-slate-700'
+                  blurPrivacy ? 'bg-signal-500' : 'bg-slate-700'
                 }`}
               >
                 <span
@@ -471,7 +471,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 active:scale-98 transition-all"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all"
             >
               <Sparkles className="w-4 h-4" />
               <span>Broadcast to Pulse Radar</span>

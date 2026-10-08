@@ -20,6 +20,7 @@ import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat } from '../../utils/mapProjection';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
+import { ANCHORS } from '../../theme/tokens';
 
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
@@ -295,7 +296,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       } else {
         simAnimationRef.current = null;
         setIsSimulatingWalk(false);
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: ['#00F2FE', '#FF4757', '#FFA502', '#10B981'] });
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: [ANCHORS.signal, ANCHORS.accent, ANCHORS.accent2, '#10B981'] });
       }
     };
     simAnimationRef.current = requestAnimationFrame(animateStep);
@@ -535,7 +536,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
       {status === 'loading' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl glass-hud text-xs text-cyan-300">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl glass-hud text-xs text-signal-300">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading city…
           </div>
         </div>

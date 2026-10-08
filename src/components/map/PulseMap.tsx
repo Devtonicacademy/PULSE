@@ -59,6 +59,7 @@ import {
 import { escapeHtml } from '../../utils/htmlUtils';
 import { createMomentFlyerElement } from './momentFlyer';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
+import { ANCHORS } from '../../theme/tokens';
 
 export interface UserCoordinates {
   latitude: number;
@@ -326,19 +327,19 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
           markerContainer.innerHTML = `
             <!-- Directional Flashlight / Heading Cone of Vision -->
-            <div class="pulse-avatar-heading-cone" id="pulse-avatar-cone" style="position: absolute; width: 80px; height: 80px; top: 50%; left: 50%; pointer-events: none; transform: translate(-50%, -50%) rotate(${heading}deg); background: radial-gradient(circle at 50% 10%, rgba(0, 242, 254, 0.45) 0%, rgba(0, 242, 254, 0.12) 40%, transparent 75%); clip-path: polygon(50% 50%, 15% 0%, 85% 0%); filter: drop-shadow(0 0 12px #00F2FE);"></div>
+            <div class="pulse-avatar-heading-cone" id="pulse-avatar-cone" style="position: absolute; width: 80px; height: 80px; top: 50%; left: 50%; pointer-events: none; transform: translate(-50%, -50%) rotate(${heading}deg); background: radial-gradient(circle at 50% 10%, rgba(var(--signal-rgb), 0.45) 0%, rgba(var(--signal-rgb), 0.12) 40%, transparent 75%); clip-path: polygon(50% 50%, 15% 0%, 85% 0%); filter: drop-shadow(0 0 12px var(--signal));"></div>
             
             <!-- Ground Pulse Shadow -->
-            <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(0, 242, 254, 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-            <div style="position: absolute; width: 32px; height: 32px; border-radius: 9999px; background: rgba(0, 242, 254, 0.35); border: 1.5px solid #00F2FE;"></div>
+            <div style="position: absolute; width: 44px; height: 44px; border-radius: 9999px; background: rgba(var(--signal-rgb), 0.25); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="position: absolute; width: 32px; height: 32px; border-radius: 9999px; background: rgba(var(--signal-rgb), 0.35); border: 1.5px solid var(--signal);"></div>
             
             <!-- Avatar Core Orb -->
-            <div style="position: relative; z-index: 2; width: 24px; height: 24px; border-radius: 9999px; background: linear-gradient(135deg, #FF4757, #FFA502); border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px #00F2FE; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: white;">
+            <div style="position: relative; z-index: 2; width: 24px; height: 24px; border-radius: 9999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px var(--signal); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: white;">
               ⚡
             </div>
             
             <!-- Compass Direction Arrowhead -->
-            <div id="pulse-avatar-arrow" style="position: absolute; top: 2px; z-index: 3; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid #00F2FE; transform-origin: 50% 24px; transform: rotate(${heading}deg); filter: drop-shadow(0 0 6px #00F2FE);"></div>
+            <div id="pulse-avatar-arrow" style="position: absolute; top: 2px; z-index: 3; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid var(--signal); transform-origin: 50% 24px; transform: rotate(${heading}deg); filter: drop-shadow(0 0 6px var(--signal));"></div>
           `;
 
           userMarkerRef.current = new maplibregl.Marker({
@@ -482,7 +483,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': '#00F2FE',
+                'line-color': ANCHORS.signal,
                 'line-width': 10,
                 'line-opacity': 0.55,
                 'line-blur': 3
@@ -515,12 +516,12 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             const beaconEl = document.createElement('div');
             beaconEl.className = 'pulse-destination-beacon';
             beaconEl.innerHTML = `
-              <div style="background: linear-gradient(135deg, #FF4757, #FFA502); color: white; padding: 5px 12px; border-radius: 14px; font-weight: 800; font-size: 11px; border: 1.5px solid #FFFFFF; box-shadow: 0 0 20px rgba(255, 71, 87, 0.9); display: flex; align-items: center; gap: 5px; backdrop-filter: blur(10px);">
+              <div style="background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; padding: 5px 12px; border-radius: 14px; font-weight: 800; font-size: 11px; border: 1.5px solid #FFFFFF; box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.9); display: flex; align-items: center; gap: 5px; backdrop-filter: blur(10px);">
                 <span style="font-size: 13px;">🎯</span>
                 <span>${escapeHtml(route.destinationTitle)}</span>
               </div>
-              <div style="width: 3.5px; height: 110px; background: linear-gradient(to top, rgba(255, 71, 87, 0.95), rgba(0, 242, 254, 0.7), transparent); margin: 2px auto 0;"></div>
-              <div style="width: 40px; height: 16px; border-radius: 50%; border: 2px solid #FF4757; background: radial-gradient(circle, rgba(255, 71, 87, 0.45), transparent); margin: 0 auto;"></div>
+              <div style="width: 3.5px; height: 110px; background: linear-gradient(to top, rgba(var(--accent-rgb), 0.95), rgba(var(--signal-rgb), 0.7), transparent); margin: 2px auto 0;"></div>
+              <div style="width: 40px; height: 16px; border-radius: 50%; border: 2px solid var(--accent); background: radial-gradient(circle, rgba(var(--accent-rgb), 0.45), transparent); margin: 0 auto;"></div>
             `;
 
             destinationBeaconRef.current = new maplibregl.Marker({
@@ -536,13 +537,13 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           const cueEl = document.createElement('div');
           cueEl.className = 'pulse-waypoint-cue';
           cueEl.innerHTML = `
-            <div style="transform: rotate(${cue.bearing}deg); filter: drop-shadow(0 0 10px #00F2FE);">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00F2FE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <div style="transform: rotate(${cue.bearing}deg); filter: drop-shadow(0 0 10px var(--signal));">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="stroke: var(--signal)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="7 13 12 18 17 13"></polyline>
                 <polyline points="7 6 12 11 17 6"></polyline>
               </svg>
             </div>
-            <div style="background: rgba(10, 14, 23, 0.9); color: #00F2FE; border: 1px solid rgba(0, 242, 254, 0.6); border-radius: 9999px; padding: 2px 8px; font-size: 9px; font-weight: 800; margin-top: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.7); text-align: center; white-space: nowrap;">
+            <div style="background: rgba(10, 14, 23, 0.9); color: var(--signal); border: 1px solid rgba(var(--signal-rgb), 0.6); border-radius: 9999px; padding: 2px 8px; font-size: 9px; font-weight: 800; margin-top: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.7); text-align: center; white-space: nowrap;">
               ${escapeHtml(cue.label)}
             </div>
           `;
@@ -661,7 +662,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             particleCount: 80,
             spread: 70,
             origin: { y: 0.6 },
-            colors: ['#00F2FE', '#FF4757', '#FFA502', '#10B981']
+            colors: [ANCHORS.signal, ANCHORS.accent, ANCHORS.accent2, '#10B981']
           });
         }
       };
@@ -911,14 +912,14 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           type: 'fill',
           source: 'pulse-radius-source',
           layout: { visibility: visibility(on.radius) },
-          paint: { 'fill-color': '#00F2FE', 'fill-opacity': 0.06 }
+          paint: { 'fill-color': ANCHORS.signal, 'fill-opacity': 0.06 }
         }, before);
         map.addLayer({
           id: 'pulse-radius-line',
           type: 'line',
           source: 'pulse-radius-source',
           layout: { visibility: visibility(on.radius) },
-          paint: { 'line-color': '#00F2FE', 'line-width': 1.5, 'line-dasharray': [3, 2], 'line-opacity': 0.7 }
+          paint: { 'line-color': ANCHORS.signal, 'line-width': 1.5, 'line-dasharray': [3, 2], 'line-opacity': 0.7 }
         }, before);
 
         map.addSource('pulse-heat-source', {
@@ -1199,10 +1200,10 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         const glowColor = isHigh ? 'rgba(239, 68, 68, 0.4)' : 'rgba(234, 179, 8, 0.3)';
         zoneEl.innerHTML = `
           <div class="px-2.5 py-1 rounded-full glass-panel border border-white/20 shadow-xl flex items-center gap-1.5 transition-transform hover:scale-110 active:scale-95" style="box-shadow: 0 0 16px ${glowColor};">
-            <span class="w-2 h-2 rounded-full ${isHigh ? 'bg-rose-500 animate-ping' : 'bg-amber-400'}"></span>
+            <span class="w-2 h-2 rounded-full ${isHigh ? 'bg-accent-500 animate-ping' : 'bg-amber-400'}"></span>
             <span class="text-[11px] font-bold text-white tracking-tight">${escapeHtml(zone.zoneName)}</span>
             <span class="px-1.5 py-0.2 rounded text-[10px] font-black ${
-              isHigh ? 'bg-rose-500/30 text-rose-300' : 'bg-amber-500/30 text-amber-300'
+              isHigh ? 'bg-accent-500/30 text-accent-300' : 'bg-amber-500/30 text-amber-300'
             }">⚡${zone.activityScore}</span>
           </div>
         `;
@@ -1295,13 +1296,13 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
            ========================================================================= */}
         {activeRoute && (
           <div className="absolute top-16 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
-            <div className="glass-panel p-4 rounded-3xl border border-cyan-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
+            <div className="glass-panel p-4 rounded-3xl border border-signal-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
               {/* Header Title & Close Button */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1">
-                    <Route className="w-3 h-3 text-cyan-400" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-signal-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-signal-300 flex items-center gap-1">
+                    <Route className="w-3 h-3 text-signal-400" />
                     <span>Street Wayfinding HUD</span>
                   </span>
                 </div>
@@ -1321,20 +1322,20 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                     {activeRoute.destinationTitle}
                   </h4>
                   <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                    <span className="text-cyan-400 font-bold">{activeRoute.totalDistanceMeters}m remaining</span>
+                    <span className="text-signal-400 font-bold">{activeRoute.totalDistanceMeters}m remaining</span>
                     <span>•</span>
                     <span className="text-amber-300 font-semibold">~{activeRoute.estimatedWalkingMinutes} min walk</span>
                   </div>
                 </div>
 
-                <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-black text-sm">
+                <div className="w-10 h-10 rounded-2xl bg-signal-500/20 border border-signal-500/40 flex items-center justify-center text-signal-300 font-black text-sm">
                   🎯
                 </div>
               </div>
 
               {/* Active Step Guidance Banner */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs font-semibold">
-                <Footprints className="w-4 h-4 text-cyan-400 shrink-0 animate-bounce" />
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-signal-500/10 border border-signal-500/30 text-signal-200 text-xs font-semibold">
+                <Footprints className="w-4 h-4 text-signal-400 shrink-0 animate-bounce" />
                 <span className="truncate">
                   {isSimulatingWalk
                     ? `Walking in 3D: ${(simulationProgress * 100).toFixed(0)}% reached`
@@ -1348,8 +1349,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                   onClick={toggleWalkSimulation}
                   className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
                     isSimulatingWalk
-                      ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30'
-                      : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black shadow-cyan-500/30'
+                      ? 'bg-accent-500 hover:bg-accent-600 text-white shadow-accent-500/30'
+                      : 'bg-gradient-to-r from-signal-500 to-blue-600 hover:from-signal-400 hover:to-blue-500 text-slate-950 font-black shadow-signal-500/30'
                   }`}
                 >
                   {isSimulatingWalk ? (
@@ -1369,7 +1370,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                   <button
                     onClick={onWalkIn3D}
                     title="Continue this route in Pulse 3D"
-                    className="py-2.5 px-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-200 text-xs font-bold transition-colors border border-cyan-400/30"
+                    className="py-2.5 px-3 rounded-xl bg-signal-500/15 hover:bg-signal-500/25 text-signal-200 text-xs font-bold transition-colors border border-signal-400/30"
                   >
                     3D
                   </button>
@@ -1398,11 +1399,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 title="First-Person Street Level View (72° tilt, locked to avatar)"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'fpv'
-                    ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/30 ring-1 ring-white/30'
+                    ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-rose-400'}`} />
+                <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-accent-400'}`} />
                 <span>FPV 72°</span>
               </button>
 
@@ -1412,11 +1413,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 title="3D Aerial Perspective (58° pitch)"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'aerial'
-                    ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/50 shadow-lg shadow-cyan-500/20'
+                    ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-cyan-200' : 'text-cyan-400'}`} />
+                <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-signal-200' : 'text-signal-400'}`} />
                 <span>3D Aerial</span>
               </button>
 
@@ -1440,10 +1441,10 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 onClick={() => setShowHotspotMenu((prev) => !prev)}
                 title="Teleport to Iconic Lagos 3D Hotspots"
                 className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
-                  showHotspotMenu ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  showHotspotMenu ? 'bg-signal-500/20 text-signal-300 border-signal-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                <MapPin className="w-3.5 h-3.5 text-signal-400" />
                 <span>Hotspots</span>
               </button>
 
@@ -1469,10 +1470,10 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                           essential: true
                         });
                       }}
-                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-cyan-500/15 text-slate-200 hover:text-cyan-300 text-xs font-semibold flex items-center justify-between transition-colors"
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-signal-500/15 text-slate-200 hover:text-signal-300 text-xs font-semibold flex items-center justify-between transition-colors"
                     >
                       <span>{spot.name}</span>
-                      <ChevronRight className="w-3 h-3 text-cyan-400/60" />
+                      <ChevronRight className="w-3 h-3 text-signal-400/60" />
                     </button>
                   ))}
                 </div>
@@ -1484,9 +1485,9 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={onWalkIn3D}
                 title="Explore and walk the city in Pulse 3D"
-                className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-cyan-400/40 shadow-2xl backdrop-blur-2xl text-[11px] font-bold text-cyan-200 hover:bg-cyan-500/20 transition-all"
+                className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-signal-400/40 shadow-2xl backdrop-blur-2xl text-[11px] font-bold text-signal-200 hover:bg-signal-500/20 transition-all"
               >
-                <Footprints className="w-3.5 h-3.5 text-cyan-400" />
+                <Footprints className="w-3.5 h-3.5 text-signal-400" />
                 <span>Walk in 3D</span>
               </button>
             )}
@@ -1514,12 +1515,12 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                     onClick={() => toggle3dBuildings(!is3dBuildingsEnabled)}
                     className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                       is3dBuildingsEnabled
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        ? 'bg-signal-500/20 text-signal-300 border border-signal-500/30'
                         : 'text-slate-400 hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <Building2 className="w-3.5 h-3.5 text-signal-400" />
                       <span>3D Buildings</span>
                     </span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
@@ -1531,7 +1532,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-1 pb-1 border-b border-white/10 flex items-center justify-between">
                     <span>Radar</span>
-                    <Radar className="w-3 h-3 text-rose-400" />
+                    <Radar className="w-3 h-3 text-accent-400" />
                   </div>
 
                   <button
@@ -1557,12 +1558,12 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                     onClick={() => setRadarLayers((l) => ({ ...l, radius: !l.radius }))}
                     className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                       radarLayers.radius
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        ? 'bg-signal-500/20 text-signal-300 border border-signal-500/30'
                         : 'text-slate-400 hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                      <Crosshair className="w-3.5 h-3.5 text-signal-400" />
                       <span>Radius Circle</span>
                     </span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
@@ -1576,12 +1577,12 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                     onClick={() => setRadarLayers((l) => ({ ...l, zones: !l.zones }))}
                     className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                       radarLayers.zones
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        ? 'bg-accent-500/20 text-accent-300 border border-accent-500/30'
                         : 'text-slate-400 hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <Flame className="w-3.5 h-3.5 text-rose-400" />
+                      <Flame className="w-3.5 h-3.5 text-accent-400" />
                       <span>Zone Badges</span>
                     </span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
@@ -1613,7 +1614,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                   <div className="pt-1">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1 flex items-center justify-between">
                       <span>Lighting</span>
-                      <span className="normal-case text-cyan-300">{lightingMode === 'auto' ? 'follows the sun' : 'manual'}</span>
+                      <span className="normal-case text-signal-300">{lightingMode === 'auto' ? 'follows the sun' : 'manual'}</span>
                     </div>
                     <div className="flex items-center gap-1" data-testid="lighting-modes">
                       {LIGHTING_MODES.map((m) => (
@@ -1622,7 +1623,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                           onClick={() => setLightingMode(m.id)}
                           className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all ${
                             lightingMode === m.id
-                              ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40'
+                              ? 'bg-signal-500/25 text-signal-200 border border-signal-400/40'
                               : 'text-slate-300 bg-white/5 hover:bg-white/10'
                           }`}
                         >
@@ -1643,7 +1644,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                           onClick={() => setRadiusKm(r)}
                           className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all ${
                             radiusKm === r
-                              ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40'
+                              ? 'bg-accent-500/25 text-accent-300 border border-accent-500/40'
                               : 'text-slate-300 bg-white/5 hover:bg-white/10'
                           }`}
                         >
@@ -1658,7 +1659,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                       <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />Low activity</div>
                       <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0" />Moderate</div>
                       <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />Active</div>
-                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />Hotspot</div>
+                      <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-accent-500 shrink-0" />Hotspot</div>
                     </div>
                   )}
 
@@ -1668,7 +1669,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                         simulateIncomingMomentAlert();
                         setShowLayerMenu(false);
                       }}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[11px] font-bold border border-rose-500/30 transition-all"
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-accent-500/15 hover:bg-accent-500/25 text-accent-300 text-[11px] font-bold border border-accent-500/30 transition-all"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                       <span>Simulate Local Alert</span>
@@ -1685,7 +1686,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           <div className="absolute bottom-6 left-4 z-20 pointer-events-auto">
             <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
               <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                <Gamepad2 className="w-3 h-3 text-cyan-400" />
+                <Gamepad2 className="w-3 h-3 text-signal-400" />
                 <span>Walk (WASD)</span>
               </div>
 
@@ -1693,7 +1694,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={() => walkStep('forward')}
                 title="Walk Forward (W / Up Arrow)"
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-cyan-500/30 active:scale-95 text-slate-200 hover:text-cyan-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
               >
                 <ArrowUp className="w-4 h-4" />
               </button>
@@ -1702,7 +1703,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 <button
                   onClick={() => walkStep('turn-left')}
                   title="Turn Left (A / Left Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-cyan-500/30 active:scale-95 text-slate-200 hover:text-cyan-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
@@ -1710,7 +1711,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 <button
                   onClick={() => walkStep('backward')}
                   title="Step Backward (S / Down Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-cyan-500/30 active:scale-95 text-slate-200 hover:text-cyan-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
                 >
                   <ArrowDown className="w-4 h-4" />
                 </button>
@@ -1718,7 +1719,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 <button
                   onClick={() => walkStep('turn-right')}
                   title="Turn Right (D / Right Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-cyan-500/30 active:scale-95 text-slate-200 hover:text-cyan-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
                 >
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -1730,8 +1731,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         {/* Cinematic Camera Transition Toast Notification */}
         {cameraNotification && (
           <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none cinematic-badge-enter">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl glass-hud border border-cyan-400/40 text-white shadow-2xl backdrop-blur-2xl bg-[#0A0E17]/90">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 camera-lens-pulse" />
+            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl glass-hud border border-signal-400/40 text-white shadow-2xl backdrop-blur-2xl bg-[#0A0E17]/90">
+              <div className="w-2.5 h-2.5 rounded-full bg-signal-400 camera-lens-pulse" />
               <span className="text-xs font-bold tracking-wide">{cameraNotification}</span>
             </div>
           </div>
@@ -1744,10 +1745,10 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               onClick={() => locateAndCenterUser(true)}
               disabled={isLocating}
               title="Recenter on My Location"
-              className="p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-cyan-400 border border-white/15 shadow-xl backdrop-blur-md active:scale-95 transition-all flex items-center justify-center group disabled:opacity-50"
+              className="p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-signal-400 border border-white/15 shadow-xl backdrop-blur-md active:scale-95 transition-all flex items-center justify-center group disabled:opacity-50"
             >
               {isLocating ? (
-                <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+                <Loader2 className="w-5 h-5 animate-spin text-signal-400" />
               ) : (
                 <Crosshair className="w-5 h-5 group-hover:rotate-45 transition-transform" />
               )}
@@ -1757,7 +1758,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
         {/* Locating Toast / Status Badge */}
         {isLocating && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/40 text-cyan-300 text-xs font-semibold shadow-xl backdrop-blur-md animate-pulse">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-signal-500/40 text-signal-300 text-xs font-semibold shadow-xl backdrop-blur-md animate-pulse">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             <span>Connecting to 3D Radar...</span>
           </div>

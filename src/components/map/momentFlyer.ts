@@ -29,7 +29,7 @@ export function createMomentFlyerElement(moment: Moment): HTMLDivElement {
   el.innerHTML = `
     <div style="display: flex; flex-direction: column; align-items: center; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
       <!-- Flyer Card Frame -->
-      <div style="width: 150px; background: rgba(10, 14, 23, 0.92); border: 1.5px solid ${isBiz ? '#FCD34D' : 'rgba(0, 242, 254, 0.6)'}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.8), 0 0 12px ${isBiz ? 'rgba(252, 211, 77, 0.4)' : 'rgba(0, 242, 254, 0.3)'}; backdrop-filter: blur(12px);">
+      <div style="width: 150px; background: rgba(10, 14, 23, 0.92); border: 1.5px solid ${isBiz ? '#FCD34D' : 'rgba(var(--signal-rgb), 0.6)'}; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,0.8), 0 0 12px ${isBiz ? 'rgba(252, 211, 77, 0.4)' : 'rgba(var(--signal-rgb), 0.3)'}; backdrop-filter: blur(12px);">
         <div style="position: relative; width: 100%; height: 74px; overflow: hidden; background: #080D16;">
           <img src="${safeImageUrl(moment.photoUrl, FALLBACK_PHOTO)}" style="width: 100%; height: 100%; object-fit: cover; display: block;" />
           <div style="position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.75); border-radius: 6px; padding: 2px 6px; font-size: 10px; font-weight: 800; color: #FFF; display: flex; align-items: center; gap: 3px;">
@@ -41,13 +41,13 @@ export function createMomentFlyerElement(moment: Moment): HTMLDivElement {
           <div style="color: #FFF; font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(moment.title)}</div>
           <div style="color: #94A3B8; font-size: 9px; margin-top: 1px; display: flex; align-items: center; justify-content: space-between;">
             <span>⚡ ${escapeHtml(moment.viewsCount || 12)} nearby</span>
-            <span style="color: #00F2FE; font-weight: 700;">Tap to open</span>
+            <span style="color: var(--signal); font-weight: 700;">Tap to open</span>
           </div>
         </div>
       </div>
       <!-- Street Anchor Post -->
-      <div style="width: 2.5px; height: 14px; background: ${isBiz ? '#FCD34D' : '#00F2FE'}; box-shadow: 0 0 8px ${isBiz ? '#FCD34D' : '#00F2FE'};"></div>
-      <div style="width: 8px; height: 8px; border-radius: 9999px; background: ${isBiz ? '#FCD34D' : '#00F2FE'}; box-shadow: 0 0 10px #00F2FE;"></div>
+      <div style="width: 2.5px; height: 14px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 0 8px ${isBiz ? '#FCD34D' : 'var(--signal)'};"></div>
+      <div style="width: 8px; height: 8px; border-radius: 9999px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 0 10px var(--signal);"></div>
     </div>
   `;
   return el;

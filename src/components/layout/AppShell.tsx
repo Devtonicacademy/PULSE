@@ -79,7 +79,7 @@ export const AppShell: React.FC = () => {
   const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
-  const [mapEngine, setMapEngine] = useState<MapEngine>('map');
+  const [mapEngine, setMapEngine] = useState<MapEngine>('pulse3d');
   const [navigationDestination, setNavigationDestination] = useState<{
     latitude: number;
     longitude: number;
@@ -145,7 +145,7 @@ export const AppShell: React.FC = () => {
             return (
               <Suspense
                 fallback={
-                  <div className="h-full flex items-center justify-center text-xs text-cyan-300 bg-[#05070d]">
+                  <div className="h-full flex items-center justify-center text-xs text-signal-300 bg-[#05070d]">
                     Loading Pulse 3D…
                   </div>
                 }
@@ -159,7 +159,7 @@ export const AppShell: React.FC = () => {
                     className="absolute bottom-24 right-4 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10"
                     title="Back to the map"
                   >
-                    <MapIcon className="w-3.5 h-3.5 text-cyan-400" />
+                    <MapIcon className="w-3.5 h-3.5 text-signal-400" />
                     <span>Back to map</span>
                   </button>
                 </div>
@@ -201,7 +201,7 @@ export const AppShell: React.FC = () => {
         onClick={() => setActiveTab('map')}
         className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
           activeTab === 'map'
-            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
@@ -214,7 +214,7 @@ export const AppShell: React.FC = () => {
         onClick={() => setActiveTab('discover')}
         className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
           activeTab === 'discover'
-            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
@@ -226,7 +226,7 @@ export const AppShell: React.FC = () => {
       <div className="flex flex-col items-center justify-center px-1">
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="w-12 h-12 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/40 -mt-6 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
+          className="w-12 h-12 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
           title="Create Live Moment"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
@@ -239,13 +239,13 @@ export const AppShell: React.FC = () => {
         onClick={() => setActiveTab('notifications')}
         className={`relative flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
           activeTab === 'notifications'
-            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <Bell className={`w-5 h-5 ${activeTab === 'notifications' ? 'stroke-[2.5]' : ''}`} />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-6 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+          <span className="absolute top-0.5 right-6 w-4 h-4 rounded-full bg-accent-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
             {unreadCount}
           </span>
         )}
@@ -257,7 +257,7 @@ export const AppShell: React.FC = () => {
         onClick={() => setActiveTab('profile')}
         className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-2xl transition-all ${
           activeTab === 'profile'
-            ? 'text-rose-400 bg-rose-500/15 scale-105 shadow-[0_0_12px_rgba(255,71,87,0.2)]'
+            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
@@ -283,12 +283,12 @@ export const AppShell: React.FC = () => {
           {/* Top Simulator Control Bar */}
           <div className="w-full max-w-[430px] mb-2 flex items-center justify-between text-xs text-slate-400 px-2">
             <div className="flex items-center gap-1.5 font-bold text-white">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-accent-500 animate-ping" />
               <span>PULSE Phone Simulator</span>
             </div>
             <button
               onClick={() => setIsMobileFrameMode(false)}
-              className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-900 border border-white/10 hover:border-cyan-400 text-cyan-300 text-[11px] font-bold transition-colors"
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-900 border border-white/10 hover:border-signal-400 text-signal-300 text-[11px] font-bold transition-colors"
             >
               <Maximize2 className="w-3.5 h-3.5" />
               <span>Full Screen View</span>
@@ -300,7 +300,7 @@ export const AppShell: React.FC = () => {
             {/* Dynamic Island Notch */}
             <div className="hidden sm:flex items-center justify-center pt-2 pb-1 shrink-0 z-40 bg-[#0A0E17]">
               <div className="w-28 h-4 rounded-full bg-slate-900/90 border border-white/10 flex items-center justify-between px-3">
-                <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
+                <span className="w-2 h-2 rounded-full bg-accent-500/80"></span>
                 <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
               </div>
             </div>
@@ -308,15 +308,15 @@ export const AppShell: React.FC = () => {
             {/* Simulated Mobile Header */}
             <header className="px-4 py-3 shrink-0 glass-panel border-b border-white/10 flex items-center justify-between z-30">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-rose-500/30">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 leading-none">
                     <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
                   </div>
-                  <span className="text-[9px] uppercase tracking-wider text-rose-400 font-bold">
+                  <span className="text-[9px] uppercase tracking-wider text-accent-400 font-bold">
                     Live Radar
                   </span>
                 </div>
@@ -328,7 +328,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setShowLocationDropdown(!showLocationDropdown)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-900/90 border border-white/10 text-xs text-white"
                 >
-                  <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                  <MapPin className="w-3 h-3 text-accent-400 shrink-0" />
                   <span className="font-semibold truncate max-w-[100px]">
                     {currentLocation.name.split(',')[0]}
                   </span>
@@ -346,7 +346,7 @@ export const AppShell: React.FC = () => {
                         }}
                         className={`w-full text-left px-3 py-1.5 rounded-xl transition-colors ${
                           currentLocation.name === loc.name
-                            ? 'bg-rose-500/20 text-rose-300 font-bold'
+                            ? 'bg-accent-500/20 text-accent-300 font-bold'
                             : 'text-slate-300 hover:bg-slate-800'
                         }`}
                       >
@@ -362,7 +362,7 @@ export const AppShell: React.FC = () => {
                 {!isAuthenticated && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[10px] font-bold"
+                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/30 text-[10px] font-bold"
                   >
                     <LogIn className="w-3 h-3" />
                     <span>Join</span>
@@ -370,10 +370,10 @@ export const AppShell: React.FC = () => {
                 )}
                 <div
                   onClick={() => setActiveTab('discover')}
-                  className="cursor-pointer px-2 py-1 rounded-full bg-gradient-to-r from-rose-500/20 to-amber-500/20 border border-rose-500/30 flex items-center gap-1"
+                  className="cursor-pointer px-2 py-1 rounded-full bg-gradient-to-r from-accent-500/20 to-accent2-500/20 border border-accent-500/30 flex items-center gap-1"
                 >
                   <span className="text-xs">⚡</span>
-                  <span className="text-xs font-black text-rose-300">{currentPulseScore}</span>
+                  <span className="text-xs font-black text-accent-300">{currentPulseScore}</span>
                 </div>
               </div>
             </header>
@@ -396,15 +396,15 @@ export const AppShell: React.FC = () => {
             <div className="space-y-4">
               {/* Brand Logo */}
               <div className="flex items-center gap-2.5 pb-4 border-b border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-rose-500/30">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 leading-none">
                     <span className="font-extrabold text-base tracking-tight text-white">PULSE</span>
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse"></span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider text-rose-400 font-bold">
+                  <span className="text-[10px] uppercase tracking-wider text-accent-400 font-bold">
                     Live Social Radar
                   </span>
                 </div>
@@ -415,13 +415,13 @@ export const AppShell: React.FC = () => {
                 <div className="p-3 rounded-2xl glass-card-interactive border border-white/10">
                   <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
                     <span className="flex items-center gap-1 font-semibold">
-                      <MapPin className="w-3 h-3 text-rose-400" /> Active Hub
+                      <MapPin className="w-3 h-3 text-accent-400" /> Active Hub
                     </span>
-                    <span className="text-rose-400 font-bold">Score ⚡{currentPulseScore}</span>
+                    <span className="text-accent-400 font-bold">Score ⚡{currentPulseScore}</span>
                   </div>
                   <button
                     onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                    className="w-full text-left font-bold text-xs text-white truncate flex items-center justify-between hover:text-rose-300 transition-colors"
+                    className="w-full text-left font-bold text-xs text-white truncate flex items-center justify-between hover:text-accent-300 transition-colors"
                   >
                     <span className="truncate">{currentLocation.name.split(',')[0]}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
@@ -443,13 +443,13 @@ export const AppShell: React.FC = () => {
                         }}
                         className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
                           currentLocation.name === loc.name
-                            ? 'bg-rose-500/20 text-rose-300 font-bold'
+                            ? 'bg-accent-500/20 text-accent-300 font-bold'
                             : 'text-slate-300 hover:bg-slate-800'
                         }`}
                       >
                         <span className="truncate">{loc.name}</span>
                         {currentLocation.name === loc.name && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-400"></span>
                         )}
                       </button>
                     ))}
@@ -459,7 +459,7 @@ export const AppShell: React.FC = () => {
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-cyan-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
+                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
                     >
                       <Crosshair className="w-3.5 h-3.5" />
                       <span>{isLocating ? 'Locating...' : 'Use My Exact GPS'}</span>
@@ -471,7 +471,7 @@ export const AppShell: React.FC = () => {
               {/* Primary Call to Action Button */}
               <button
                 onClick={() => setIsCreateOpen(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 active:scale-98 transition-all"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 <span>Broadcast Moment</span>
@@ -483,7 +483,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setActiveTab('map')}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'map'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
@@ -495,7 +495,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setActiveTab('discover')}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'discover'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
@@ -507,7 +507,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setActiveTab('notifications')}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'notifications'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
@@ -516,7 +516,7 @@ export const AppShell: React.FC = () => {
                     <span>Proximity Alerts</span>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                    <span className="px-1.5 py-0.5 rounded-full bg-accent-500 text-white text-[10px] font-black">
                       {unreadCount}
                     </span>
                   )}
@@ -526,7 +526,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setActiveTab('profile')}
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'profile'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
@@ -563,12 +563,12 @@ export const AppShell: React.FC = () => {
                     onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
                       mapEngine === 'pulse3d'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                        ? 'bg-signal-500/20 text-signal-300 border border-signal-500/40 shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                     }`}
                     title="Switch between the map and Pulse 3D"
                   >
-                    <Layers className="w-3 h-3 text-cyan-400" />
+                    <Layers className="w-3 h-3 text-signal-400" />
                     <span>{mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}</span>
                   </button>
                 </div>
@@ -580,14 +580,14 @@ export const AppShell: React.FC = () => {
                     className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[10px] font-semibold transition-colors"
                     title="Open Phone Simulator Preview"
                   >
-                    <Smartphone className="w-3 h-3 text-rose-400" />
+                    <Smartphone className="w-3 h-3 text-accent-400" />
                     <span>Simulator</span>
                   </button>
 
                   {!isInstalled && (
                     <button
                       onClick={() => promptToInstall()}
-                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[10px] font-bold transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-accent-500/15 hover:bg-accent-500/25 text-accent-300 text-[10px] font-bold transition-colors"
                       title="Install Progressive Web App"
                     >
                       <Download className="w-3 h-3" />
@@ -598,7 +598,7 @@ export const AppShell: React.FC = () => {
                   {!isAuthenticated && (
                     <button
                       onClick={() => setIsAuthModalOpen(true)}
-                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-gradient-to-r from-rose-500/20 to-amber-500/20 hover:from-rose-500/30 hover:to-amber-500/30 text-rose-300 text-[10px] font-bold transition-all"
+                      className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-gradient-to-r from-accent-500/20 to-accent2-500/20 hover:from-accent-500/30 hover:to-accent2-500/30 text-accent-300 text-[10px] font-bold transition-all"
                       title="Sign In or Create Account"
                     >
                       <LogIn className="w-3 h-3" />
@@ -635,12 +635,12 @@ export const AppShell: React.FC = () => {
             <header className="lg:hidden px-3.5 py-2.5 shrink-0 glass-header flex items-center justify-between z-30 relative">
               {/* Logo & Brand */}
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-rose-500/30">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
                 </div>
               </div>
 
@@ -650,7 +650,7 @@ export const AppShell: React.FC = () => {
                   onClick={() => setShowLocationDropdown(!showLocationDropdown)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-white/20 text-xs text-white shadow-sm transition-all"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-accent-400 shrink-0" />
                   <span className="font-semibold truncate max-w-[100px] sm:max-w-[130px]">
                     {currentLocation.name.split(',')[0]}
                   </span>
@@ -671,13 +671,13 @@ export const AppShell: React.FC = () => {
                         }}
                         className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
                           currentLocation.name === loc.name
-                            ? 'bg-rose-500/20 text-rose-300 font-bold'
+                            ? 'bg-accent-500/20 text-accent-300 font-bold'
                             : 'text-slate-300 hover:bg-slate-800'
                         }`}
                       >
                         <span className="truncate">{loc.name}</span>
                         {currentLocation.name === loc.name && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-accent-400"></span>
                         )}
                       </button>
                     ))}
@@ -687,7 +687,7 @@ export const AppShell: React.FC = () => {
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-cyan-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
+                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
                     >
                       <Crosshair className="w-3.5 h-3.5" />
                       <span>{isLocating ? 'Locating...' : 'Use My Exact GPS'}</span>
@@ -700,17 +700,17 @@ export const AppShell: React.FC = () => {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <div
                   onClick={() => setActiveTab('discover')}
-                  className="cursor-pointer px-2.5 py-1 rounded-full bg-gradient-to-r from-rose-500/20 to-amber-500/20 border border-rose-500/30 flex items-center gap-1"
+                  className="cursor-pointer px-2.5 py-1 rounded-full bg-gradient-to-r from-accent-500/20 to-accent2-500/20 border border-accent-500/30 flex items-center gap-1"
                   title="Current Zone Pulse Score"
                 >
                   <span className="text-xs">⚡</span>
-                  <span className="text-xs font-black text-rose-300">{currentPulseScore}</span>
+                  <span className="text-xs font-black text-accent-300">{currentPulseScore}</span>
                 </div>
 
                 {!isAuthenticated && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-[10px] font-bold shadow-sm transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/30 text-[10px] font-bold shadow-sm transition-all"
                   >
                     <LogIn className="w-3 h-3" />
                     <span>Join</span>
@@ -719,10 +719,10 @@ export const AppShell: React.FC = () => {
 
                 <button
                   onClick={() => setShowQuickSettings(true)}
-                  className="p-1.5 rounded-xl glass-hud border border-white/15 text-slate-300 hover:text-white hover:border-cyan-400/40 transition-all shadow-sm"
+                  className="p-1.5 rounded-xl glass-hud border border-white/15 text-slate-300 hover:text-white hover:border-signal-400/40 transition-all shadow-sm"
                   title="App Preferences & Settings"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-signal-400" />
                 </button>
               </div>
             </header>
@@ -745,7 +745,7 @@ export const AppShell: React.FC = () => {
       {/* Real-time Notification In-App Toast Banner */}
       {activeToast && (
         <div className="fixed top-4 right-4 max-w-sm z-50 animate-slide-up">
-          <div className="p-3.5 rounded-2xl glass-panel border border-rose-500/40 shadow-2xl flex items-start gap-3 bg-slate-900/95">
+          <div className="p-3.5 rounded-2xl glass-panel border border-accent-500/40 shadow-2xl flex items-start gap-3 bg-slate-900/95">
             <span className="text-xl shrink-0">🚨</span>
             <div
               onClick={() => {
@@ -803,7 +803,7 @@ export const AppShell: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                <SlidersHorizontal className="w-4 h-4 text-signal-400" />
                 <h3 className="text-sm font-bold text-white">App Preferences</h3>
               </div>
               <button
@@ -818,7 +818,7 @@ export const AppShell: React.FC = () => {
             <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
               <div>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-cyan-400" /> Map View
+                  <Layers className="w-3.5 h-3.5 text-signal-400" /> Map View
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
                   {MAP_ENGINE_LABELS[mapEngine].long}
@@ -826,7 +826,7 @@ export const AppShell: React.FC = () => {
               </div>
               <button
                 onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
-                className="px-3 py-1.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-bold"
+                className="px-3 py-1.5 rounded-xl bg-signal-500/20 text-signal-300 border border-signal-500/30 text-xs font-bold"
               >
                 {mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}
               </button>
@@ -854,7 +854,7 @@ export const AppShell: React.FC = () => {
             <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
               <div>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-rose-400" /> Phone Simulator
+                  <Smartphone className="w-3.5 h-3.5 text-accent-400" /> Phone Simulator
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">Test simulated device viewport</div>
               </div>
@@ -876,7 +876,7 @@ export const AppShell: React.FC = () => {
                   setShowQuickSettings(false);
                   promptToInstall();
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/40 text-xs font-bold transition-all"
               >
                 <Download className="w-4 h-4" />
                 <span>Install Pulse App (PWA)</span>
@@ -890,7 +890,7 @@ export const AppShell: React.FC = () => {
                   setShowQuickSettings(false);
                   setIsAuthModalOpen(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 text-white font-bold text-xs shadow-lg shadow-rose-500/25"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 text-white font-bold text-xs shadow-lg shadow-accent-500/25"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Sign In / Create Account</span>

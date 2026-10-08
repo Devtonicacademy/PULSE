@@ -56,7 +56,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-cyan-400" />
+            <MessageCircle className="w-4 h-4 text-signal-400" />
             <div>
               <h3 className="text-sm font-bold text-white">Live Discussion</h3>
               <p className="text-[10px] text-slate-400 truncate max-w-[240px]">
@@ -111,8 +111,8 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
                       <div className="flex items-center gap-4 mt-2 text-[11px] text-slate-400">
                         <button
                           onClick={() => toggleCommentLike(c.id)}
-                          className={`flex items-center gap-1 hover:text-rose-400 transition-colors ${
-                            c.userLiked ? 'text-rose-400 font-bold' : ''
+                          className={`flex items-center gap-1 hover:text-accent-400 transition-colors ${
+                            c.userLiked ? 'text-accent-400 font-bold' : ''
                           }`}
                         >
                           <Heart className={`w-3 h-3 ${c.userLiked ? 'fill-current' : ''}`} />
@@ -120,7 +120,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
                         </button>
                         <button
                           onClick={() => startReply(c.id, c.userName)}
-                          className="hover:text-cyan-300 transition-colors flex items-center gap-1"
+                          className="hover:text-signal-300 transition-colors flex items-center gap-1"
                         >
                           <CornerDownRight className="w-3 h-3" />
                           <span>Reply</span>
@@ -144,7 +144,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-bold text-cyan-300">
+                              <span className="text-xs font-bold text-signal-300">
                                 @{reply.userName}
                               </span>
                               <span className="text-[9px] text-slate-500">
@@ -159,8 +159,8 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
                             <div className="mt-1 text-[10px] text-slate-400">
                               <button
                                 onClick={() => toggleCommentLike(reply.id)}
-                                className={`flex items-center gap-1 hover:text-rose-400 transition-colors ${
-                                  reply.userLiked ? 'text-rose-400 font-bold' : ''
+                                className={`flex items-center gap-1 hover:text-accent-400 transition-colors ${
+                                  reply.userLiked ? 'text-accent-400 font-bold' : ''
                                 }`}
                               >
                                 <Heart
@@ -188,7 +188,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
           className="p-3 border-t border-white/10 glass-panel shrink-0"
         >
           {replyToUser && (
-            <div className="flex items-center justify-between px-2 py-1 mb-2 rounded bg-slate-800 text-[10px] text-cyan-300">
+            <div className="flex items-center justify-between px-2 py-1 mb-2 rounded bg-slate-800 text-[10px] text-signal-300">
               <span>Replying to @{replyToUser}</span>
               <button
                 type="button"
@@ -208,12 +208,12 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={`Comment as @${userProfile.username}... Use @ to mention`}
-              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-signal-500"
             />
             <button
               type="submit"
               disabled={!content.trim()}
-              className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-slate-950 font-bold transition-all shrink-0"
+              className="p-2.5 rounded-xl bg-signal-500 hover:bg-signal-600 disabled:opacity-40 text-slate-950 font-bold transition-all shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>

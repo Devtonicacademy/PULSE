@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ANCHORS } from '../../../theme/tokens';
 
 /**
  * The player marker: a glowing orb with a pulsing ground ring, a cyan heading cone
@@ -20,7 +21,7 @@ export class UserAvatar {
 
     const orbGeometry = new THREE.SphereGeometry(1.6, 24, 16);
     const orbMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff4757,
+      color: ANCHORS.accent,
       emissive: 0xff5a3d,
       emissiveIntensity: 0.9,
       roughness: 0.3
@@ -36,7 +37,7 @@ export class UserAvatar {
 
     const ringGeometry = new THREE.RingGeometry(3, 3.6, 48);
     const ringMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00f2fe,
+      color: ANCHORS.signal,
       transparent: true,
       opacity: 0.8,
       side: THREE.DoubleSide,
@@ -83,7 +84,7 @@ export class UserAvatar {
 
     const arrowGeometry = new THREE.ConeGeometry(1.1, 3, 3);
     arrowGeometry.rotateX(-Math.PI / 2); // point along -z (north)
-    const arrowMaterial = new THREE.MeshBasicMaterial({ color: 0x00f2fe });
+    const arrowMaterial = new THREE.MeshBasicMaterial({ color: ANCHORS.signal });
     const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
     arrow.position.set(0, 2.4, -3.6);
 

@@ -47,9 +47,9 @@ export const AdminModerationPanel: React.FC = () => {
   };
 
   return (
-    <div className="rounded-3xl glass-panel border border-rose-500/30 p-4 space-y-3" data-testid="admin-panel">
+    <div className="rounded-3xl glass-panel border border-accent-500/30 p-4 space-y-3" data-testid="admin-panel">
       <div className="flex items-center gap-2">
-        <ShieldAlert className="w-4 h-4 text-rose-400" />
+        <ShieldAlert className="w-4 h-4 text-accent-400" />
         <h3 className="text-sm font-bold text-white">Moderation queue</h3>
         <span className="ml-auto text-[10px] text-slate-400">Hidden after 3 reports</span>
       </div>
@@ -73,7 +73,7 @@ export const AdminModerationPanel: React.FC = () => {
           <ul className="space-y-0.5">
             {(reports[m.id] ?? []).map((r) => (
               <li key={r.id} className="text-[10px] text-slate-300">
-                <span className="text-rose-300 font-semibold">{REASON_LABELS[r.reason] ?? r.reason}</span>
+                <span className="text-accent-300 font-semibold">{REASON_LABELS[r.reason] ?? r.reason}</span>
                 {r.notes ? <span className="text-slate-400"> — {r.notes}</span> : null}
               </li>
             ))}
@@ -89,7 +89,7 @@ export const AdminModerationPanel: React.FC = () => {
             <button
               disabled={busyId === m.id}
               onClick={() => act(m.id, 'delete')}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-bold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-accent-500/15 border border-accent-500/30 text-accent-300 text-[11px] font-bold disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>

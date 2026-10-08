@@ -1,4 +1,5 @@
 import type { StyleSpecification, LayerSpecification } from 'maplibre-gl';
+import { signal } from '../../theme/tokens';
 
 /**
  * Pulse's dark glass / neon basemap, drawn from free OpenStreetMap vector tiles served by
@@ -23,8 +24,8 @@ const COLORS = {
   park: '#0b1d1b',
   water: '#08213a',
   waterLine: '#0d3556',
-  roadMajor: '#00f2fe',
-  roadPrimary: '#22d3ee',
+  roadMajor: signal[400],
+  roadPrimary: signal[500],
   roadSecondary: '#7c8cf8',
   roadMinor: '#4b5a8f',
   roadService: '#2b3452',

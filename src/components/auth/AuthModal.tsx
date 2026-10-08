@@ -122,19 +122,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow ambient circles */}
-        <div className="absolute top-0 right-0 w-44 h-44 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-44 h-44 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-44 h-44 bg-accent-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-44 h-44 bg-signal-500/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header */}
         <div className="p-5 pb-4 flex items-center justify-between border-b border-white/10 relative z-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-rose-500/30">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-white shadow-lg shadow-accent-500/30">
               P
             </div>
             <div>
               <div className="flex items-center gap-1.5 leading-none">
                 <span className="font-extrabold text-base tracking-tight text-white">PULSE</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-accent-500/20 text-accent-300 border border-accent-500/30">
                   Auth
                 </span>
               </div>
@@ -167,7 +167,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 }}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
                   mode === 'signin'
-                    ? 'bg-gradient-to-r from-rose-500/25 to-amber-500/25 text-white border border-rose-500/40 shadow-sm'
+                    ? 'bg-gradient-to-r from-accent-500/25 to-accent2-500/25 text-white border border-accent-500/40 shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -182,7 +182,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 }}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
                   mode === 'signup'
-                    ? 'bg-gradient-to-r from-rose-500/25 to-amber-500/25 text-white border border-rose-500/40 shadow-sm'
+                    ? 'bg-gradient-to-r from-accent-500/25 to-accent2-500/25 text-white border border-accent-500/40 shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
@@ -197,9 +197,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Status info banner */}
           <div className="flex items-center justify-between text-[11px] p-2.5 rounded-xl bg-slate-900/60 border border-white/5 text-slate-300">
             <div className="flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <Shield className="w-3.5 h-3.5 text-signal-400" />
               <span>Project:</span>
-              <span className="font-mono text-cyan-300 font-bold">quizapp-project-c5e0e</span>
+              <span className="font-mono text-signal-300 font-bold">quizapp-project-c5e0e</span>
             </div>
             <span className="text-[10px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
               {isFirebaseConfigured ? 'Live Firebase' : 'Demo Mode'}
@@ -243,9 +243,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="button"
                 onClick={handleGuestSignIn}
                 disabled={isAuthLoading}
-                className="w-full py-2.5 px-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 hover:border-cyan-500/40 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-50"
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-white/10 hover:border-signal-500/40 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition-all disabled:opacity-50"
               >
-                <Compass className="w-4 h-4 text-cyan-400" />
+                <Compass className="w-4 h-4 text-signal-400" />
                 <span>Continue as Guest Scout (1-Tap Explore)</span>
               </button>
 
@@ -262,18 +262,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Error Banner */}
           {activeError && (
-            <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex flex-col gap-2 animate-shake">
+            <div className="p-3 rounded-2xl bg-accent-500/15 border border-accent-500/30 text-accent-300 text-xs flex flex-col gap-2 animate-shake">
               <div className="flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <AlertCircle className="w-4 h-4 shrink-0 text-accent-400 mt-0.5" />
                 <div className="flex-1 text-[11px] leading-relaxed">{activeError}</div>
               </div>
               {(activeError.includes('Firebase Console') || activeError.includes('Authorized domains') || activeError.includes('disabled')) && (
-                <div className="pt-1.5 border-t border-rose-500/20 flex flex-wrap gap-2 text-[10px]">
+                <div className="pt-1.5 border-t border-accent-500/20 flex flex-wrap gap-2 text-[10px]">
                   <a
                     href="https://console.firebase.google.com/project/quizapp-project-c5e0e/authentication/providers"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold"
+                    className="inline-flex items-center gap-1 text-signal-400 hover:text-signal-300 underline font-semibold"
                   >
                     Enable in Console ↗
                   </a>
@@ -281,7 +281,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     href="https://console.firebase.google.com/project/quizapp-project-c5e0e/authentication/settings"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold"
+                    className="inline-flex items-center gap-1 text-signal-400 hover:text-signal-300 underline font-semibold"
                   >
                     Authorized Domains ↗
                   </a>
@@ -318,7 +318,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="e.g. lagos_scout, yaba_eats"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-rose-500/80 transition-colors"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-accent-500/80 transition-colors"
                     required
                   />
                 </div>
@@ -337,7 +337,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="scout@pulseapp.io"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-rose-500/80 transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-accent-500/80 transition-colors"
                   required
                 />
               </div>
@@ -352,7 +352,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setMode('forgot')}
-                      className="text-[10px] text-cyan-400 hover:underline"
+                      className="text-[10px] text-signal-400 hover:underline"
                     >
                       Forgot password?
                     </button>
@@ -365,7 +365,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-rose-500/80 transition-colors"
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-900/90 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-accent-500/80 transition-colors"
                     required
                     minLength={6}
                   />
@@ -384,7 +384,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={isAuthLoading}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 active:scale-98 transition-all disabled:opacity-50 mt-2"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all disabled:opacity-50 mt-2"
             >
               {isAuthLoading ? (
                 <>
@@ -418,7 +418,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Privacy & Safety Footnote */}
           <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
             <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-rose-400" />
+              <Sparkles className="w-3 h-3 text-accent-400" />
               <span>Location privacy protected</span>
             </span>
             <span>256-bit SSL Auth</span>

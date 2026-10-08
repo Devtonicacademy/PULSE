@@ -34,9 +34,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl glass-panel border border-rose-500/30 p-5 shadow-2xl text-white animate-slide-up">
+      <div className="w-full max-w-md rounded-3xl glass-panel border border-accent-500/30 p-5 shadow-2xl text-white animate-slide-up">
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
-          <div className="flex items-center gap-2 text-rose-400">
+          <div className="flex items-center gap-2 text-accent-400">
             <ShieldAlert className="w-5 h-5" />
             <h3 className="text-sm font-bold text-white">Trust & Safety Report</h3>
           </div>
@@ -69,7 +69,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                   onClick={() => setReason(r.id)}
                   className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
                     reason === r.id
-                      ? 'bg-rose-500/20 border-rose-500 text-white'
+                      ? 'bg-accent-500/20 border-accent-500 text-white'
                       : 'bg-slate-900/60 border-white/5 text-slate-300 hover:border-white/10'
                   }`}
                 >
@@ -78,7 +78,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                     name="reportReason"
                     checked={reason === r.id}
                     onChange={() => setReason(r.id)}
-                    className="mt-0.5 accent-rose-500"
+                    className="mt-0.5 accent-accent-500"
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">{r.label}</div>
@@ -97,7 +97,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Explain the issue with this location or post..."
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500"
               />
             </div>
 
@@ -111,7 +111,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-700 text-white text-xs font-bold shadow-lg shadow-accent-600/30 transition-all"
               >
                 Submit Report
               </button>

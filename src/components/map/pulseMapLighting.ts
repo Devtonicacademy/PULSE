@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl';
 import type { Lighting, LightingMood } from '../../utils/sunLight';
 import { BUILDINGS_LAYER_ID, ROOFS_LAYER_ID } from './pulseMapStyle';
+import { signal } from '../../theme/tokens';
 
 /**
  * Time-of-day lighting for the map: a palette that blends from night to day with the real sun
@@ -48,7 +49,7 @@ interface Palette {
 
 const NIGHT: Palette = {
   land: '#0a0e17', landuse: '#0d1320', park: '#0b1d1b', water: '#08213a', waterLine: '#0d3556', buildingFlat: '#101a2e',
-  roadMajor: '#00f2fe', roadPrimary: '#22d3ee', roadSecondary: '#7c8cf8', roadMinor: '#4b5a8f', roadService: '#2b3452', path: '#3a4a6b',
+  roadMajor: signal[400], roadPrimary: signal[500], roadSecondary: '#7c8cf8', roadMinor: '#4b5a8f', roadService: '#2b3452', path: '#3a4a6b',
   label: '#cbd5e1', labelDim: '#8b9ab5', labelHalo: '#05070d', waterLabel: '#4f7fb0', roof: '#1a2438',
   sky: '#070b16', horizon: '#14233f', fog: '#0a1122'
 };

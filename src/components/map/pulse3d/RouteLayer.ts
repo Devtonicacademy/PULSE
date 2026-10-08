@@ -180,8 +180,8 @@ export class RouteLayer {
     const isDestination = cue.cueType === 'destination';
     el.innerHTML = `
       <div style="display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 9999px; font-size: 10px; font-weight: 800; white-space: nowrap;
-        background: ${isDestination ? 'linear-gradient(135deg, #FF4757, #FFA502)' : 'rgba(10, 14, 23, 0.9)'};
-        color: ${isDestination ? '#FFFFFF' : '#00F2FE'}; border: 1px solid ${isDestination ? '#FFFFFF' : 'rgba(0, 242, 254, 0.6)'};
+        background: ${isDestination ? 'linear-gradient(135deg, var(--accent), var(--accent2))' : 'rgba(10, 14, 23, 0.9)'};
+        color: ${isDestination ? '#FFFFFF' : 'var(--signal)'}; border: 1px solid ${isDestination ? '#FFFFFF' : 'rgba(var(--signal-rgb), 0.6)'};
         box-shadow: 0 2px 10px rgba(0,0,0,0.7);">
         <span style="font-size: 12px;">${CUE_ICONS[cue.cueType]}</span>
         <span>${escapeHtml(cue.label)}</span>

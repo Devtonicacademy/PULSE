@@ -62,14 +62,14 @@ interface MapHudProps {
 }
 
 const LIGHT_PRESET_OPTIONS = [
-  { id: 'night', label: 'Night', icon: Moon, color: 'text-cyan-400' },
+  { id: 'night', label: 'Night', icon: Moon, color: 'text-signal-400' },
   { id: 'dusk', label: 'Dusk', icon: Sunset, color: 'text-amber-400' },
-  { id: 'dawn', label: 'Dawn', icon: Sunrise, color: 'text-rose-400' },
+  { id: 'dawn', label: 'Dawn', icon: Sunrise, color: 'text-accent-400' },
   { id: 'day', label: 'Day', icon: Sun, color: 'text-yellow-300' }
 ] as const;
 
 const PAD_BUTTON =
-  'w-8 h-8 rounded-lg bg-white/10 hover:bg-cyan-500/30 active:scale-95 text-slate-200 hover:text-cyan-300 flex items-center justify-center border border-white/10 transition-all shadow-sm';
+  'w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm';
 
 export const MapHud: React.FC<MapHudProps> = ({
   showControls,
@@ -99,12 +99,12 @@ export const MapHud: React.FC<MapHudProps> = ({
       {/* Street wayfinding HUD */}
       {route && (
         <div className="absolute top-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
-          <div className="glass-panel p-4 rounded-3xl border border-cyan-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
+          <div className="glass-panel p-4 rounded-3xl border border-signal-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1">
-                  <Route className="w-3 h-3 text-cyan-400" />
+                <span className="w-2.5 h-2.5 rounded-full bg-signal-400 animate-ping"></span>
+                <span className="text-[10px] font-black uppercase tracking-wider text-signal-300 flex items-center gap-1">
+                  <Route className="w-3 h-3 text-signal-400" />
                   <span>Street Wayfinding HUD</span>
                 </span>
               </div>
@@ -121,12 +121,12 @@ export const MapHud: React.FC<MapHudProps> = ({
               <div>
                 <h4 className="font-bold text-sm text-white truncate max-w-[200px]">{route.destinationTitle}</h4>
                 <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                  <span className="text-cyan-400 font-bold">{route.totalDistanceMeters}m remaining</span>
+                  <span className="text-signal-400 font-bold">{route.totalDistanceMeters}m remaining</span>
                   <span>•</span>
                   <span className="text-amber-300 font-semibold">~{route.estimatedWalkingMinutes} min walk</span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-black text-sm">
+              <div className="w-10 h-10 rounded-2xl bg-signal-500/20 border border-signal-500/40 flex items-center justify-center text-signal-300 font-black text-sm">
                 🎯
               </div>
             </div>
@@ -137,8 +137,8 @@ export const MapHud: React.FC<MapHudProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-200 text-xs font-semibold">
-              <Footprints className="w-4 h-4 text-cyan-400 shrink-0 animate-bounce" />
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-signal-500/10 border border-signal-500/30 text-signal-200 text-xs font-semibold">
+              <Footprints className="w-4 h-4 text-signal-400 shrink-0 animate-bounce" />
               <span className="truncate">
                 {isSimulatingWalk
                   ? `Walking in 3D: ${(simulationProgress * 100).toFixed(0)}% reached`
@@ -151,8 +151,8 @@ export const MapHud: React.FC<MapHudProps> = ({
                 onClick={onToggleWalkSimulation}
                 className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
                   isSimulatingWalk
-                    ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/30'
-                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black shadow-cyan-500/30'
+                    ? 'bg-accent-500 hover:bg-accent-600 text-white shadow-accent-500/30'
+                    : 'bg-gradient-to-r from-signal-500 to-blue-600 hover:from-signal-400 hover:to-blue-500 text-slate-950 font-black shadow-signal-500/30'
                 }`}
               >
                 {isSimulatingWalk ? (
@@ -187,11 +187,11 @@ export const MapHud: React.FC<MapHudProps> = ({
               title="First-Person Street Level View (72° tilt, locked to avatar)"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'fpv'
-                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white shadow-lg shadow-rose-500/30 ring-1 ring-white/30'
+                  ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-rose-400'}`} />
+              <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-accent-400'}`} />
               <span>FPV 72°</span>
             </button>
             <button
@@ -199,11 +199,11 @@ export const MapHud: React.FC<MapHudProps> = ({
               title="3D Aerial Perspective (58° pitch)"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'aerial'
-                  ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/50 shadow-lg shadow-cyan-500/20'
+                  ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-cyan-200' : 'text-cyan-400'}`} />
+              <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-signal-200' : 'text-signal-400'}`} />
               <span>3D Aerial</span>
             </button>
             <button
@@ -224,10 +224,10 @@ export const MapHud: React.FC<MapHudProps> = ({
               onClick={() => setShowHotspotMenu((prev) => !prev)}
               title="Teleport to Iconic Lagos 3D Hotspots"
               className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
-                showHotspotMenu ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                showHotspotMenu ? 'bg-signal-500/20 text-signal-300 border-signal-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
             >
-              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+              <MapPin className="w-3.5 h-3.5 text-signal-400" />
               <span>Hotspots</span>
             </button>
 
@@ -243,11 +243,11 @@ export const MapHud: React.FC<MapHudProps> = ({
                       setShowHotspotMenu(false);
                       onHotspot(spot.coords);
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-cyan-500/15 text-slate-200 hover:text-cyan-300 text-xs font-semibold flex items-center justify-between gap-2 transition-colors"
+                    className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-signal-500/15 text-slate-200 hover:text-signal-300 text-xs font-semibold flex items-center justify-between gap-2 transition-colors"
                   >
                     <span>{spot.name}</span>
                     {spot.hasData ? (
-                      <ChevronRight className="w-3 h-3 text-cyan-400/60 shrink-0" />
+                      <ChevronRight className="w-3 h-3 text-signal-400/60 shrink-0" />
                     ) : (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/10 text-slate-400 shrink-0">no 3D data</span>
                     )}
@@ -272,7 +272,7 @@ export const MapHud: React.FC<MapHudProps> = ({
               <div className="absolute top-full left-0 mt-2 p-2.5 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 min-w-[200px] z-30 animate-fade-in bg-[#0A0E17]/95">
                 <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider flex items-center justify-between">
                   <span>Atmosphere Lighting</span>
-                  <span className="text-cyan-400 capitalize">{lightPreset}</span>
+                  <span className="text-signal-400 capitalize">{lightPreset}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {LIGHT_PRESET_OPTIONS.map((preset) => {
@@ -297,16 +297,16 @@ export const MapHud: React.FC<MapHudProps> = ({
                   <button
                     onClick={onToggleBuildings}
                     className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
-                      buildingsVisible ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-400 hover:bg-white/5'
+                      buildingsVisible ? 'bg-signal-500/20 text-signal-300 border border-signal-500/30' : 'text-slate-400 hover:bg-white/5'
                     }`}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                      <Layers className="w-3.5 h-3.5 text-signal-400" />
                       <span>3D Buildings</span>
                     </span>
                     <span
                       className={`text-[9px] px-1.5 py-0.5 rounded-md font-black ${
-                        buildingsVisible ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/10 text-slate-400'
+                        buildingsVisible ? 'bg-signal-400/20 text-signal-300' : 'bg-white/10 text-slate-400'
                       }`}
                     >
                       {buildingsVisible ? 'ON' : 'OFF'}
@@ -324,7 +324,7 @@ export const MapHud: React.FC<MapHudProps> = ({
         <div className="absolute bottom-6 left-4 z-20 pointer-events-auto">
           <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
             <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <Gamepad2 className="w-3 h-3 text-cyan-400" />
+              <Gamepad2 className="w-3 h-3 text-signal-400" />
               <span>Walk (WASD)</span>
             </div>
             <button onClick={() => onWalk('forward')} title="Walk Forward (W / Up Arrow)" className={PAD_BUTTON}>
@@ -347,8 +347,8 @@ export const MapHud: React.FC<MapHudProps> = ({
 
       {cameraNotice && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none cinematic-badge-enter">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl glass-hud border border-cyan-400/40 text-white shadow-2xl backdrop-blur-2xl bg-[#0A0E17]/90">
-            <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 camera-lens-pulse" />
+          <div className="flex items-center gap-2 px-4 py-2 rounded-2xl glass-hud border border-signal-400/40 text-white shadow-2xl backdrop-blur-2xl bg-[#0A0E17]/90">
+            <div className="w-2.5 h-2.5 rounded-full bg-signal-400 camera-lens-pulse" />
             <span className="text-xs font-bold tracking-wide">{cameraNotice}</span>
           </div>
         </div>
@@ -359,10 +359,10 @@ export const MapHud: React.FC<MapHudProps> = ({
           onClick={onRecenter}
           disabled={isLocating}
           title="Recenter on My Location"
-          className="p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-cyan-400 border border-white/15 shadow-xl backdrop-blur-md active:scale-95 transition-all flex items-center justify-center group disabled:opacity-50"
+          className="p-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-signal-400 border border-white/15 shadow-xl backdrop-blur-md active:scale-95 transition-all flex items-center justify-center group disabled:opacity-50"
         >
           {isLocating ? (
-            <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-signal-400" />
           ) : (
             <Crosshair className="w-5 h-5 group-hover:rotate-45 transition-transform" />
           )}
@@ -370,7 +370,7 @@ export const MapHud: React.FC<MapHudProps> = ({
       </div>
 
       {isLocating && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-cyan-500/40 text-cyan-300 text-xs font-semibold shadow-xl backdrop-blur-md animate-pulse">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-signal-500/40 text-signal-300 text-xs font-semibold shadow-xl backdrop-blur-md animate-pulse">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           <span>Locating you…</span>
         </div>

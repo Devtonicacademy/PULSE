@@ -1,3 +1,5 @@
+import { accent, accent2, signal } from './src/theme/tokens.js';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -8,6 +10,9 @@ export default {
   theme: {
     extend: {
       colors: {
+        accent,
+        accent2,
+        signal,
         pulse: {
           dark: '#0A0E17',
           card: '#121927',
