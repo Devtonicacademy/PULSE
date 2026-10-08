@@ -591,12 +591,11 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const selectedMoment = useMemo(() => {
     if (!selectedMomentRef) return null;
     const id = selectedMomentRef.id;
-    return (
-      filteredMoments.find((m) => m.id === id) ??
-      moments.find((m) => m.id === id) ??
-      selectedMomentRef
-    );
-  }, [selectedMomentRef, filteredMoments, moments]);
+    const latest = moments.find((m) => m.id === id);
+    // A moment hidden by reports closes for everyone but its author
+    if (latest?.hidden && latest.userId !== userProfile.id) return null;
+    return filteredMoments.find((m) => m.id === id) ?? latest ?? selectedMomentRef;
+  }, [selectedMomentRef, filteredMoments, moments, userProfile.id]);
 
   // Calculate current Pulse Score and zone
   const { currentPulseScore, currentZoneName } = useMemo(() => {
