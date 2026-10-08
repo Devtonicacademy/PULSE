@@ -1,4 +1,12 @@
 import express from 'express';
+import { gzip } from 'node:zlib';
+import { promisify } from 'node:util';
+
+const gzipAsync = promisify(gzip);
+/** Compressed tiles kept in memory so a busy tile is not re-compressed for every viewer */
+const COMPRESSED_CACHE_LIMIT = 300;
+/** Fresh for an hour, then served stale for a day while the browser re-checks in the background */
+const TILE_CACHE_CONTROL = 'public, max-age=3600, stale-while-revalidate=86400';
 import { MAX_RADIUS_KM, originFor, parseOriginId } from './osm/coverage.js';
 
 const TILE_WAIT_MS = 45_000;
@@ -16,6 +24,17 @@ const validCoordinates = (lat, lng) =>
 export function createMapRouter({ coverage, now = Date.now, tileWaitMs = TILE_WAIT_MS, hourlyLimit = COVERAGE_HOURLY_LIMIT }) {
   const router = express.Router();
   const starts = new Map(); // ip -> timestamps of coverage starts in the last hour
+  const compressed = new Map(); // tile id -> gzipped JSON, newest last
+
+  async function tileBody(id, tile) {
+    let body = compressed.get(id);
+    if (!body) {
+      body = await gzipAsync(Buffer.from(JSON.stringify(tile)));
+      if (compressed.size >= COMPRESSED_CACHE_LIMIT) compressed.delete(compressed.keys().next().value);
+      compressed.set(id, body);
+    }
+    return body;
+  }
 
   router.get('/api/map/tiles/:origin/:file', async (req, res) => {
     const origin = parseOriginId(req.params.origin);
@@ -36,7 +55,13 @@ export function createMapRouter({ coverage, now = Date.now, tileWaitMs = TILE_WA
         res.status(404).json({ error: 'Not found' });
         return;
       }
-      res.set('Cache-Control', 'public, max-age=3600').json(tile);
+      res.set({ 'Cache-Control': TILE_CACHE_CONTROL, Vary: 'Accept-Encoding' });
+      if (/gzip/.test(req.headers['accept-encoding'] ?? '')) {
+        const body = await tileBody(`${origin.id ?? req.params.origin}/${req.params.file}`, tile);
+        res.set('Content-Encoding', 'gzip').type('json').send(body); // Express adds the ETag, so revalidation is a cheap 304
+      } else {
+        res.json(tile);
+      }
     } catch (err) {
       // The download keeps going in the background; the client asks again shortly
       res.set('Retry-After', '15').status(503).json({ error: err.retryable ? 'Still building this area' : 'Map data is unavailable right now' });

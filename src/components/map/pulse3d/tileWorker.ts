@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { MapTile } from './tileFormat';
 import { buildTileGeometry, tileGeometryBuffers, TileGeometry } from './tileMeshes';
+import { loadTileText } from './tileCache';
 
 /**
  * Tile streaming worker: downloads a tile, parses the JSON and does all the geometry work
@@ -24,9 +25,8 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 scope.onmessage = async (event: MessageEvent<TileRequest>) => {
   const { id, key, tileSize, url } = event.data;
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const tile = (await res.json()) as MapTile;
+    // Cache first (see tileCache.ts), network when the cache has nothing usable
+    const tile = JSON.parse(await loadTileText(url)) as MapTile;
     const geometry = buildTileGeometry(tile, tileSize);
     const response: TileResponse = { id, key, geometry };
     scope.postMessage(response, tileGeometryBuffers(geometry));

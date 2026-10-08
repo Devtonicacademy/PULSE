@@ -10,9 +10,9 @@
     "start": "node server.js",
     "test:rules": "firebase emulators:exec --only firestore --project pulse-rules-test \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/moderation.rules.test.mjs\"",
     "emulators": "firebase emulators:start --only firestore,auth --project quizapp-project-c5e0e",
-    "test:server": "node --test tests/photos.server.test.mjs tests/coverage.server.test.mjs",
+    "test:server": "node --test tests/photos.server.test.mjs tests/coverage.server.test.mjs tests/geo.server.test.mjs",
     "test": "npm run test:unit && npm run test:server && npm run test:rules",
-    "test:unit": "node --test tests/sunLight.test.mjs tests/onboarding.test.mjs"
+    "test:unit": "node --test tests/sunLight.test.mjs tests/onboarding.test.mjs tests/tilePriority.test.mjs tests/typing.test.mjs tests/location.test.mjs"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",

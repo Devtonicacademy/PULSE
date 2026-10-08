@@ -26,6 +26,7 @@ import {
 } from '../services/mockData';
 import { calculateDistanceKm, isWithinRadius, applyPrivacyBlur, getApproximateAreaName } from '../utils/geoUtils';
 import { isFirebaseConfigured } from '../services/firebaseClient';
+import { locate } from '../services/locationService';
 import {
   subscribeToNearbyMoments,
   subscribeToMyReactions,
@@ -549,30 +550,26 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [firebaseUid, userProfile.id, statsVersion]);
 
-  // Request browser geolocation if user desires
+  // Find the user: browser location when allowed, otherwise an approximate spot from their IP.
+  // Either way the app learns how it was located (see useLocationStatus) so it can say so.
   const useBrowserLocation = () => {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
-      return;
-    }
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const areaName = getApproximateAreaName(latitude, longitude);
+    locate()
+      .then(({ fix }) => {
+        if (!fix) return; // stay on the active hub; the notice explains why
+        const areaName = getApproximateAreaName(fix.latitude, fix.longitude);
         setCurrentLocation({
-          latitude,
-          longitude,
-          name: areaName !== 'Local Area' ? areaName : 'My Live GPS'
+          latitude: fix.latitude,
+          longitude: fix.longitude,
+          name:
+            fix.source === 'ip'
+              ? fix.place || 'Near you (approximate)'
+              : areaName !== 'Local Area'
+                ? areaName
+                : 'My Live GPS'
         });
-        setIsLocating(false);
-      },
-      (err) => {
-        console.info('[PULSE] GPS unavailable or timed out; maintaining active hub:', err.message);
-        setIsLocating(false);
-      },
-      { timeout: 6000, enableHighAccuracy: false, maximumAge: 60000 }
-    );
+      })
+      .finally(() => setIsLocating(false));
   };
 
   // Filter moments by expiration and radius

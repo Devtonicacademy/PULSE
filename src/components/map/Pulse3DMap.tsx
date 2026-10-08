@@ -21,6 +21,7 @@ import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapPr
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
+import { locate } from '../../services/locationService';
 
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
@@ -196,36 +197,28 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         moveUser(x, y);
         if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
       };
-      if (!navigator.geolocation) {
-        onLocationError?.(new Error('Geolocation is not available'));
-        fallback();
-        return;
-      }
       setIsLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setIsLocating(false);
-          setLocationResolved(true);
-          const { latitude, longitude, heading } = position.coords;
-          const [x, y] = lngLatToMeters(longitude, latitude);
-          moveUser(x, y, heading != null && !Number.isNaN(heading) ? heading : user.current.heading);
-          if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
-          onLocationFound?.({
-            latitude,
-            longitude,
-            accuracy: position.coords.accuracy,
-            heading: position.coords.heading,
-            speed: position.coords.speed
-          });
-        },
-        (err) => {
-          setIsLocating(false);
-          console.info('[PULSE 3D] GPS unavailable; staying on the active hub:', err.message);
-          onLocationError?.(err);
+      locate().then(({ fix, problem }) => {
+        setIsLocating(false);
+        if (!fix) {
+          console.info('[PULSE 3D] No location available; staying on the active hub:', problem);
+          onLocationError?.(new Error(`Location unavailable (${problem ?? 'unknown'})`));
           fallback();
-        },
-        { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
-      );
+          return;
+        }
+        setLocationResolved(true);
+        const { latitude, longitude, heading } = fix;
+        const [x, y] = lngLatToMeters(longitude, latitude);
+        moveUser(x, y, heading ?? user.current.heading);
+        if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
+        onLocationFound?.({
+          latitude,
+          longitude,
+          accuracy: fix.accuracy,
+          heading: fix.heading,
+          speed: fix.speed
+        });
+      });
     },
     [applyCameraMode, moveUser, onLocationFound, onLocationError]
   );
@@ -399,11 +392,11 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       adaptQuality(elapsed);
       // Street level: cards within 1.5 km (no horizon clutter); zoomed out: the whole radius
       momentLayer.updateVisibility(pulseScene.camera, Math.max(MOMENT_CARD_RANGE, rig.pose.distance * 2.6));
-      const { x: fx, y: fy, distance } = rig.pose;
+      const { x: fx, y: fy, distance, heading: viewHeading } = rig.pose;
       pulseScene.setViewDistance(distance);
       if (Math.hypot(fx - lastFocus.x, fy - lastFocus.y) > FOCUS_UPDATE_METERS || Math.abs(distance - lastFocus.distance) > lastFocus.distance * 0.1) {
         lastFocus = { x: fx, y: fy, distance };
-        pulseScene.tiles.setFocus(fx, fy, distance * 1.1);
+        pulseScene.tiles.setFocus(fx, fy, distance * 1.1, viewHeading);
       }
       if (++frame % 30 === 0 && pulseScene.tiles.index) {
         const covered = pulseScene.tiles.hasDataAt(fx, fy);

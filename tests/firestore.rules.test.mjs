@@ -256,6 +256,36 @@ test('cannot comment as someone else, with likes, or inflate the counter by 2', 
   await assertFails(b.commit());
 });
 
+// ---- Typing indicators ----------------------------------------------------------------------------
+
+const typingDoc = (uid, over = {}) => ({ userId: uid, userName: 'Bob', updatedAt: serverTimestamp(), ...over });
+
+test('anyone can read typing indicators; only the typist writes theirs', async () => {
+  await seedMoment();
+  await assertSucceeds(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob')));
+  await assertSucceeds(getDoc(doc(db('carol'), 'moments/m1/typing/bob')));
+  await assertSucceeds(getDoc(doc(anon(), 'moments/m1/typing/bob')));
+  await assertSucceeds(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob'))); // refresh
+  await assertSucceeds(deleteDoc(doc(db('bob'), 'moments/m1/typing/bob')));
+});
+
+test('cannot fake typing for someone else, signed out, or with extra / oversize fields', async () => {
+  await seedMoment();
+  await assertFails(setDoc(doc(db('mallory'), 'moments/m1/typing/bob'), typingDoc('bob')));
+  await assertFails(setDoc(doc(anon(), 'moments/m1/typing/bob'), typingDoc('bob')));
+  await assertFails(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob', { admin: true })));
+  await assertFails(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob', { userName: 'x'.repeat(41) })));
+  await assertFails(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob', { updatedAt: Timestamp.fromMillis(1) })));
+  await assertFails(setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('carol')));
+});
+
+test('typing records need a real moment and cannot be deleted by others', async () => {
+  await assertFails(setDoc(doc(db('bob'), 'moments/ghost/typing/bob'), typingDoc('bob')));
+  await seedMoment();
+  await setDoc(doc(db('bob'), 'moments/m1/typing/bob'), typingDoc('bob'));
+  await assertFails(deleteDoc(doc(db('carol'), 'moments/m1/typing/bob')));
+});
+
 test('only the author can edit or delete a comment, and likesCount is closed', async () => {
   await seedMoment();
   await comment('bob');

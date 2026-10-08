@@ -4,6 +4,8 @@ import { MapTile, MapTileIndex, MAP_TILES_BASE_URL } from './tileFormat';
 import { PulseMaterials } from './materials';
 import { assembleTileGroup, buildTileGeometry, disposeTileGroup, TileGeometry } from './tileMeshes';
 import type { TileRequest, TileResponse } from './tileWorker';
+import { loadTileText } from './tileCache';
+import { orderTiles } from './tilePriority';
 
 export interface TileManagerOptions {
   /** Tiles whose center is within this distance of the focus are loaded */
@@ -27,6 +29,8 @@ export interface TileManagerOptions {
 const ASSEMBLE_PER_FRAME = 2;
 /** A tile that failed to load is not asked for again for this long */
 const RETRY_AFTER_MS = 20_000;
+/** Tiles downloading at once; the rest wait their turn in priority order so the nearest arrive first */
+const MAX_IN_FLIGHT = 6;
 /** A jump this long (teleport, camera flight) waits for the view to settle before asking the server for tiles */
 const JUMP_METERS = 400;
 const SETTLE_MS = 700;
@@ -42,7 +46,12 @@ export class TileManager {
   index: MapTileIndex | null = null;
 
   private loaded = new Map<string, THREE.Group>();
+  /** Requested and not yet turned into meshes (downloading, or built and waiting for tick()) */
   private pending = new Set<string>();
+  /** Wanted but not requested yet, nearest / most visible first */
+  private waiting: string[] = [];
+  private downloading = 0;
+  private heading: number | null = null;
   private buildQueue: TileGeometry[] = [];
   private workers: Worker[] = [];
   private nextWorker = 0;
@@ -97,6 +106,7 @@ export class TileManager {
     this.requests.clear();
     orphaned.forEach((key) => {
       this.pending.delete(key);
+      this.downloading = Math.max(0, this.downloading - 1);
     });
     if (!this.disposed) this.refresh();
   }
@@ -105,15 +115,18 @@ export class TileManager {
     const key = this.requests.get(msg.id);
     if (key === undefined) return;
     this.requests.delete(msg.id);
+    this.downloading = Math.max(0, this.downloading - 1);
     if ('error' in msg) {
       this.pending.delete(key);
       this.failedAt.set(key, Date.now());
       console.warn(`[PULSE 3D] Tile ${key} failed to load:`, msg.error);
+      this.pump();
       return;
     }
     // Stays "pending" until tick() wraps it, so refresh() doesn't ask for it again
     if (!this.disposed) this.buildQueue.push(msg.geometry);
     else this.pending.delete(key);
+    this.pump();
   }
 
   async init(): Promise<MapTileIndex> {
@@ -138,8 +151,12 @@ export class TileManager {
     return this.streamFromServer || Boolean(this.index?.tiles[tileKey(...tileForMeters(x, y))]);
   }
 
-  /** `viewRadius` widens loading when the camera is high enough to see further */
-  setFocus(x: number, y: number, viewRadius = 0) {
+  /**
+   * `viewRadius` widens loading when the camera is high enough to see further; `heading` is the
+   * compass bearing the camera faces, so tiles ahead load before tiles behind
+   */
+  setFocus(x: number, y: number, viewRadius = 0, heading: number | null = null) {
+    this.heading = heading;
     // Teleports and camera flights pass through many points; only the place the view lands
     // on is worth building on the server
     if (Math.hypot(x - this.focus[0], y - this.focus[1]) > JUMP_METERS) {
@@ -211,10 +228,14 @@ export class TileManager {
       const [tx, ty] = key.split('_').map(Number);
       if (this.isWithin(tx, ty, this.unloadRadius) || this.buildQueue.some((t) => tileKey(t.tx, t.ty) === key)) continue;
       this.pending.delete(key);
-      for (const [id, requested] of this.requests) if (requested === key) this.requests.delete(id);
+      for (const [id, requested] of this.requests) {
+        if (requested !== key) continue;
+        this.requests.delete(id);
+        this.downloading = Math.max(0, this.downloading - 1);
+      }
     }
 
-    // Request near tiles, closest first, within the tile budget
+    // Work out what is wanted: near tiles, within the tile budget, in loading order
     const [ftx, fty] = tileForMeters(...this.focus);
     const reach = Math.ceil(this.loadRadius / size) + 1;
     const wanted: { key: string; tx: number; ty: number; dist: number }[] = [];
@@ -229,13 +250,26 @@ export class TileManager {
         if (dist <= this.loadRadius) wanted.push({ key, tx, ty, dist });
       }
     }
-    wanted.sort((a, b) => a.dist - b.dist);
-    const budget = this.maxLoaded - this.loaded.size - this.pending.size;
-    for (const { key } of wanted.slice(0, Math.max(0, budget))) this.fetchTile(key);
+    const budget = Math.max(0, this.maxLoaded - this.loaded.size - this.pending.size);
+    // Only the best candidates are queued; anything the view moved away from simply drops out
+    this.waiting = orderTiles(wanted, size, this.focus, this.heading)
+      .slice(0, budget)
+      .map((tile) => tile.key);
+    this.pump();
+  }
+
+  /** Starts downloads from the front of the queue until MAX_IN_FLIGHT are running */
+  private pump() {
+    while (!this.disposed && this.downloading < MAX_IN_FLIGHT && this.waiting.length) {
+      const key = this.waiting.shift()!;
+      if (this.loaded.has(key) || this.pending.has(key)) continue;
+      this.fetchTile(key);
+    }
   }
 
   private async fetchTile(key: string) {
     this.pending.add(key);
+    this.downloading++;
     const tileSize = this.index!.tileSize;
     // Pre-built tiles are static files; anything else is built by the server on demand
     const url = this.index!.tiles[key] ? `${MAP_TILES_BASE_URL}${key}.json` : `/api/map/tiles/${MAP_ORIGIN_ID}/${key}.json`;
@@ -247,15 +281,16 @@ export class TileManager {
       return;
     }
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const tile = (await res.json()) as MapTile;
+      const tile = JSON.parse(await loadTileText(url)) as MapTile;
       if (!this.disposed) this.buildQueue.push(buildTileGeometry(tile, tileSize));
       else this.pending.delete(key);
     } catch (err) {
       this.pending.delete(key);
       this.failedAt.set(key, Date.now());
       console.warn(`[PULSE 3D] Tile ${key} failed to load:`, err);
+    } finally {
+      this.downloading = Math.max(0, this.downloading - 1);
+      this.pump();
     }
   }
 }

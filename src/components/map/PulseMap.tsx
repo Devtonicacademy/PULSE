@@ -7,6 +7,7 @@ import React, {
   useMemo,
   forwardRef
 } from 'react';
+import { locate } from '../../services/locationService';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
@@ -764,32 +765,23 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
      */
     const locateAndCenterUser = useCallback(
       (shouldFly = true) => {
-        if (!navigator.geolocation) {
-          const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
-          setUserCoords(fallback);
-          userCoordsRef.current = fallback;
-          updateUserMarker(fallback.longitude, fallback.latitude, userBearingRef.current);
-          return;
-        }
-
         setIsLocating(true);
 
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
+        locate().then(({ fix }) => {
+          setIsLocating(false);
+          if (fix) {
             const coords: UserCoordinates = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              heading: position.coords.heading,
-              speed: position.coords.speed
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+              accuracy: fix.accuracy,
+              heading: fix.heading,
+              speed: fix.speed
             };
-
             const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearingRef.current;
             setUserCoords(coords);
             userCoordsRef.current = coords;
             setUserBearing(heading);
             userBearingRef.current = heading;
-            setIsLocating(false);
 
             if (mapRef.current) {
               updateUserMarker(coords.longitude, coords.latitude, heading);
@@ -798,28 +790,21 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               }
             }
             onLocationFound?.(coords);
-          },
-          (err) => {
-            setIsLocating(false);
-            // Graceful fallback to default Victoria Island hub without throwing annoying UI errors
-            const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
-            setUserCoords(fallback);
-            userCoordsRef.current = fallback;
-
-            if (mapRef.current) {
-              updateUserMarker(fallback.longitude, fallback.latitude, userBearingRef.current);
-              if (shouldFly) {
-                applyCameraMode(cameraMode, [fallback.longitude, fallback.latitude], userBearingRef.current);
-              }
-            }
-            console.info('[PULSE] GPS unavailable or timed out; seamlessly centered on active city hub:', fallback);
-          },
-          {
-            enableHighAccuracy: false, // Prevents hanging on non-GPS PC/Mac devices
-            timeout: 6000,
-            maximumAge: 60000
+            return;
           }
-        );
+
+          // Nothing located the user: settle on the default city hub without any error UI
+          const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
+          setUserCoords(fallback);
+          userCoordsRef.current = fallback;
+          if (mapRef.current) {
+            updateUserMarker(fallback.longitude, fallback.latitude, userBearingRef.current);
+            if (shouldFly) {
+              applyCameraMode(cameraMode, [fallback.longitude, fallback.latitude], userBearingRef.current);
+            }
+          }
+          console.info('[PULSE] No location available; centered on the active city hub:', fallback);
+        });
       },
       [applyCameraMode, cameraMode, stableCenter, onLocationFound, updateUserMarker]
     );

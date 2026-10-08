@@ -231,6 +231,19 @@ service cloud.firestore {
       }
     }
 
+    // Typing indicators for a moment's discussion: one tiny record per person, refreshed while they
+    // type and deleted when they stop. Public to read (like the comments), writable only by its owner.
+    match /moments/{momentId}/typing/{uid} {
+      allow read: if true;
+      allow create, update: if isUser(uid)
+                            && request.resource.data.keys().hasOnly(['userId', 'userName', 'updatedAt'])
+                            && request.resource.data.userId == uid
+                            && isBoundedString(request.resource.data.userName, 40)
+                            && request.resource.data.updatedAt == request.time
+                            && exists(momentPath(momentId));
+      allow delete: if isUser(uid);
+    }
+
     // Collection-group reads ("what did I react to?") only ever return the caller's own reactions
     match /{path=**}/reactions/{reactionId} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;

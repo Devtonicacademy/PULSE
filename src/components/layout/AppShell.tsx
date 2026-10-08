@@ -14,6 +14,7 @@ import { ReportModal } from '../modals/ReportModal';
 import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { AuthModal } from '../auth/AuthModal';
+import { LocationNotice } from './LocationNotice';
 import { MAP_ORIGIN_ID, setMapOrigin } from '../../utils/mapProjection';
 import { originFor } from '../../utils/mapOrigin';
 import { CoverageStatus, startMapCoverage } from '../../services/mapCoverageService';
@@ -804,6 +805,8 @@ export const AppShell: React.FC = () => {
         forceShow={forceShowInstallPrompt}
         onClose={() => setForceShowInstallPrompt(false)}
       />
+
+      <LocationNotice onRetry={useBrowserLocation} isLocating={isLocating} />
 
       {/* Real-time Notification In-App Toast Banner */}
       {activeToast && (

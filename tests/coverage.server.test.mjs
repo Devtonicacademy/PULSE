@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import { createApp } from '../server/app.js';
 import { createFsStorage } from '../server/photoStorage.js';
 import {
@@ -235,6 +236,23 @@ test('HTTP routes: tiles, coverage start / status, validation and rate limit', a
     const body = await tile.json();
     assert.equal(body.tx, 0);
     assert.ok(Array.isArray(body.buildings));
+    // Tiles travel compressed and revalidate cheaply
+    assert.match(tile.headers.get('cache-control'), /stale-while-revalidate/);
+    // fetch hides content-encoding once it has decoded the body and adds no-cache to conditional
+    // requests, so check the wire behaviour over plain http
+    const wire = (headers) =>
+      new Promise((resolve, reject) => {
+        http.get(`${base}/api/map/tiles/vi/0_0.json`, { headers: { 'accept-encoding': 'gzip', ...headers } }, (res) => {
+          res.resume();
+          res.on('end', () => resolve({ status: res.statusCode, headers: res.headers }));
+        }).on('error', reject);
+      });
+    const wired = await wire({});
+    assert.equal(wired.headers['content-encoding'], 'gzip');
+    assert.match(wired.headers['cache-control'], /stale-while-revalidate/);
+    assert.match(wired.headers.vary, /Accept-Encoding/);
+    assert.ok(wired.headers.etag);
+    assert.equal((await wire({ 'if-none-match': wired.headers.etag })).status, 304);
 
     const post = (payload) =>
       fetch(`${base}/api/map/coverage`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
