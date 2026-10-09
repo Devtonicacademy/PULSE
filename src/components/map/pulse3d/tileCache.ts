@@ -5,7 +5,10 @@ import { cacheDecision } from './tilePriority';
  * visits. Pre-built tiles are static files, server-built ones can improve over time, so they get
  * different lifetimes. Stale tiles still render instantly while a fresh copy downloads.
  */
-const CACHE_NAME = 'pulse-map-tiles-v1';
+// Bump the version when the tile format or the data in the pre-built tiles changes: visitors would otherwise
+// keep the old tiles for days. Older caches are deleted as soon as the new one is opened.
+const CACHE_NAME = 'pulse-map-tiles-v2';
+const CACHE_PREFIX = 'pulse-map-tiles-';
 const STAMP_HEADER = 'x-pulse-cached-at';
 const MAX_ENTRIES = 500;
 
@@ -21,7 +24,15 @@ const kindOf = (url: string) => (url.startsWith('/map-tiles/') ? 'prebuilt' : 'b
 let cachePromise: Promise<Cache | null> | null = null;
 const openCache = () => {
   cachePromise ??=
-    typeof caches === 'undefined' ? Promise.resolve(null) : caches.open(CACHE_NAME).catch(() => null);
+    typeof caches === 'undefined'
+      ? Promise.resolve(null)
+      : caches
+          .open(CACHE_NAME)
+          .then(async (cache) => {
+            for (const name of await caches.keys()) if (name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME) await caches.delete(name);
+            return cache;
+          })
+          .catch(() => null);
   return cachePromise;
 };
 

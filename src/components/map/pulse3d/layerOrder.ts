@@ -20,8 +20,9 @@ export const LAYER_RENDER_ORDER = {
   water: 1,
   sand: 2,
   green: 3,
+  forest: 3.5,
   roads: 4
 } as const;
 
 /** The flat layers in the order they are painted, bottom to top */
-export const GROUND_LAYER_ORDER = ['groundGrid', 'land', 'water', 'sand', 'green', 'roads'] as const;
+export const GROUND_LAYER_ORDER = ['groundGrid', 'land', 'water', 'sand', 'green', 'forest', 'roads'] as const;

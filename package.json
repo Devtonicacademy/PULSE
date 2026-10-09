@@ -12,7 +12,7 @@
     "emulators": "firebase emulators:start --only firestore,auth --project quizapp-project-c5e0e",
     "test:server": "node --test tests/photos.server.test.mjs tests/coverage.server.test.mjs tests/geo.server.test.mjs",
     "test": "npm run test:unit && npm run test:server && npm run test:rules",
-    "test:unit": "node --test tests/sunLight.test.mjs tests/onboarding.test.mjs tests/tilePriority.test.mjs tests/typing.test.mjs tests/location.test.mjs tests/hubFollow.test.mjs tests/fixTracker.test.mjs tests/locationStrategy.test.mjs tests/tileGeometry.test.mjs",
+    "test:unit": "node --test tests/sunLight.test.mjs tests/onboarding.test.mjs tests/tilePriority.test.mjs tests/typing.test.mjs tests/location.test.mjs tests/hubFollow.test.mjs tests/fixTracker.test.mjs tests/locationStrategy.test.mjs tests/tileGeometry.test.mjs tests/osmTags.test.mjs tests/osmBuild.test.mjs tests/roofShapes.test.mjs",
     "dev:emulator": "vite --mode emulator --port 3100"
   },
   "dependencies": {

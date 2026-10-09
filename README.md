@@ -80,7 +80,21 @@ The **Walk in 3D** button on the map (also in the navigation card and the sideba
 - **Default view**: the map tab opens in Pulse 3D, with the area view (zone pulse score and the live moments nearest first) in a draggable bottom sheet (peek / half / full) that steps aside when you open a moment.
 - **Coverage**: Victoria Island, Lekki Phase 1, Lagos Island, Yaba and Unilag ship pre-built. Everything else is built **on demand by the server** from OpenStreetMap (see *40 km coverage* below).
 - **Streaming**: tiles are downloaded, parsed and turned into geometry in Web Workers ([`tileWorker.ts`](src/components/map/pulse3d/tileWorker.ts)); the render loop only wraps the transferred typed arrays in meshes. Parks get trees and main streets get lamp posts that glow at night.
-- **Data quality**: OSM building heights are sparse in Lagos. Real heights exist for ~32% of Victoria Island buildings, almost none in Yaba/Lekki; the rest are estimated from building type and footprint.
+- **Data quality**: OSM building data is sparse in Lagos. Of ~27,000 buildings only ~3.5% have a `height` and ~5.4% `building:levels`; the rest (~91%) get an estimated height from their type, what is inside them (`amenity`, `shop`...) and their footprint. **No Lagos building has a mapped colour or roof shape yet**, so those buildings still use the neon palette and flat roofs. Where OSM does have the data (much of Europe, for example) the map uses it: see below.
+- **What the map reads from OpenStreetMap** ([`server/osm/osmTags.js`](server/osm/osmTags.js)):
+
+| Draws | From these tags |
+| --- | --- |
+| Footprint | the exact way / multipolygon outline, holes included |
+| Height | `height`, `building:height`, else `building:levels` (+ `roof:height` / `roof:levels`), `min_height` / `building:min_level` for raised parts |
+| Wall paint | `building:colour`, `building:facade:colour`, `colour`, else `building:material` |
+| Roof | `roof:shape` (gabled, hipped, pyramidal, skillion, dome), `roof:height`, `roof:colour`, `roof:material` |
+| Building kind | `building=*`, else `amenity`, `shop`, `office`, `tourism`, `religion` |
+| Forest | `landuse=forest`, `natural=wood` (dark forest floor with trees) |
+| Grass | `leisure=park/garden/pitch/playground/golf_course`, `landuse=grass/meadow/farmland/orchard/cemetery...`, `natural=scrub/grassland/heath/wetland` (a clean green plane, no trees) |
+| Water | `natural=water/bay`, `waterway=riverbank`, `landuse=reservoir/basin`, `leisure=swimming_pool` |
+
+Residential, commercial, industrial and construction land is never painted as grass. Pitched roofs sit on near-rectangular footprints (pyramids and domes on convex or round ones); a footprint that cannot carry the mapped roof keeps a flat roof rather than a wrong one. Raised building parts with nothing under them are built down to the ground.
 - **Rebuilding tiles** (downloads from Overpass once, cached in `.cache/`):
 
 ```bash
@@ -94,7 +108,7 @@ Output goes to [`public/map-tiles/`](public/map-tiles) (~2.3 MB, ~950 KB gzipped
 Once the user's location is known (GPS fix, or the active hub when GPS is denied), the app asks the server to download the OpenStreetMap data for the **40 km radius around those exact coordinates**:
 
 - `POST /api/map/coverage` starts a background job; `GET /api/map/coverage?lat=&lng=` reports progress (shown as a "Map data 37%" pill). Nearest cells come first, and a tile somebody is looking at jumps the queue (it has its own lane).
-- Data is cut into 2 km cells (4 x 4 tiles of 500 m), built by the same code as the pre-built tiles ([`server/osm/tileBuilder.js`](server/osm/tileBuilder.js); the 224 pre-built tiles regenerate byte-for-byte through it), gzipped and **cached in the photo bucket** under `osm/`, so each area is downloaded from OpenStreetMap once, for everyone.
+- Data is cut into 2 km cells (4 x 4 tiles of 500 m), built by the same code as the pre-built tiles ([`server/osm/tileBuilder.js`](server/osm/tileBuilder.js); the 224 pre-built tiles regenerate byte-for-byte through it), gzipped and **cached in the photo bucket** under `osm/v<format>/` (the format version is part of the key, so improving the tile format rebuilds cells instead of serving stale ones), so each area is downloaded from OpenStreetMap once, for everyone.
 - Tiles are served by `GET /api/map/tiles/<origin>/<tx>_<ty>.json`. Near Lagos everyone shares the Victoria Island origin (`vi`); elsewhere the origin snaps to a 0.25 degree grid, so Pulse 3D works anywhere in the world. The street-walking router is still Lagos-only (elsewhere routes are estimated).
 - Downloads come from the public [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), one request at a time per lane, spaced out, with mirrors rotated on failure. It is a shared, donated service, so background work stops at a daily cap. For real traffic point `OVERPASS_URLS` at your own instance (or load a regional extract).
 

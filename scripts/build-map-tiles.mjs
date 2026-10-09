@@ -9,7 +9,7 @@
  *
  * Output (public/map-tiles/):
  *   index.json        tile list, area bounds, origin, data-quality stats
- *   <tx>_<ty>.json    one 500 m tile: buildings, roads, water, parks, land
+ *   <tx>_<ty>.json    one 500 m tile: buildings, roads, water, parks, forests, land
  *   walk-graph.json   walkable street network for in-browser routing
  *
  * Map data © OpenStreetMap contributors, ODbL. The generated tiles are a derived
@@ -22,10 +22,12 @@ import {
   areaTiles,
   buildTiles,
   buildWalkGraph,
+  serializeTile,
   extractFeatures,
   mergeElements,
   tileKey,
   BUILDING_KINDS,
+  ROOF_SHAPES,
   ROAD_CLASSES,
   TILE_SIZE_METERS,
   VI_ORIGIN as MAP_ORIGIN
@@ -145,6 +147,7 @@ async function main() {
   const features = extractFeatures(mergeElements(areaData));
   const stats = {
     buildings: { height: 0, levels: 0, default: 0 },
+    styled: { wallColour: 0, roofColour: 0, roofShape: 0 },
     replacedByParts: features.replacedByParts,
     roadMeters: 0,
     danglingPieces: 0
@@ -166,18 +169,7 @@ async function main() {
   const tileIndex = {};
   let totalBytes = 0;
   for (const tile of tiles.values()) {
-    const json = JSON.stringify({
-      v: 1,
-      tx: tile.tx,
-      ty: tile.ty,
-      origin: tile.origin,
-      buildings: tile.buildings,
-      roads: tile.roads,
-      water: tile.water,
-      green: tile.green,
-      sand: tile.sand,
-      land: tile.land
-    });
+    const json = JSON.stringify(serializeTile(tile));
     const key = tileKey(tile.tx, tile.ty);
     fs.writeFileSync(path.join(OUT_DIR, `${key}.json`), json);
     tileIndex[key] = json.length;
@@ -198,11 +190,14 @@ async function main() {
     units: 'decimeters relative to tile origin; origin in meters from map origin (x east, y north)',
     schema: {
       buildings: '[height m, minHeight m, kindIndex, outerRing, ...holeRings]',
+      bmeta: '{ buildingIndex: [wall rgb, roof rgb, roofShapeIndex, roofHeight dm, heightIncludesRoof] } (optional, only styled buildings)',
+      forest: '[outerRing, ...holeRings] woods and forests (optional)',
       roads: '[classIndex, width dm, isBridge, points]',
       surfaces: '[outerRing, ...holeRings] for water / green / sand',
       land: '1 = all land, 0 = all water, else land rings'
     },
     buildingKinds: BUILDING_KINDS,
+    roofShapes: ROOF_SHAPES,
     roadClasses: ROAD_CLASSES,
     areas,
     tiles: tileIndex,
@@ -211,6 +206,9 @@ async function main() {
       heightFromTag: stats.buildings.height,
       heightFromLevels: stats.buildings.levels,
       heightDefaulted: stats.buildings.default,
+      withWallColour: stats.styled.wallColour,
+      withRoofColour: stats.styled.roofColour,
+      withRoofShape: stats.styled.roofShape,
       outlinesReplacedByParts: stats.replacedByParts,
       roadKm: Math.round(stats.roadMeters / 100) / 10,
       coastlineChains: features.coastline.length,
@@ -225,6 +223,7 @@ async function main() {
   console.log(`  tiles:      ${kb(totalBytes)} total, largest ${kb(Math.max(...Object.values(tileIndex)))}`);
   console.log(`  walk graph: ${kb(graphJson.length)} (${index.stats.walkGraph.nodes} nodes, ${index.stats.walkGraph.edges} edges)`);
   console.log(`  buildings:  ${totalBuildings} — height tag ${pct(stats.buildings.height)}, levels ${pct(stats.buildings.levels)}, defaulted ${pct(stats.buildings.default)}`);
+  console.log(`  styling:    wall colour ${stats.styled.wallColour}, roof colour ${stats.styled.roofColour}, roof shape ${stats.styled.roofShape}`);
   console.log(`  roads:      ${index.stats.roadKm} km`);
   console.log(`  coastline:  ${features.coastline.length} chains, ${stats.danglingPieces} dangling pieces`);
 }

@@ -10,6 +10,18 @@
  * [tx * 500, (tx + 1) * 500) x [ty * 500, (ty + 1) * 500).
  */
 
+import {
+  BUILDING_KINDS,
+  ROOF_SHAPES,
+  areaKind,
+  buildingHeights,
+  buildingKind,
+  buildingStyle,
+  parseMeters
+} from './osmTags.js';
+
+export { BUILDING_KINDS, ROOF_SHAPES };
+
 export const TILE_SIZE_METERS = 500;
 export const VI_ORIGIN = { latitude: 6.4281, longitude: 3.4219 };
 
@@ -209,58 +221,7 @@ const polylineLength = (pts) =>
 // 3. Feature extraction
 // ---------------------------------------------------------------------------
 
-function parseMeters(value) {
-  if (value == null) return null;
-  const match = /^\s*([\d.]+)\s*(m|ft|'|)?/i.exec(String(value).replace(',', '.'));
-  if (!match) return null;
-  const n = parseFloat(match[1]);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return /ft|'/i.test(match[2] ?? '') ? n * 0.3048 : n;
-}
-
-export const BUILDING_KINDS = ['other', 'residential', 'commercial', 'industrial', 'civic', 'religious'];
-const KIND_BY_TYPE = {
-  house: 'residential', detached: 'residential', semidetached_house: 'residential', terrace: 'residential',
-  residential: 'residential', apartments: 'residential', dormitory: 'residential',
-  commercial: 'commercial', office: 'commercial', retail: 'commercial', hotel: 'commercial', supermarket: 'commercial',
-  industrial: 'industrial', warehouse: 'industrial', factory: 'industrial', hangar: 'industrial',
-  school: 'civic', university: 'civic', college: 'civic', hospital: 'civic', government: 'civic', public: 'civic',
-  civic: 'civic', stadium: 'civic', train_station: 'civic', transportation: 'civic',
-  church: 'religious', mosque: 'religious', cathedral: 'religious', chapel: 'religious', temple: 'religious'
-};
-const DEFAULT_HEIGHT_BY_TYPE = {
-  house: 7, detached: 7, semidetached_house: 7, terrace: 7, residential: 9, apartments: 15, dormitory: 12,
-  commercial: 12, office: 18, retail: 6, hotel: 24, supermarket: 7,
-  industrial: 9, warehouse: 9, factory: 10, hangar: 12,
-  school: 9, university: 12, college: 12, hospital: 12, government: 12, public: 10, civic: 10,
-  church: 12, mosque: 12, cathedral: 18,
-  garage: 3, garages: 3, shed: 3, hut: 3, kiosk: 3, roof: 4, carport: 3, container: 3
-};
-const LEVEL_HEIGHT = 3;
-
-function defaultHeight(type, footprintArea) {
-  if (DEFAULT_HEIGHT_BY_TYPE[type]) return DEFAULT_HEIGHT_BY_TYPE[type];
-  // Untyped buildings ("yes"): bigger footprints are usually taller in Lagos' commercial districts
-  if (footprintArea < 100) return 4;
-  if (footprintArea < 400) return 7;
-  if (footprintArea < 1500) return 10;
-  return 14;
-}
-
-function buildingHeights(tags, footprintArea) {
-  const type = tags.building && tags.building !== 'yes' ? tags.building : tags['building:part'] ?? 'yes';
-  const minHeight =
-    parseMeters(tags.min_height) ??
-    (tags['building:min_level'] ? parseFloat(tags['building:min_level']) * LEVEL_HEIGHT : 0);
-  const height = parseMeters(tags.height);
-  if (height) return { height, minHeight, source: 'height', type };
-  const levels = parseFloat(tags['building:levels']);
-  if (Number.isFinite(levels) && levels > 0) {
-    return { height: levels * LEVEL_HEIGHT + (tags['roof:levels'] ? 1.5 : 0), minHeight, source: 'levels', type };
-  }
-  return { height: defaultHeight(type, footprintArea), minHeight, source: 'default', type };
-}
-
+// Tag reading (heights, colours, roof shapes, building kinds, ground classes) lives in osmTags.js
 export const ROAD_CLASSES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service', 'footway', 'track'];
 const ROAD_CLASS_BY_HIGHWAY = {
   motorway: 'motorway', motorway_link: 'motorway', trunk: 'trunk', trunk_link: 'trunk',
@@ -298,13 +259,6 @@ function isWalkable(tags) {
   return tags.area !== 'yes';
 }
 
-function surfaceKind(tags) {
-  if (tags.natural === 'water' || tags.waterway === 'riverbank') return 'water';
-  if (tags.natural === 'beach' || tags.natural === 'sand') return 'sand';
-  if (tags.natural === 'wetland' || tags.landuse || tags.leisure) return 'green';
-  return null;
-}
-
 /** Merges all areas' elements, de-duplicating ways/relations fetched by more than one area */
 export function mergeElements(areaData) {
   const byKey = new Map();
@@ -313,6 +267,9 @@ export function mergeElements(areaData) {
   }
   return [...byKey.values()];
 }
+
+/** The outline is replaced by its building:part polygons once they cover at least this much of it */
+const PARTS_REPLACE_OUTLINE_FROM = 0.6;
 
 export function extractFeatures(elements) {
   const buildings = [];
@@ -343,7 +300,13 @@ export function extractFeatures(elements) {
       for (const poly of polygons ?? []) {
         const area = Math.abs(ringSignedArea(poly.outer));
         if (area < 4) continue; // slivers / mapping noise
-        const feature = { ...poly, area, ...buildingHeights(tags, area) };
+        const feature = {
+          ...poly,
+          area,
+          ...buildingHeights(tags, area),
+          kind: buildingKind(tags),
+          style: buildingStyle(tags)
+        };
         (tags['building:part'] ? buildingParts : buildings).push(feature);
       }
       continue;
@@ -369,19 +332,22 @@ export function extractFeatures(elements) {
       continue;
     }
 
-    const kind = surfaceKind(tags);
+    const kind = areaKind(tags);
     if (kind) {
       for (const poly of polygons ?? []) surfaces.push({ kind, ...poly });
     }
   }
 
-  // Where a building is modelled as parts (typical for towers), draw the parts, not the outline
-  const partCentroids = buildingParts.map((p) => ringCentroid(p.outer));
+  // Where a building is modelled as parts, draw the parts instead of the outline: but only when the
+  // parts cover most of it. A single tower part inside a big podium outline must not delete the podium.
+  const partInfo = buildingParts.map((p) => ({ centroid: ringCentroid(p.outer), area: p.area }));
   const outlines = buildings.filter((b) => {
     const [minX, minY, maxX, maxY] = bboxOf(b.outer);
-    return !partCentroids.some(
-      ([x, y]) => x >= minX && x <= maxX && y >= minY && y <= maxY && pointInRing([x, y], b.outer)
-    );
+    let covered = 0;
+    for (const { centroid: [x, y], area } of partInfo) {
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY && pointInRing([x, y], b.outer)) covered += area;
+    }
+    return covered < b.area * PARTS_REPLACE_OUTLINE_FROM;
   });
 
   return {
@@ -564,7 +530,7 @@ export function buildTiles(tileList, features, stats) {
       const rect = [origin[0], origin[1], origin[0] + TILE_SIZE_METERS, origin[1] + TILE_SIZE_METERS];
       return [
         tileKey(tx, ty),
-        { tx, ty, origin, rect, buildings: [], roads: [], water: [], green: [], sand: [], land: 1 }
+        { tx, ty, origin, rect, buildings: [], bmeta: {}, roads: [], water: [], green: [], forest: [], sand: [], land: 1 }
       ];
     })
   );
@@ -575,10 +541,20 @@ export function buildTiles(tileList, features, stats) {
     const tile = tiles.get(tileKey(...tileForMeters(cx, cy)));
     if (!tile) continue;
     stats.buildings[b.source]++;
+    // Colours and roof only for the buildings that have them: [wall rgb, roof rgb, roof shape, roof height dm, top includes roof]
+    const { wall, roof, shape, roofHeight } = b.style;
+    if (wall || roof || shape || roofHeight) {
+      tile.bmeta[tile.buildings.length] = [wall, roof, shape, dm(roofHeight), b.topIncludesRoof ? 1 : 0];
+      if (stats.styled) {
+        if (wall) stats.styled.wallColour++;
+        if (roof) stats.styled.roofColour++;
+        if (shape) stats.styled.roofShape++;
+      }
+    }
     tile.buildings.push([
       Math.round(b.height * 10) / 10,
       Math.round(b.minHeight * 10) / 10,
-      BUILDING_KINDS.indexOf(KIND_BY_TYPE[b.type] ?? 'other'),
+      Math.max(0, BUILDING_KINDS.indexOf(b.kind)),
       encodePoints(b.outer, tile.origin),
       ...b.holes.map((h) => encodePoints(h, tile.origin))
     ]);
@@ -657,3 +633,33 @@ export function buildWalkGraph(walkWays) {
   return { nodes, edges };
 }
 
+
+
+// ---------------------------------------------------------------------------
+// 7. Serialising a tile (shared by the static tiles and the on-demand bundles)
+// ---------------------------------------------------------------------------
+
+/** Bump when the tile format gains something old cached tiles do not have */
+export const TILE_FORMAT_VERSION = 2;
+
+/**
+ * The tile as written to disk / the cache. Optional parts (forest, per-building style) are left out
+ * when empty, so tiles without them stay as small as before.
+ */
+export function serializeTile(tile) {
+  const out = {
+    v: TILE_FORMAT_VERSION,
+    tx: tile.tx,
+    ty: tile.ty,
+    origin: tile.origin,
+    buildings: tile.buildings,
+    roads: tile.roads,
+    water: tile.water,
+    green: tile.green,
+    sand: tile.sand,
+    land: tile.land
+  };
+  if (tile.forest?.length) out.forest = tile.forest;
+  if (tile.bmeta && Object.keys(tile.bmeta).length) out.bmeta = tile.bmeta;
+  return out;
+}

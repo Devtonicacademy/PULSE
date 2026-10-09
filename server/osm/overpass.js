@@ -23,14 +23,14 @@ export function overpassQuery([s, w, n, e], timeoutSeconds = 180) {
   relation["building"]["type"="multipolygon"](${bbox});
   way["highway"](${bbox});
   way["natural"="coastline"](${bbox});
-  way["natural"~"^(water|wetland|beach|sand)$"](${bbox});
-  relation["natural"~"^(water|wetland)$"](${bbox});
+  way["natural"~"^(water|bay|wetland|beach|sand|wood|scrub|grassland|heath)$"](${bbox});
+  relation["natural"~"^(water|bay|wetland|wood|scrub|grassland|heath)$"](${bbox});
   way["waterway"="riverbank"](${bbox});
   relation["waterway"="riverbank"](${bbox});
-  way["landuse"~"^(grass|forest|recreation_ground|cemetery|meadow|village_green)$"](${bbox});
-  relation["landuse"~"^(grass|forest|recreation_ground|cemetery|meadow|village_green)$"](${bbox});
-  way["leisure"~"^(park|garden|pitch|golf_course|playground|stadium)$"](${bbox});
-  relation["leisure"~"^(park|garden|golf_course)$"](${bbox});
+  way["landuse"~"^(grass|forest|recreation_ground|cemetery|meadow|village_green|farmland|orchard|vineyard|allotments|flowerbed|greenfield|reservoir|basin)$"](${bbox});
+  relation["landuse"~"^(grass|forest|recreation_ground|cemetery|meadow|village_green|farmland|orchard|vineyard|allotments|reservoir|basin)$"](${bbox});
+  way["leisure"~"^(park|garden|pitch|golf_course|playground|dog_park|common|swimming_pool)$"](${bbox});
+  relation["leisure"~"^(park|garden|golf_course|common)$"](${bbox});
 );
 out body geom;`;
 }

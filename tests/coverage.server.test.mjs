@@ -10,7 +10,8 @@ import {
   cellsInRadius,
   createCoverageService,
   originFor,
-  parseOriginId
+  parseOriginId,
+  storageKey
 } from '../server/osm/coverage.js';
 import { createProjection, VI_ORIGIN } from '../server/osm/tileBuilder.js';
 
@@ -121,12 +122,12 @@ test('a corrupt cached cell is rebuilt instead of crashing', async () => {
   const { coverage, overpass, storage, cleanup } = await setup();
   try {
     const origin = originFor(LAGOS.lat, LAGOS.lng);
-    await storage.putMapData('osm/vi/0_0.json.gz', Buffer.from('not gzip at all'));
+    await storage.putMapData(storageKey('vi', 0, 0), Buffer.from('not gzip at all'));
     assert.ok(await coverage.getTile(origin, 0, 0));
     assert.equal(overpass.calls.length, 1);
     // A well-formed object that is not a bundle is a miss too
     const { gzipSync } = await import('node:zlib');
-    await storage.putMapData('osm/vi/5_5.json.gz', gzipSync(JSON.stringify({ hello: 'world' })));
+    await storage.putMapData(storageKey('vi', 5, 5), gzipSync(JSON.stringify({ hello: 'world' })));
     assert.ok(await coverage.getTile(origin, 20, 20));
     assert.equal(overpass.calls.length, 2);
   } finally {
@@ -272,6 +273,22 @@ test('HTTP routes: tiles, coverage start / status, validation and rate limit', a
     assert.equal((await post({ latitude: 6.7, longitude: 3.4, radiusKm: 2 })).status, 429);
   } finally {
     server.close();
+    await cleanup();
+  }
+});
+
+test('the versioned cache key is one the storage drivers accept, and look-alikes are still refused', async () => {
+  const { dir, cleanup } = await setup();
+  try {
+    const storage = createFsStorage(path.join(dir, 'photos'));
+    const good = storageKey('vi', 3, -4);
+    assert.match(good, /^osm\/v\d+\/vi\/3_-4\.json\.gz$/);
+    await storage.putMapData(good, Buffer.from('x'));
+    assert.equal((await storage.getMapData(good)).toString(), 'x');
+    await assert.rejects(storage.putMapData('osm/v2/../../etc/passwd', Buffer.from('x')));
+    await assert.rejects(storage.putMapData('osm/vx/vi/0_0.json.gz', Buffer.from('x')));
+    await assert.rejects(storage.putMapData('osm/v2/v3/vi/0_0.json.gz', Buffer.from('x')));
+  } finally {
     await cleanup();
   }
 });

@@ -23,7 +23,16 @@ export interface MapTile {
   buildings: TileBuilding[];
   roads: TileRoad[];
   water: TileSurface[];
+  /** Parks, gardens, grass, farmland: clean grass-coloured ground */
   green: TileSurface[];
+  /** Woods and forests: darker ground with trees (absent in tiles built before forests were read) */
+  forest?: TileSurface[];
+  /**
+   * Colours and roof of the buildings that OpenStreetMap describes (absent when none do), by index into
+   * `buildings`: [wall rgb, roof rgb, roof shape index, roof height dm, height includes the roof]
+   * (rgb 0 = not mapped; shape 0 = flat / not mapped)
+   */
+  bmeta?: Record<string, number[]>;
   sand: TileSurface[];
   /** 1 = all land, 0 = all water, else land rings */
   land: 0 | 1 | FlatPoints[];
@@ -55,5 +64,8 @@ export interface WalkGraph {
   /** [nodeA, nodeB, length dm, interior points (flat dm, absolute)] */
   edges: [number, number, number, FlatPoints][];
 }
+
+/** Roof shapes by the index tiles store (0 = flat / not mapped) */
+export const ROOF_SHAPE_NAMES = ['flat', 'gabled', 'hipped', 'pyramidal', 'skillion', 'dome'] as const;
 
 export const MAP_TILES_BASE_URL = '/map-tiles/';

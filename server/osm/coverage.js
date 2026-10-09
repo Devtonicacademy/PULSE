@@ -3,9 +3,11 @@ import { promisify } from 'node:util';
 import {
   TILE_SIZE_METERS,
   VI_ORIGIN,
+  TILE_FORMAT_VERSION,
   buildTiles,
   createProjection,
   extractFeatures,
+  serializeTile,
   tileKey,
   withOrigin
 } from './tileBuilder.js';
@@ -90,7 +92,9 @@ export function cellsInRadius(origin, lat, lng, radiusKm) {
   return cells.sort((a, b) => a.centerDist - b.centerDist);
 }
 
-const storageKey = (originId, cx, cy) => `osm/${originId}/${cx}_${cy}.json.gz`;
+// The format version is part of the key: cells built before forests / building styles existed are
+// simply never read again and get rebuilt from OpenStreetMap on their next visit
+export const storageKey = (originId, cx, cy) => `osm/v${TILE_FORMAT_VERSION}/${originId}/${cx}_${cy}.json.gz`;
 const cellId = (originId, cx, cy) => `${originId}:${cx}_${cy}`;
 
 /** Builds every tile of a cell from the Overpass elements (pure; no I/O) */
@@ -101,23 +105,12 @@ export function buildCellBundle(elements, origin, cx, cy) {
     for (let tx = cx * BLOCK_TILES; tx < (cx + 1) * BLOCK_TILES; tx++) {
       for (let ty = cy * BLOCK_TILES; ty < (cy + 1) * BLOCK_TILES; ty++) tileList.push([tx, ty]);
     }
-    const stats = { buildings: { height: 0, levels: 0, default: 0 }, replacedByParts: 0, roadMeters: 0, danglingPieces: 0 };
+    const stats = { buildings: { height: 0, levels: 0, default: 0 }, styled: { wallColour: 0, roofColour: 0, roofShape: 0 }, replacedByParts: 0, roadMeters: 0, danglingPieces: 0 };
     const tiles = {};
     for (const tile of buildTiles(tileList, features, stats).values()) {
-      tiles[tileKey(tile.tx, tile.ty)] = {
-        v: 1,
-        tx: tile.tx,
-        ty: tile.ty,
-        origin: tile.origin,
-        buildings: tile.buildings,
-        roads: tile.roads,
-        water: tile.water,
-        green: tile.green,
-        sand: tile.sand,
-        land: tile.land
-      };
+      tiles[tileKey(tile.tx, tile.ty)] = serializeTile(tile);
     }
-    return { v: 1, cx, cy, builtAt: new Date().toISOString(), tiles };
+    return { v: TILE_FORMAT_VERSION, cx, cy, builtAt: new Date().toISOString(), tiles };
   });
 }
 

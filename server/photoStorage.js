@@ -5,8 +5,8 @@ import { AwsClient } from 'aws4fetch';
 // Object keys are `<firebase uid>/<uuid>.<webp|jpg>`; anything else is refused before it reaches a driver
 const KEY_PATTERN = /^[A-Za-z0-9]{1,128}\/[0-9a-f-]{36}\.(webp|jpg)$/;
 
-// Cached map data lives next to the photos: `osm/<origin id>/<cellX>_<cellY>.json.gz`
-const MAP_KEY_PATTERN = /^osm\/[A-Za-z0-9._-]{1,40}\/-?\d{1,5}_-?\d{1,5}\.json\.gz$/;
+// Cached map data lives next to the photos: `osm/v<format>/<origin id>/<cellX>_<cellY>.json.gz`
+const MAP_KEY_PATTERN = /^osm\/(v\d{1,3}\/)?[A-Za-z0-9._-]{1,40}\/-?\d{1,5}_-?\d{1,5}\.json\.gz$/;
 
 function assertKey(key) {
   if (!KEY_PATTERN.test(key)) throw new Error('Invalid photo key');

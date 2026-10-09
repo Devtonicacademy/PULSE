@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import type { MapTile, FlatPoints, TileSurface } from './tileFormat';
+import { ROOF_SHAPE_NAMES } from './tileFormat';
 import type { PulseMaterials } from './materials';
 import { LAYER_RENDER_ORDER } from './layerOrder';
 import { groundedMinHeights } from './buildingSupport';
+import { buildRoof, defaultRoofHeight, orientedBox } from './roofShapes';
+import type { PitchedShape } from './roofShapes';
 
 /**
  * A tile is built in two steps so the heavy one can run in a Web Worker:
@@ -15,7 +18,7 @@ export interface LayerData {
   attributes: Record<string, { array: Float32Array; itemSize: number }>;
 }
 
-export type LayerName = 'land' | 'water' | 'green' | 'sand' | 'roads' | 'buildings' | 'trees' | 'lamps';
+export type LayerName = 'land' | 'water' | 'green' | 'forest' | 'sand' | 'roads' | 'buildings' | 'trees' | 'lamps';
 
 export interface TileGeometry {
   tx: number;
@@ -44,6 +47,8 @@ const hex = (c: string) => parseInt(c.slice(1), 16);
 // Facade tints per building kind (other, residential, commercial, industrial, civic, religious)
 const KIND_COLORS = [0x34405e, 0x3a3d5c, 0x2f4470, 0x3d3d48, 0x354a63, 0x4a3d63].map((c) => new THREE.Color(c));
 const ROOF_DARKEN = 0.7;
+/** Real paint colours from OpenStreetMap are taken at this strength so they sit in the scene's light */
+const REAL_COLOUR_SCALE = 0.9;
 
 // Glow colour per road class (motorway … track), brightest for the arterials
 const ROAD_EDGE_COLORS = [
@@ -52,7 +57,7 @@ const ROAD_EDGE_COLORS = [
 const BRIDGE_EDGE_COLOR = new THREE.Color(ANCHORS.accent);
 const BRIDGE_LIFT = 0.6;
 
-const SURFACE_HEIGHT = { land: 0.01, green: 0.03, sand: 0.03, water: 0.02 };
+const SURFACE_HEIGHT = { land: 0.01, green: 0.03, forest: 0.03, sand: 0.03, water: 0.02 };
 
 function toRing(flat: FlatPoints): THREE.Vector2[] {
   const ring: THREE.Vector2[] = [];
@@ -325,12 +330,34 @@ function buildBuildings(tile: MapTile): LayerData | null {
     const outer = toRing(outerFlat);
     const holes = holeFlats.map(toRing);
     const seed = seedFor(tile, index) * 100;
-    const roof = Math.max(height, minHeight + 1);
     const area = Math.abs(signedArea(outer));
-    const hasParapet = !holes.length && outer.length >= 4 && area >= PARAPET_MIN_AREA && roof >= PARAPET_MIN_HEIGHT;
+
+    // What OpenStreetMap says about this building's paint and roof (only some buildings have it)
+    const meta = tile.bmeta?.[index];
+    const shape = meta ? ROOF_SHAPE_NAMES[meta[2]] : 'flat';
+    let pitched: ReturnType<typeof buildRoof> = null;
+    let eaves = Math.max(height, minHeight + 1);
+    if (meta && shape !== 'flat' && !holes.length) {
+      const box = orientedBox(outer);
+      if (box) {
+        const rise = meta[3] > 0 ? meta[3] / 10 : defaultRoofHeight(shape as PitchedShape, box);
+        const top = Math.max(height, minHeight + 1) + (meta[4] ? 0 : rise);
+        eaves = Math.max(minHeight + 1, top - rise);
+        pitched = buildRoof(outer, shape as PitchedShape, eaves, Math.min(rise, top - eaves));
+      }
+    }
+
+    const roof = pitched ? eaves : Math.max(height, minHeight + 1);
+    const hasParapet = !pitched && !holes.length && outer.length >= 4 && area >= PARAPET_MIN_AREA && roof >= PARAPET_MIN_HEIGHT;
     const wallTop = hasParapet ? roof + PARAPET_HEIGHT : roof;
-    color.copy(KIND_COLORS[kind] ?? KIND_COLORS[0]);
-    roofColor.copy(color).multiplyScalar(ROOF_DARKEN);
+    if (meta && meta[0]) {
+      // The real paint, a touch deeper so it sits in the scene's lighting
+      color.setHex(meta[0]).multiplyScalar(REAL_COLOUR_SCALE);
+    } else {
+      color.copy(KIND_COLORS[kind] ?? KIND_COLORS[0]);
+    }
+    if (meta && meta[1]) roofColor.setHex(meta[1]).multiplyScalar(REAL_COLOUR_SCALE);
+    else roofColor.copy(color).multiplyScalar(ROOF_DARKEN);
 
     // Walls (outer walls rise past the roof to form the parapet's outside face)
     [outer, ...holes].forEach((ring, ringIndex) => {
@@ -352,13 +379,25 @@ function buildBuildings(tile: MapTile): LayerData | null {
       }
     });
 
-    // Roof
-    const capStart = buf.positions.length;
-    pushCap(buf.positions, buf.normals, outer, holes, roof);
-    for (let v = capStart; v < buf.positions.length; v += 3) {
-      buf.colors.push(roofColor.r, roofColor.g, roofColor.b);
-      buf.facade.push(0, roof, seed, 0);
-      buf.surface.push(kind, SURFACE_ROOF);
+    // Roof: flat deck, or a pitched roof (a dome still needs the deck under it)
+    if (!pitched || pitched.needsFlatDeck) {
+      const capStart = buf.positions.length;
+      pushCap(buf.positions, buf.normals, outer, holes, roof);
+      for (let v = capStart; v < buf.positions.length; v += 3) {
+        buf.colors.push(roofColor.r, roofColor.g, roofColor.b);
+        buf.facade.push(0, roof, seed, 0);
+        buf.surface.push(kind, SURFACE_ROOF);
+      }
+    }
+    if (pitched) {
+      for (let v = 0; v < pitched.roof.length; v += 3) {
+        pushVertex(buf, pitched.roof[v], pitched.roof[v + 1], pitched.roof[v + 2], pitched.roofNormals[v], pitched.roofNormals[v + 1], pitched.roofNormals[v + 2], roofColor, 0, pitched.roof[v + 1], seed, 0, kind, SURFACE_ROOF);
+      }
+      for (let v = 0; v < pitched.gables.length; v += 3) {
+        // Gable ends are wall: same paint and windows as the rest of the facade
+        const u = pitched.gables[v] + pitched.gables[v + 2];
+        pushVertex(buf, pitched.gables[v], pitched.gables[v + 1], pitched.gables[v + 2], pitched.gableNormals[v], pitched.gableNormals[v + 1], pitched.gableNormals[v + 2], color, u, pitched.gables[v + 1], seed, eaves, kind, SURFACE_WALL);
+      }
     }
 
     if (hasParapet) {
@@ -387,7 +426,7 @@ function buildBuildings(tile: MapTile): LayerData | null {
       }
     }
 
-    if (area >= CLUTTER_MIN_AREA && roof >= CLUTTER_MIN_HEIGHT && !holes.length) {
+    if (!pitched && area >= CLUTTER_MIN_AREA && roof >= CLUTTER_MIN_HEIGHT && !holes.length) {
       pushRooftopClutter(buf, outer, area, roof, seed, kind);
     }
   });
@@ -470,13 +509,14 @@ function buildSurfaces(polygons: TileSurface[], y: number, name: LayerName): Lay
     pushCap(positions, normals, toRing(outerFlat), holeFlats.map(toRing), y);
   }
   if (!positions.length) return null;
-  return layer(name, LAYER_RENDER_ORDER[name as 'land' | 'water' | 'sand' | 'green'], { position: [positions, 3], normal: [normals, 3] });
+  return layer(name, LAYER_RENDER_ORDER[name as 'land' | 'water' | 'sand' | 'green' | 'forest'], { position: [positions, 3], normal: [normals, 3] });
 }
 
 // --- Street props: trees in parks and lamp posts along the main roads --------------------
 
-const TREE_SPACING = 11; // meters between trees in a park
-const MAX_TREES_PER_TILE = 350;
+const TREE_SPACING = 7; // meters between trees in a wood (wider when a huge forest would exceed the budget)
+const MAX_TREE_SPACING = 28;
+const MAX_TREES_PER_TILE = 420;
 const LAMP_SPACING = 34;
 const LAMP_MAX_ROAD_CLASS = 5; // up to residential streets
 const MAX_LAMPS_PER_TILE = 220;
@@ -554,9 +594,14 @@ function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData 
   const glow: PropBuffers = { positions: [], normals: [], colors: [] };
   const rand = mulberry32(((tile.tx * 73856093) ^ (tile.ty * 19349663)) >>> 0);
 
-  // Trees on a jittered grid inside each park polygon
+  // Trees on a jittered grid inside each wood / forest polygon. Grass, parks and pitches stay clean
+  // planes. A huge forest gets wider spacing so a tile never exceeds its tree budget.
+  const woods = tile.forest ?? [];
+  let woodArea = 0;
+  for (const [outerFlat] of woods) woodArea += Math.abs(signedArea(toRing(outerFlat)));
+  const spacing = Math.min(MAX_TREE_SPACING, Math.max(TREE_SPACING, Math.sqrt(woodArea / MAX_TREES_PER_TILE)));
   let trees = 0;
-  for (const [outerFlat, ...holeFlats] of tile.green) {
+  for (const [outerFlat, ...holeFlats] of woods) {
     if (trees >= MAX_TREES_PER_TILE) break;
     const outer = toRing(outerFlat);
     if (outer.length < 3) continue;
@@ -564,12 +609,12 @@ function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData 
     const xs = outer.map((p) => p.x);
     const ys = outer.map((p) => p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-    for (let gx = minX + TREE_SPACING / 2; gx < maxX && trees < MAX_TREES_PER_TILE; gx += TREE_SPACING) {
-      for (let gy = minY + TREE_SPACING / 2; gy < maxY && trees < MAX_TREES_PER_TILE; gy += TREE_SPACING) {
-        const p = new THREE.Vector2(gx + (rand() - 0.5) * TREE_SPACING * 0.7, gy + (rand() - 0.5) * TREE_SPACING * 0.7);
+    for (let gx = minX + spacing / 2; gx < maxX && trees < MAX_TREES_PER_TILE; gx += spacing) {
+      for (let gy = minY + spacing / 2; gy < maxY && trees < MAX_TREES_PER_TILE; gy += spacing) {
+        const p = new THREE.Vector2(gx + (rand() - 0.5) * spacing * 0.7, gy + (rand() - 0.5) * spacing * 0.7);
         if (!pointInRing(p, outer) || holes.some((h) => pointInRing(p, h))) continue;
         const size = 0.75 + rand() * 0.6;
-        const ground = SURFACE_HEIGHT.green;
+        const ground = SURFACE_HEIGHT.forest;
         pushPrism(solid, p.x, p.y, ground, ground + 2 * size, 0.2 * size, 0.14 * size, 4, TRUNK_COLOR);
         const color = CANOPY_COLORS[Math.floor(rand() * CANOPY_COLORS.length)];
         pushCanopy(solid, p.x, p.y, ground + 2.4 * size, 1.7 * size, 2.6 * size, 1.1 * size, color);
@@ -625,6 +670,7 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     buildSurfaces(landPolygons, SURFACE_HEIGHT.land, 'land'),
     buildSurfaces(waterPolygons, SURFACE_HEIGHT.water, 'water'),
     buildSurfaces(tile.green, SURFACE_HEIGHT.green, 'green'),
+    buildSurfaces(tile.forest ?? [], SURFACE_HEIGHT.forest, 'forest'),
     buildSurfaces(tile.sand, SURFACE_HEIGHT.sand, 'sand'),
     buildRoads(tile),
     buildBuildings(tile),
@@ -647,6 +693,7 @@ export function assembleTileGroup(data: TileGeometry, materials: PulseMaterials)
     land: materials.land,
     water: materials.water,
     green: materials.green,
+    forest: materials.forest,
     sand: materials.sand,
     roads: materials.road,
     buildings: materials.building,
