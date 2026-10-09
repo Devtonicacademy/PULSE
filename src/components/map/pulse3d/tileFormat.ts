@@ -12,6 +12,9 @@ export type TileBuilding = [number, number, number, FlatPoints, ...FlatPoints[]]
 /** [classIndex, width dm, isBridge (0|1), points] */
 export type TileRoad = [number, number, 0 | 1, FlatPoints];
 
+/** [kindIndex (wall, fence, hedge), height dm, points] */
+export type TileBarrier = [number, number, FlatPoints];
+
 /** [outerRing, ...holeRings] */
 export type TileSurface = [FlatPoints, ...FlatPoints[]];
 
@@ -22,6 +25,8 @@ export interface MapTile {
   origin: [number, number];
   buildings: TileBuilding[];
   roads: TileRoad[];
+  /** Fences, compound walls and hedges (absent in tiles built before barriers were read) */
+  barriers?: TileBarrier[];
   water: TileSurface[];
   /** Parks, gardens, grass, farmland: clean grass-coloured ground */
   green: TileSurface[];

@@ -18,7 +18,7 @@ export interface LayerData {
   attributes: Record<string, { array: Float32Array; itemSize: number }>;
 }
 
-export type LayerName = 'land' | 'water' | 'green' | 'forest' | 'sand' | 'roads' | 'buildings' | 'trees' | 'lamps';
+export type LayerName = 'land' | 'water' | 'green' | 'forest' | 'sand' | 'roads' | 'barriers' | 'buildings' | 'trees' | 'lamps';
 
 export interface TileGeometry {
   tx: number;
@@ -589,6 +589,48 @@ function pushCanopy(buf: PropBuffers, x: number, y: number, mid: number, radius:
   }
 }
 
+// --- Fences, compound walls and hedges ------------------------------------------------------
+
+const BARRIER_COLORS = [0x6b7080, 0x7a8190, 0x1f5a32].map((c) => new THREE.Color(c));
+const BARRIER_THICKNESS = [0.25, 0.1, 0.7];
+const MAX_BARRIER_SEGMENTS_PER_TILE = 3000;
+
+function buildBarriers(tile: MapTile): LayerData | null {
+  const buf: PropBuffers = { positions: [], normals: [], colors: [] };
+  let segments = 0;
+  for (const [kind, heightDm, flat] of tile.barriers ?? []) {
+    const pts = toRing(flat);
+    const half = BARRIER_THICKNESS[kind] / 2;
+    const top = heightDm / 10;
+    const color = BARRIER_COLORS[kind];
+    for (let i = 0; i < pts.length - 1 && segments < MAX_BARRIER_SEGMENTS_PER_TILE; i++, segments++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const len = a.distanceTo(b);
+      if (len < 0.2) continue;
+      const dx = (b.x - a.x) / len;
+      const dy = (b.y - a.y) / len;
+      // Extended by half the thickness at both ends so corners close up
+      const sx = a.x - dx * half, sy = a.y - dy * half, ex = b.x + dx * half, ey = b.y + dy * half;
+      const nx = -dy * half, ny = dx * half;
+      const v = (x: number, y: number, h: number) => new THREE.Vector3(x, h, -y);
+      const lo = [v(sx + nx, sy + ny, 0.03), v(ex + nx, ey + ny, 0.03), v(ex - nx, ey - ny, 0.03), v(sx - nx, sy - ny, 0.03)];
+      const hi = lo.map((p) => new THREE.Vector3(p.x, top, p.z));
+      const inside = new THREE.Vector3((a.x + b.x) / 2, top / 2, -(a.y + b.y) / 2);
+      for (let k = 0; k < 4; k++) {
+        const j = (k + 1) % 4;
+        pushFlatTriangle(buf, lo[k], lo[j], hi[j], inside, color);
+        pushFlatTriangle(buf, lo[k], hi[j], hi[k], inside, color);
+      }
+      pushFlatTriangle(buf, hi[0], hi[1], hi[2], inside, color);
+      pushFlatTriangle(buf, hi[0], hi[2], hi[3], inside, color);
+    }
+  }
+  return buf.positions.length
+    ? layer('barriers', LAYER_RENDER_ORDER.solid, { position: [buf.positions, 3], normal: [buf.normals, 3], color: [buf.colors, 3] })
+    : null;
+}
+
 function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData | null } {
   const solid: PropBuffers = { positions: [], normals: [], colors: [] };
   const glow: PropBuffers = { positions: [], normals: [], colors: [] };
@@ -674,6 +716,7 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     buildSurfaces(tile.sand, SURFACE_HEIGHT.sand, 'sand'),
     buildRoads(tile),
     buildBuildings(tile),
+    buildBarriers(tile),
     props.trees,
     props.lamps
   ].filter((l): l is LayerData => l !== null);
@@ -696,6 +739,7 @@ export function assembleTileGroup(data: TileGeometry, materials: PulseMaterials)
     forest: materials.forest,
     sand: materials.sand,
     roads: materials.road,
+    barriers: materials.prop,
     buildings: materials.building,
     trees: materials.prop,
     lamps: materials.lamp

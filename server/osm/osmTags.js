@@ -17,7 +17,7 @@
 const HARD_SURFACES = new Set(['asphalt', 'concrete', 'paved', 'tartan', 'artificial_turf_hard', 'paving_stones', 'wood']);
 
 const FOREST_LANDUSE = new Set(['forest']);
-const FOREST_NATURAL = new Set(['wood']);
+const FOREST_NATURAL = new Set(['wood', 'tree_cover']);
 const GREEN_LANDUSE = new Set([
   'grass', 'meadow', 'village_green', 'recreation_ground', 'cemetery', 'farmland', 'orchard', 'vineyard',
   'allotments', 'flowerbed', 'greenfield', 'plant_nursery'
@@ -33,6 +33,8 @@ const WATER_LANDUSE = new Set(['reservoir', 'basin']);
  */
 export function areaKind(tags) {
   const { natural, landuse, leisure, waterway } = tags;
+  // Mangrove swamp is mapped as wetland but reads as forest: it is where Lagos streets run out
+  if (natural === 'wetland' && tags.wetland === 'mangrove') return 'forest';
   if (natural === 'water' || natural === 'bay' || waterway === 'riverbank' || WATER_LANDUSE.has(landuse)) return 'water';
   if (leisure === 'swimming_pool') return 'water';
   if (natural === 'beach' || natural === 'sand') return 'sand';

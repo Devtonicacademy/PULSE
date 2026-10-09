@@ -173,3 +173,18 @@ test('the on-demand bundles carry forests and styles too, under the new format v
   assert.equal(tile.forest.length, 1);
   assert.ok(tile.bmeta['0'][0] > 0);
 });
+
+// ---- fences and walls ------------------------------------------------------------------------------
+
+test('walls, fences and hedges become barrier strips with a tagged or default height', () => {
+  const way = (tags, ...pts) => ({ type: 'way', id: nextId++, nodes: pts.map((_, i) => nextId * 10 + i), geometry: pts.map(([x, y]) => pt(x, y)), tags });
+  const { tile } = build([
+    way({ barrier: 'wall' }, [10, 10], [90, 10]),
+    way({ barrier: 'fence', height: '2.5' }, [10, 20], [90, 20]),
+    way({ barrier: 'hedge' }, [10, 30], [90, 30]),
+    way({ barrier: 'gate' }, [10, 40], [20, 40])
+  ]);
+  assert.equal(tile.barriers.length, 3);
+  assert.deepEqual(tile.barriers.map((b) => [b[0], b[1]]), [[0, 22], [1, 25], [2, 14]]);
+  assert.equal(serializeTile(tile).barriers.length, 3);
+});

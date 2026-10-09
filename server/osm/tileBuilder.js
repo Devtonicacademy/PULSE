@@ -268,6 +268,16 @@ export function mergeElements(areaData) {
   return [...byKey.values()];
 }
 
+/** Fences, compound walls and hedges: thin strips along a way (kinds index into BARRIER_KINDS) */
+export const BARRIER_KINDS = ['wall', 'fence', 'hedge'];
+const BARRIER_KIND_BY_TAG = { wall: 'wall', retaining_wall: 'wall', city_wall: 'wall', fence: 'fence', guard_rail: 'fence', hedge: 'hedge' };
+const BARRIER_DEFAULT_HEIGHT = { wall: 2.2, fence: 1.6, hedge: 1.4 };
+
+function barrierHeight(kind, tags) {
+  const h = parseFloat(String(tags.height ?? '').replace(',', '.'));
+  return h > 0.3 && h < 15 ? h : BARRIER_DEFAULT_HEIGHT[kind];
+}
+
 /** The outline is replaced by its building:part polygons once they cover at least this much of it */
 const PARTS_REPLACE_OUTLINE_FROM = 0.6;
 
@@ -275,6 +285,7 @@ export function extractFeatures(elements) {
   const buildings = [];
   const buildingParts = [];
   const roads = [];
+  const barriers = [];
   const surfaces = [];
   const coastlineWays = [];
   const walkWays = [];
@@ -332,6 +343,12 @@ export function extractFeatures(elements) {
       continue;
     }
 
+    const barrierKind = BARRIER_KIND_BY_TAG[tags.barrier];
+    if (barrierKind && el.type === 'way' && el.geometry?.length >= 2) {
+      barriers.push({ kind: barrierKind, height: barrierHeight(barrierKind, tags), points: toMeters(el.geometry) });
+      continue;
+    }
+
     const kind = areaKind(tags);
     if (kind) {
       for (const poly of polygons ?? []) surfaces.push({ kind, ...poly });
@@ -354,6 +371,7 @@ export function extractFeatures(elements) {
     buildings: outlines.concat(buildingParts),
     replacedByParts: buildings.length - outlines.length,
     roads,
+    barriers,
     surfaces,
     coastline: mergeCoastline(coastlineWays),
     walkWays
@@ -530,7 +548,7 @@ export function buildTiles(tileList, features, stats) {
       const rect = [origin[0], origin[1], origin[0] + TILE_SIZE_METERS, origin[1] + TILE_SIZE_METERS];
       return [
         tileKey(tx, ty),
-        { tx, ty, origin, rect, buildings: [], bmeta: {}, roads: [], water: [], green: [], forest: [], sand: [], land: 1 }
+        { tx, ty, origin, rect, buildings: [], bmeta: {}, roads: [], barriers: [], water: [], green: [], forest: [], sand: [], land: 1 }
       ];
     })
   );
@@ -573,6 +591,15 @@ export function buildTiles(tileList, features, stats) {
           encodePoints(piece, tile.origin)
         ]);
         stats.roadMeters += polylineLength(piece);
+      }
+    }
+
+    for (const barrier of features.barriers) {
+      const [minX, minY, maxX, maxY] = bboxOf(barrier.points);
+      const [x0, y0, x1, y1] = tile.rect;
+      if (maxX < x0 || minX > x1 || maxY < y0 || minY > y1) continue;
+      for (const piece of clipPolylineToRect(barrier.points, tile.rect)) {
+        tile.barriers.push([BARRIER_KINDS.indexOf(barrier.kind), dm(barrier.height), encodePoints(piece, tile.origin)]);
       }
     }
 
@@ -640,7 +667,7 @@ export function buildWalkGraph(walkWays) {
 // ---------------------------------------------------------------------------
 
 /** Bump when the tile format gains something old cached tiles do not have */
-export const TILE_FORMAT_VERSION = 2;
+export const TILE_FORMAT_VERSION = 4;
 
 /**
  * The tile as written to disk / the cache. Optional parts (forest, per-building style) are left out
@@ -660,6 +687,7 @@ export function serializeTile(tile) {
     land: tile.land
   };
   if (tile.forest?.length) out.forest = tile.forest;
+  if (tile.barriers?.length) out.barriers = tile.barriers;
   if (tile.bmeta && Object.keys(tile.bmeta).length) out.bmeta = tile.bmeta;
   return out;
 }
