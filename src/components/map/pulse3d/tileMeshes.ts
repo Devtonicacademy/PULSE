@@ -4,6 +4,7 @@ import { ROOF_SHAPE_NAMES } from './tileFormat';
 import type { PulseMaterials } from './materials';
 import { LAYER_RENDER_ORDER } from './layerOrder';
 import { groundedMinHeights } from './buildingSupport';
+import type { TileObstacles } from '../../../utils/obstacles';
 import { buildRoof, defaultRoofHeight, orientedBox } from './roofShapes';
 import type { PitchedShape } from './roofShapes';
 
@@ -27,6 +28,8 @@ export interface TileGeometry {
   layers: LayerData[];
   /** Street and place names for the label overlay (plain data, no meshes) */
   labels: { streets: TileStreetName[]; places: TilePlace[] };
+  /** What the walking avatar cannot pass through (plain data, no meshes) */
+  obstacles: TileObstacles;
 }
 
 function layer(name: LayerName, renderOrder: number, attrs: Record<string, [number[], number]>): LayerData {
@@ -702,6 +705,20 @@ function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData 
   return { trees: pack('trees', solid), lamps: pack('lamps', glow) };
 }
 
+/** Ground-level building footprints, water and bridge lines: what the avatar collides with */
+function buildObstacles(tile: MapTile): TileObstacles {
+  const startHeights = groundedMinHeights(tile.buildings);
+  const buildings: TileObstacles['buildings'] = [];
+  tile.buildings.forEach(([height, , , outer, ...holes], index) => {
+    // Raised parts with open ground under them do not block; neither do tiny sheds
+    if (startHeights[index] >= 2.5 || height < 1.5) return;
+    buildings.push([outer, ...holes]);
+  });
+  const bridges: TileObstacles['bridges'] = [];
+  for (const [, widthDm, isBridge, flat] of tile.roads) if (isBridge) bridges.push([widthDm / 2, flat]);
+  return { buildings, water: tile.water, bridges };
+}
+
 export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry {
   // Base: land covers the mapped tile (hiding the "no data" grid); open water otherwise
   const square: FlatPoints = [0, 0, tileSize * 10, 0, tileSize * 10, tileSize * 10, 0, tileSize * 10];
@@ -722,7 +739,7 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     props.trees,
     props.lamps
   ].filter((l): l is LayerData => l !== null);
-  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] } };
+  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] }, obstacles: buildObstacles(tile) };
 }
 
 /** Every transferable buffer in a built tile, for postMessage's transfer list */

@@ -19,6 +19,7 @@ import {
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapProjection';
 import { isAwayFromFix } from './mapResume';
+import { obstacles, distanceToPolyline } from '../../utils/obstacles';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
@@ -46,6 +47,15 @@ const STEP_BACKWARD_METERS = -8;
 const TURN_DEGREES = 15;
 const FOCUS_UPDATE_METERS = 25;
 const MOMENT_CARD_RANGE = 1500;
+/** Closer than this to the route counts as being on it */
+const ON_ROUTE_METERS = 20;
+/** Farther than this from the route, for REROUTE_AFTER_SECONDS, triggers a new route */
+const REROUTE_DEVIATION_METERS = 35;
+const REROUTE_AFTER_SECONDS = 1.5;
+/** Waiting time between two automatic re-routes */
+const REROUTE_COOLDOWN_SECONDS = 6;
+/** Within this of the end of the route the walk is over, not off route */
+const ARRIVED_METERS = 12;
 
 const normalizeHeading = (deg: number) => ((deg % 360) + 360) % 360;
 
@@ -196,15 +206,17 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
       const step = direction === 'forward' ? STEP_FORWARD_METERS : STEP_BACKWARD_METERS;
       const rad = THREE.MathUtils.degToRad(heading);
-      const nx = x + Math.sin(rad) * step;
-      const ny = y + Math.cos(rad) * step;
+      // Buildings and water stop the step; a wall at an angle is slid along
+      const result = obstacles.move([x, y], [x + Math.sin(rad) * step, y + Math.cos(rad) * step]);
+      const [nx, ny] = result.position;
+      if (result.blocked && Math.hypot(nx - x, ny - y) < 0.5) showNotice('🚧 Something is in the way');
       moveUser(nx, ny, heading);
       // Walking puts you back in street view, following the avatar
       cameraModeRef.current = 'fpv';
       setCameraMode('fpv');
       rig.jumpTo({ x: nx, y: ny, heading, ...MODE_FRAMING.fpv });
     },
-    [moveUser]
+    [moveUser, showNotice]
   );
 
   const onLocationFoundRef = useRef(onLocationFound);
@@ -271,8 +283,19 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const locateUserRef = useRef(locateUser);
   locateUserRef.current = locateUser;
 
+  // Route-following state: where the route runs (map meters), where it is going, and whether the walker has
+  // joined it yet (a start far from the street must not trigger endless re-routing)
+  const navDestRef = useRef<{ latitude: number; longitude: number; title: string; category?: string } | null>(null);
+  const routeMetersRef = useRef<[number, number][] | null>(null);
+  const armedRef = useRef(false);
+  const deviationSinceRef = useRef<number | null>(null);
+  const rerouteReadyAtRef = useRef(0);
+  const reroutingRef = useRef(false);
+  const lastDeviationCheckRef = useRef(0);
+
   const startNavigation = useCallback(
-    async (destination: { latitude: number; longitude: number; title: string; category?: string }) => {
+    async (destination: { latitude: number; longitude: number; title: string; category?: string }, options: { reroute?: boolean } = {}) => {
+      navDestRef.current = destination;
       const request = ++routeRequestRef.current;
       const start = metersToLngLat(user.current.x, user.current.y);
       const route = await findWalkingRoute(
@@ -288,12 +311,53 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       setActiveRoute(route);
       routeLayerRef.current?.setRoute(route);
 
+      const meters = (route.pathCoordinates ?? []).map(([lng, lat]) => lngLatToMeters(lng, lat) as [number, number]);
+      routeMetersRef.current = meters.length > 1 ? meters : null;
+      deviationSinceRef.current = null;
+      armedRef.current = meters.length > 1 && distanceToPolyline([user.current.x, user.current.y], meters).dist <= ON_ROUTE_METERS;
+      if (options.reroute) return; // the walker keeps going: no camera or position jump
+
       const initialHeading = route.waypoints[0]?.bearing ?? user.current.heading;
       moveUser(user.current.x, user.current.y, initialHeading);
       applyCameraMode('fpv', undefined, initialHeading);
     },
     [applyCameraMode, moveUser]
   );
+
+  /**
+   * Re-routes when the walker has left the route: more than REROUTE_DEVIATION_METERS away for a moment
+   * (a wrong turn, a block walked around, a GPS jump). It starts from where they are now.
+   */
+  const monitorRoute = (elapsed: number) => {
+    const path = routeMetersRef.current;
+    const destination = navDestRef.current;
+    if (!path || !destination || simAnimationRef.current || reroutingRef.current) return;
+    if (elapsed - lastDeviationCheckRef.current < 0.5) return;
+    lastDeviationCheckRef.current = elapsed;
+
+    const here: [number, number] = [user.current.x, user.current.y];
+    const off = distanceToPolyline(here, path).dist;
+    if (off <= ON_ROUTE_METERS) armedRef.current = true;
+    const end = path[path.length - 1];
+    if (!armedRef.current || Math.hypot(end[0] - here[0], end[1] - here[1]) < ARRIVED_METERS) return;
+
+    if (off <= REROUTE_DEVIATION_METERS) {
+      deviationSinceRef.current = null;
+      return;
+    }
+    deviationSinceRef.current ??= elapsed;
+    if (elapsed - deviationSinceRef.current < REROUTE_AFTER_SECONDS || elapsed < rerouteReadyAtRef.current) return;
+
+    reroutingRef.current = true;
+    rerouteReadyAtRef.current = elapsed + REROUTE_COOLDOWN_SECONDS;
+    deviationSinceRef.current = null;
+    showNotice('↩️ Off route: finding a new way…');
+    void startNavigation(destination, { reroute: true }).finally(() => {
+      reroutingRef.current = false;
+    });
+  };
+  const monitorRouteRef = useRef(monitorRoute);
+  monitorRouteRef.current = monitorRoute;
 
   const stopWalkSimulation = useCallback(() => {
     if (simAnimationRef.current) cancelAnimationFrame(simAnimationRef.current);
@@ -303,6 +367,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
   const stopNavigation = useCallback(() => {
     routeRequestRef.current++;
+    navDestRef.current = null;
+    routeMetersRef.current = null;
     stopWalkSimulation();
     routeLayerRef.current?.setRoute(null);
     activeRouteRef.current = null;
@@ -438,6 +504,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       avatar.update(elapsed, rig.pose.distance);
       routeLayer.update(elapsed, rig.pose.distance);
       adaptQuality(elapsed);
+      monitorRouteRef.current(elapsed);
       // Street level: cards within 1.5 km (no horizon clutter); zoomed out: the whole radius
       momentLayer.updateVisibility(pulseScene.camera, Math.max(MOMENT_CARD_RANGE, rig.pose.distance * 2.6));
       const { x: fx, y: fy, distance, heading: viewHeading } = rig.pose;
@@ -497,7 +564,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
     if (import.meta.env.DEV) {
       Object.assign(container, {
-        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality }
+        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality, nav: { routeMetersRef, armedRef, navDestRef } }
       });
     }
 

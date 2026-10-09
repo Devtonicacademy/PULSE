@@ -4,6 +4,7 @@
  * No routing server: the graph is a few hundred KB and A* runs in milliseconds.
  */
 import { lngLatToMeters, metersToLngLat, usesLagosData } from './mapProjection';
+import { obstacles } from './obstacles';
 import {
   generateStreetNavigationRoute,
   calculateBearing,
@@ -42,6 +43,8 @@ interface Snap {
 const GRAPH_URL = '/map-tiles/walk-graph.json';
 /** Farther than this from any mapped street, we can't route (outside coverage) */
 const MAX_SNAP_METERS = 250;
+/** The leg from the street to the exact start or end point may be this long at most */
+const MAX_CONNECTOR_METERS = 40;
 const TURN_THRESHOLD_DEG = 35;
 const MAX_TURN_CUES = 12;
 const WALKING_METERS_PER_MINUTE = 80;
@@ -49,6 +52,12 @@ const WALKING_METERS_PER_MINUTE = 80;
 let graphPromise: Promise<Graph | null> | null = null;
 
 const dist = (p: Point, q: Point) => Math.hypot(q[0] - p[0], q[1] - p[1]);
+
+/**
+ * Whether the short leg between a street point and the exact start/end can be walked: close enough
+ * and not through a building or water. Otherwise the route stays on the street and ends there.
+ */
+const connectorOk = (street: Point, exact: Point) => dist(street, exact) <= MAX_CONNECTOR_METERS && !obstacles.segmentBlocked(street, exact);
 
 function loadGraph(): Promise<Graph | null> {
   graphPromise ??= fetch(GRAPH_URL)
@@ -395,9 +404,10 @@ export async function findWalkingRoute(
   if (!street || street.length < 2) return fallback();
 
   // Walk from the exact start to the street, and from the street to the exact spot
+  // (only when that leg is short and clear: the route itself never leaves the streets otherwise)
   const path: Point[] = [];
-  if (startSnap.offset > 2) path.push(startPoint);
+  if (startSnap.offset > 2 && connectorOk(startSnap.point, startPoint)) path.push(startPoint);
   path.push(...street);
-  if (goalSnap.offset > 2) path.push(destPoint);
+  if (goalSnap.offset > 2 && connectorOk(goalSnap.point, destPoint)) path.push(destPoint);
   return buildRoute(path, start, destination, destinationTitle, destinationCategory);
 }
