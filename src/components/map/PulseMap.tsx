@@ -10,6 +10,7 @@ import React, {
 import { followUser, locate, refineLocation } from '../../services/locationService';
 import maplibregl from 'maplibre-gl';
 import { MapResume, isAwayFromFix } from './mapResume';
+import { WayfindingHud } from './WayfindingHud';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
 import {
@@ -1418,95 +1419,15 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             GAMING HUD: STREET-LEVEL WAYFINDING NAVIGATION CUES OVERLAY
            ========================================================================= */}
         {activeRoute && (
-          <div className="absolute top-16 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
-            <div className="glass-panel p-4 rounded-3xl border border-signal-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
-              {/* Header Title & Close Button */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-signal-400 animate-ping"></span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-signal-300 flex items-center gap-1">
-                    <Route className="w-3 h-3 text-signal-400" />
-                    <span>Street Wayfinding HUD</span>
-                  </span>
-                </div>
-                <button
-                  onClick={stopNavigation}
-                  className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                  title="Exit Navigation"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Destination Card & Real-time Metrics */}
-              <div className="flex items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-white/10">
-                <div>
-                  <h4 className="font-bold text-sm text-white truncate max-w-[200px]">
-                    {activeRoute.destinationTitle}
-                  </h4>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                    <span className="text-signal-400 font-bold">{activeRoute.totalDistanceMeters}m remaining</span>
-                    <span>•</span>
-                    <span className="text-amber-300 font-semibold">~{activeRoute.estimatedWalkingMinutes} min walk</span>
-                  </div>
-                </div>
-
-                <div className="w-10 h-10 rounded-2xl bg-signal-500/20 border border-signal-500/40 flex items-center justify-center text-signal-300 font-black text-sm">
-                  🎯
-                </div>
-              </div>
-
-              {/* Active Step Guidance Banner */}
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-signal-500/10 border border-signal-500/30 text-signal-200 text-xs font-semibold">
-                <Footprints className="w-4 h-4 text-signal-400 shrink-0 animate-bounce" />
-                <span className="truncate">
-                  {isSimulatingWalk
-                    ? `Walking in 3D: ${(simulationProgress * 100).toFixed(0)}% reached`
-                    : 'Follow street route ahead to destination'}
-                </span>
-              </div>
-
-              {/* Action Controls: Autopilot Walk Simulation & Stop */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={toggleWalkSimulation}
-                  className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
-                    isSimulatingWalk
-                      ? 'bg-accent-500 hover:bg-accent-600 text-white shadow-accent-500/30'
-                      : 'bg-gradient-to-r from-signal-500 to-blue-600 hover:from-signal-400 hover:to-blue-500 text-slate-950 font-black shadow-signal-500/30'
-                  }`}
-                >
-                  {isSimulatingWalk ? (
-                    <>
-                      <Square className="w-3.5 h-3.5" />
-                      <span>Pause 3D Walk</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Walk Route in 3D (60 FPS)</span>
-                    </>
-                  )}
-                </button>
-
-                {onWalkIn3D && (
-                  <button
-                    onClick={onWalkIn3D}
-                    title="Continue this route in Pulse 3D"
-                    className="py-2.5 px-3 rounded-xl bg-signal-500/15 hover:bg-signal-500/25 text-signal-200 text-xs font-bold transition-colors border border-signal-400/30"
-                  >
-                    3D
-                  </button>
-                )}
-                <button
-                  onClick={stopNavigation}
-                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors border border-white/5"
-                >
-                  End
-                </button>
-              </div>
-            </div>
-          </div>
+          <WayfindingHud
+            route={activeRoute}
+            isSimulatingWalk={isSimulatingWalk}
+            simulationProgress={simulationProgress}
+            onToggleWalkSimulation={toggleWalkSimulation}
+            onStop={stopNavigation}
+            onWalkIn3D={onWalkIn3D}
+            topClassName="top-2 sm:top-16"
+          />
         )}
 
         {/* =========================================================================

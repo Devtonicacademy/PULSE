@@ -622,7 +622,6 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
           onLightPreset={setLightPreset}
           buildingsVisible={buildingsVisible}
           onToggleBuildings={() => setBuildingsVisible((v) => !v)}
-          onWalk={walkStep}
           onRecenter={() => locateUser(true)}
           isLocating={isLocating}
           cameraNotice={cameraNotice}

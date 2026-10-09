@@ -1,29 +1,20 @@
 import React, { useState } from 'react';
 import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Box,
   ChevronRight,
   Crosshair,
   Eye,
-  Footprints,
-  Gamepad2,
   Layers,
   Loader2,
   MapPin,
   Moon,
-  Play,
-  Route,
   Sparkles,
-  Square,
   Sun,
   Sunrise,
-  Sunset,
-  X
+  Sunset
 } from 'lucide-react';
 import type { NavigationRoute } from '../../../utils/wayfindingUtils';
+import { WayfindingHud } from '../WayfindingHud';
 import type { CameraMode } from './CameraRig';
 import type { LightPreset } from './PulseScene';
 
@@ -50,7 +41,6 @@ interface MapHudProps {
   onLightPreset: (preset: LightPreset) => void;
   buildingsVisible: boolean;
   onToggleBuildings: () => void;
-  onWalk: (direction: WalkDirection) => void;
   onRecenter: () => void;
   isLocating: boolean;
   cameraNotice: string | null;
@@ -68,9 +58,6 @@ const LIGHT_PRESET_OPTIONS = [
   { id: 'day', label: 'Day', icon: Sun, color: 'text-yellow-300' }
 ] as const;
 
-const PAD_BUTTON =
-  'w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm';
-
 export const MapHud: React.FC<MapHudProps> = ({
   showControls,
   cameraMode,
@@ -81,7 +68,6 @@ export const MapHud: React.FC<MapHudProps> = ({
   onLightPreset,
   buildingsVisible,
   onToggleBuildings,
-  onWalk,
   onRecenter,
   isLocating,
   cameraNotice,
@@ -96,86 +82,15 @@ export const MapHud: React.FC<MapHudProps> = ({
 
   return (
     <>
-      {/* Street wayfinding HUD */}
+      {/* Street wayfinding HUD: a slim see-through row on phones */}
       {route && (
-        <div className="absolute top-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-30 animate-slide-up">
-          <div className="glass-panel p-4 rounded-3xl border border-signal-500/40 bg-[#0A0E17]/95 shadow-2xl backdrop-blur-xl text-white space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-signal-400 animate-ping"></span>
-                <span className="text-[10px] font-black uppercase tracking-wider text-signal-300 flex items-center gap-1">
-                  <Route className="w-3 h-3 text-signal-400" />
-                  <span>Street Wayfinding HUD</span>
-                </span>
-              </div>
-              <button
-                onClick={onStopNavigation}
-                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                title="Exit Navigation"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between bg-slate-900/80 p-3 rounded-2xl border border-white/10">
-              <div>
-                <h4 className="font-bold text-sm text-white truncate max-w-[200px]">{route.destinationTitle}</h4>
-                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                  <span className="text-signal-400 font-bold">{route.totalDistanceMeters}m remaining</span>
-                  <span>•</span>
-                  <span className="text-amber-300 font-semibold">~{route.estimatedWalkingMinutes} min walk</span>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-2xl bg-signal-500/20 border border-signal-500/40 flex items-center justify-center text-signal-300 font-black text-sm">
-                🎯
-              </div>
-            </div>
-
-            {route.routeSource === 'estimate' && (
-              <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-[11px]">
-                Approximate route: this trip leaves the streets we have map data for.
-              </div>
-            )}
-
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-signal-500/10 border border-signal-500/30 text-signal-200 text-xs font-semibold">
-              <Footprints className="w-4 h-4 text-signal-400 shrink-0 animate-bounce" />
-              <span className="truncate">
-                {isSimulatingWalk
-                  ? `Walking in 3D: ${(simulationProgress * 100).toFixed(0)}% reached`
-                  : 'Follow street route ahead to destination'}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={onToggleWalkSimulation}
-                className={`flex-1 py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg ${
-                  isSimulatingWalk
-                    ? 'bg-accent-500 hover:bg-accent-600 text-white shadow-accent-500/30'
-                    : 'bg-gradient-to-r from-signal-500 to-blue-600 hover:from-signal-400 hover:to-blue-500 text-slate-950 font-black shadow-signal-500/30'
-                }`}
-              >
-                {isSimulatingWalk ? (
-                  <>
-                    <Square className="w-3.5 h-3.5" />
-                    <span>Pause 3D Walk</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Walk Route in 3D</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={onStopNavigation}
-                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors border border-white/5"
-              >
-                End
-              </button>
-            </div>
-          </div>
-        </div>
+        <WayfindingHud
+          route={route}
+          isSimulatingWalk={isSimulatingWalk}
+          simulationProgress={simulationProgress}
+          onToggleWalkSimulation={onToggleWalkSimulation}
+          onStop={onStopNavigation}
+        />
       )}
 
       {/* Camera, hotspot and atmosphere controls */}
@@ -315,32 +230,6 @@ export const MapHud: React.FC<MapHudProps> = ({
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* WASD walking pad */}
-      {showControls && (
-        <div className="absolute bottom-[calc(var(--area-sheet-h,0px)+1.5rem)] transition-[bottom] duration-300 left-4 z-20 pointer-events-auto">
-          <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
-            <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <Gamepad2 className="w-3 h-3 text-signal-400" />
-              <span>Walk (WASD)</span>
-            </div>
-            <button onClick={() => onWalk('forward')} title="Walk Forward (W / Up Arrow)" className={PAD_BUTTON}>
-              <ArrowUp className="w-4 h-4" />
-            </button>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => onWalk('turn-left')} title="Turn Left (A / Left Arrow)" className={PAD_BUTTON}>
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <button onClick={() => onWalk('backward')} title="Step Backward (S / Down Arrow)" className={PAD_BUTTON}>
-                <ArrowDown className="w-4 h-4" />
-              </button>
-              <button onClick={() => onWalk('turn-right')} title="Turn Right (D / Right Arrow)" className={PAD_BUTTON}>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
       )}
