@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LAYER_RENDER_ORDER } from './layerOrder';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -112,6 +113,7 @@ export class PulseScene {
     this.ground = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), this.materials.ground);
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.name = 'ground-grid';
+    this.ground.renderOrder = LAYER_RENDER_ORDER.groundGrid;
     this.scene.add(this.ground);
 
     this.tiles = new TileManager(this.materials, {

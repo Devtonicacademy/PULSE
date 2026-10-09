@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { MapTile, FlatPoints, TileSurface } from './tileFormat';
-import { PulseMaterials } from './materials';
+import type { MapTile, FlatPoints, TileSurface } from './tileFormat';
+import type { PulseMaterials } from './materials';
+import { LAYER_RENDER_ORDER } from './layerOrder';
+import { groundedMinHeights } from './buildingSupport';
 
 /**
  * A tile is built in two steps so the heavy one can run in a Web Worker:
@@ -314,9 +316,12 @@ function buildBuildings(tile: MapTile): LayerData | null {
   const buf: BuildingBuffers = { positions: [], normals: [], colors: [], facade: [], surface: [] };
   const color = new THREE.Color();
   const roofColor = new THREE.Color();
+  // Parts that start above the ground with nothing under them are built down to it instead of hovering
+  const startHeights = groundedMinHeights(tile.buildings);
 
   tile.buildings.forEach((building, index) => {
-    const [height, minHeight, kind, outerFlat, ...holeFlats] = building;
+    const [height, , kind, outerFlat, ...holeFlats] = building;
+    const minHeight = startHeights[index];
     const outer = toRing(outerFlat);
     const holes = holeFlats.map(toRing);
     const seed = seedFor(tile, index) * 100;
@@ -388,7 +393,7 @@ function buildBuildings(tile: MapTile): LayerData | null {
   });
 
   if (!buf.positions.length) return null;
-  return layer('buildings', 0, {
+  return layer('buildings', LAYER_RENDER_ORDER.solid, {
     position: [buf.positions, 3],
     normal: [buf.normals, 3],
     color: [buf.colors, 3],
@@ -403,11 +408,16 @@ function buildRoads(tile: MapTile): LayerData | null {
   const uvs: number[] = [];
   const edgeColors: number[] = [];
 
-  for (const [classIndex, widthDm, isBridge, flat] of tile.roads) {
+  // Roads do not write depth any more, so the paint order decides who is on top at a junction:
+  // smaller streets first, then bigger roads, then bridges (stable, so equal roads keep their order)
+  const roadRank = (r: MapTile['roads'][number]) => (r[2] ? 100 : 0) + (8 - r[0]);
+  const roads = tile.roads.map((r, i) => [r, i] as const).sort((a, b) => roadRank(a[0]) - roadRank(b[0]) || a[1] - b[1]);
+
+  for (const [[classIndex, widthDm, isBridge, flat]] of roads) {
     const pts = toRing(flat);
     if (pts.length < 2) continue;
     const half = widthDm / 20;
-    // Bigger roads draw slightly higher so junctions don't z-fight
+    // A hair above the surfaces; the real ordering is the paint order above
     const y = 0.05 + (8 - classIndex) * 0.012 + (isBridge ? BRIDGE_LIFT : 0);
     const edge = isBridge ? BRIDGE_EDGE_COLOR : ROAD_EDGE_COLORS[classIndex] ?? ROAD_EDGE_COLORS[5];
 
@@ -450,7 +460,7 @@ function buildRoads(tile: MapTile): LayerData | null {
   }
 
   if (!positions.length) return null;
-  return layer('roads', 2, { position: [positions, 3], normal: [normals, 3], uv: [uvs, 2], aEdgeColor: [edgeColors, 3] });
+  return layer('roads', LAYER_RENDER_ORDER.roads, { position: [positions, 3], normal: [normals, 3], uv: [uvs, 2], aEdgeColor: [edgeColors, 3] });
 }
 
 function buildSurfaces(polygons: TileSurface[], y: number, name: LayerName): LayerData | null {
@@ -460,7 +470,7 @@ function buildSurfaces(polygons: TileSurface[], y: number, name: LayerName): Lay
     pushCap(positions, normals, toRing(outerFlat), holeFlats.map(toRing), y);
   }
   if (!positions.length) return null;
-  return layer(name, 1, { position: [positions, 3], normal: [normals, 3] });
+  return layer(name, LAYER_RENDER_ORDER[name as 'land' | 'water' | 'sand' | 'green'], { position: [positions, 3], normal: [normals, 3] });
 }
 
 // --- Street props: trees in parks and lamp posts along the main roads --------------------
@@ -599,7 +609,7 @@ function buildProps(tile: MapTile): { trees: LayerData | null; lamps: LayerData 
   }
 
   const pack = (name: LayerName, buf: PropBuffers) =>
-    buf.positions.length ? layer(name, 3, { position: [buf.positions, 3], normal: [buf.normals, 3], color: [buf.colors, 3] }) : null;
+    buf.positions.length ? layer(name, LAYER_RENDER_ORDER.solid, { position: [buf.positions, 3], normal: [buf.normals, 3], color: [buf.colors, 3] }) : null;
   return { trees: pack('trees', solid), lamps: pack('lamps', glow) };
 }
 

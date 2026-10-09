@@ -245,9 +245,8 @@ export function createPulseMaterials(): PulseMaterials {
     color: 0x0d1424,
     roughness: 0.9,
     metalness: 0.05,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
+    // Flat ground layers are painted in a fixed order and never fight over depth (see layerOrder.ts)
+    depthWrite: false
   });
   road.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
@@ -274,9 +273,7 @@ export function createPulseMaterials(): PulseMaterials {
     emissive: 0x052040,
     roughness: 0.3,
     metalness: 0.25,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
+    depthWrite: false
   });
   water.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = uniforms.uTime;
@@ -307,16 +304,14 @@ export function createPulseMaterials(): PulseMaterials {
       color,
       roughness: 0.95,
       metalness: 0,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1
+      depthWrite: false
     });
   const green = surface(0x0b2418);
   const sand = surface(0x221d14);
   const land = surface(0x0b111d);
 
   // Ground beyond the mapped areas: a faint neon grid ("no 3D data here")
-  const ground = new THREE.MeshStandardMaterial({ color: 0x05080f, roughness: 1, metalness: 0 });
+  const ground = new THREE.MeshStandardMaterial({ color: 0x05080f, roughness: 1, metalness: 0, depthWrite: false });
   ground.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPos;')
