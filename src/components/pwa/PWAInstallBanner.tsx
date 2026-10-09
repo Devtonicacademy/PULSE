@@ -64,7 +64,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({
     <>
       {/* Floating Bottom Installation Prompt */}
       <div className="absolute bottom-20 left-3 right-3 sm:left-4 sm:right-4 z-40 animate-slide-up">
-        <div className="glass-panel rounded-2xl p-4 border border-accent-500/30 shadow-2xl bg-gradient-to-r from-slate-950/95 via-slate-900/95 to-slate-950/95 text-white">
+        <div className="glass-panel rounded-2xl p-3 sm:p-4 border border-accent-500/30 shadow-2xl !bg-slate-950 text-white">
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center text-white shadow-lg shadow-accent-500/30 shrink-0">
@@ -95,7 +95,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({
           </div>
 
           {/* Value Props Pills */}
-          <div className="grid grid-cols-3 gap-1.5 py-2 my-1 border-y border-white/5 text-[10px] text-slate-300">
+          <div className="hidden sm:grid grid-cols-3 gap-1.5 py-2 my-1 border-y border-white/5 text-[10px] text-slate-300">
             <div className="flex items-center gap-1">
               <span className="text-accent-400">⚡</span>
               <span>Fast 1-tap launch</span>
@@ -111,7 +111,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({
           </div>
 
           {/* Action Row */}
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-1 sm:pt-2">
             <button
               onClick={handleDismiss}
               className="flex-1 py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold transition-colors"

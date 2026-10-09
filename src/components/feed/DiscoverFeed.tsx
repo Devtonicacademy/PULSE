@@ -206,7 +206,8 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search moments, events, food in ${currentZoneName}...`}
+                placeholder={`Search ${currentZoneName}...`}
+                title={`Search moments, events, food in ${currentZoneName}`}
                 className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40 transition-all"
               />
               {searchQuery && (
@@ -368,7 +369,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                 <Users className="w-3.5 h-3.5 text-signal-400" />
                 <span>Temporary Pop-up Hubs</span>
               </div>
-              <span className="text-[10px] text-slate-300">Disappear when activity ends</span>
+              <span className="hidden min-[430px]:inline text-[10px] text-slate-300">Disappear when activity ends</span>
             </div>
 
             <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">

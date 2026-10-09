@@ -95,42 +95,42 @@ export const MapHud: React.FC<MapHudProps> = ({
 
       {/* Camera, hotspot and atmosphere controls */}
       {showControls && !route && (
-        <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
+        <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 pointer-events-none [&>*]:pointer-events-auto">
           <div className="flex items-center gap-1 p-1 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl">
             <button
               onClick={() => onCameraMode('fpv')}
               title="First-Person Street Level View (72° tilt, locked to avatar)"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'fpv'
                   ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-accent-400'}`} />
-              <span>FPV 72°</span>
+              <span>FPV<span className="hidden sm:inline"> 72°</span></span>
             </button>
             <button
               onClick={() => onCameraMode('aerial')}
               title="3D Aerial Perspective (58° pitch)"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'aerial'
                   ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-signal-200' : 'text-signal-400'}`} />
-              <span>3D Aerial</span>
+              <span><span className="hidden sm:inline">3D </span>Aerial</span>
             </button>
             <button
               onClick={() => onCameraMode('overview')}
               title="2D Tactical Overview (0° pitch)"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'overview'
                   ? 'bg-white/20 text-white border border-white/30 shadow-md'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <span>2D Map</span>
+              <span>2D<span className="hidden sm:inline"> Map</span></span>
             </button>
           </div>
 
@@ -143,7 +143,7 @@ export const MapHud: React.FC<MapHudProps> = ({
               }`}
             >
               <MapPin className="w-3.5 h-3.5 text-signal-400" />
-              <span>Hotspots</span>
+              <span className="hidden sm:inline">Hotspots</span>
             </button>
 
             {showHotspotMenu && (

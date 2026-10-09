@@ -232,11 +232,15 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
         </div>
 
         {/* Gamification Reward Banner */}
-        <div className="my-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs">
-          <span className="text-amber-300 font-medium flex items-center gap-1.5">
-            <span>🏆</span> Earn <strong>+15 Reputation Points</strong> upon broadcast
+        <div className="my-2 sm:my-3 px-3 py-1.5 sm:py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-2 text-xs">
+          <span className="text-amber-300 font-medium flex items-center gap-1.5 min-w-0">
+            <span>🏆</span>
+            <span className="truncate">
+              <strong>+15 rep</strong>
+              <span className="hidden sm:inline"> upon broadcast</span>
+            </span>
           </span>
-          <span className="text-[10px] text-slate-400">Current Rep: {userProfile.reputation}</span>
+          <span className="text-[10px] text-slate-400 shrink-0">Rep {userProfile.reputation}</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -260,13 +264,13 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     type="button"
                     key={c.id}
                     onClick={() => setCategory(c.id)}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                    className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 sm:block ${
                       isSelected
                         ? 'bg-accent-500/20 border-accent-500 text-white shadow-lg shadow-accent-500/15'
                         : 'bg-slate-900/60 border-white/5 text-slate-300 hover:border-white/10'
                     }`}
                   >
-                    <div className="text-xl mb-1">{c.icon}</div>
+                    <div className="text-lg sm:text-xl sm:mb-1 shrink-0">{c.icon}</div>
                     <div className="text-xs font-bold leading-tight truncate">{c.label}</div>
                   </button>
                 );
@@ -411,7 +415,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     lifespanHours === 24 ? 'bg-amber-500 text-slate-950' : 'text-slate-400'
                   }`}
                 >
-                  24 Hours (Default)
+                  24 Hours<span className="hidden sm:inline"> (Default)</span>
                 </button>
                 <button
                   type="button"

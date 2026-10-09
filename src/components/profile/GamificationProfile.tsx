@@ -247,7 +247,7 @@ export const GamificationProfile: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="shrink-0 flex items-center gap-2 border-b border-white/10 pb-3">
+      <div className="shrink-0 flex items-center gap-1 sm:gap-2 border-b border-white/10 pb-3 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('badges')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
@@ -257,7 +257,7 @@ export const GamificationProfile: React.FC = () => {
           }`}
         >
           <Award className="w-3.5 h-3.5 text-amber-400" />
-          <span>Badges & Honors ({userProfile.badges.length})</span>
+          <span className="whitespace-nowrap">Badges<span className="hidden sm:inline"> & Honors</span> ({userProfile.badges.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('active')}
@@ -268,7 +268,7 @@ export const GamificationProfile: React.FC = () => {
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-accent-400" />
-          <span>My Live Moments ({myActiveMoments.length})</span>
+          <span className="whitespace-nowrap">Live<span className="hidden sm:inline"> Moments</span> ({myActiveMoments.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('archived')}
@@ -279,7 +279,7 @@ export const GamificationProfile: React.FC = () => {
           }`}
         >
           <Archive className="w-3.5 h-3.5 text-signal-400" />
-          <span>Archived ({myArchivedMoments.length})</span>
+          <span className="whitespace-nowrap">Archived ({myArchivedMoments.length})</span>
         </button>
       </div>
 

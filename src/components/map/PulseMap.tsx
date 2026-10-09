@@ -27,11 +27,6 @@ import {
   MapPin,
   ChevronRight,
   Route,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Gamepad2,
   TrendingUp,
   Radar,
   Building2,
@@ -338,7 +333,6 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
     const currentLocationRef = useRef({ longitude: 0, latitude: 0 });
     const radiusKmRef = useRef<RadiusKm>(5);
     const [showHotspotMenu, setShowHotspotMenu] = useState<boolean>(false);
-    const [showWalkingControls, setShowWalkingControls] = useState<boolean>(true);
     const cameraNoticeTimeoutRef = useRef<number | null>(null);
 
     // Navigation & Wayfinding State
@@ -1434,48 +1428,48 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             CONSOLIDATED CAMERA, TELEPORT HOTSPOTS & ENVIRONMENT CONTROLS
            ========================================================================= */}
         {show3dControls && isMapLoaded && (
-          <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
+          <div className="absolute top-2 left-2 right-2 sm:top-4 sm:left-4 sm:right-auto z-20 flex flex-wrap items-center gap-1.5 sm:gap-2 pointer-events-none [&>*]:pointer-events-auto">
             {/* Unified Camera Mode Capsule */}
             <div className="flex items-center gap-1 p-1 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl">
               {/* FPV Mode (72° street level) */}
               <button
                 onClick={() => applyCameraMode('fpv')}
                 title="First-Person Street Level View (72° tilt, locked to avatar)"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'fpv'
                     ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Eye className={`w-3.5 h-3.5 ${cameraMode === 'fpv' ? 'text-white' : 'text-accent-400'}`} />
-                <span>FPV 72°</span>
+                <span>FPV<span className="hidden sm:inline"> 72°</span></span>
               </button>
 
               {/* 3D Aerial (58° pitch) */}
               <button
                 onClick={() => applyCameraMode('aerial')}
                 title="3D Aerial Perspective (58° pitch)"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'aerial'
                     ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Box className={`w-3.5 h-3.5 ${cameraMode === 'aerial' ? 'text-signal-200' : 'text-signal-400'}`} />
-                <span>3D Aerial</span>
+                <span><span className="hidden sm:inline">3D </span>Aerial</span>
               </button>
 
               {/* 2D Overview (0° pitch) */}
               <button
                 onClick={() => applyCameraMode('overview')}
                 title="2D Tactical Overview (0° pitch)"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'overview'
                     ? 'bg-white/20 text-white border border-white/30 shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <span>2D Map</span>
+                <span>2D<span className="hidden sm:inline"> Map</span></span>
               </button>
             </div>
 
@@ -1489,7 +1483,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5 text-signal-400" />
-                <span>Hotspots</span>
+                <span className="hidden sm:inline">Hotspots</span>
               </button>
 
               {showHotspotMenu && (
@@ -1721,53 +1715,6 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* Free-Roaming Walking Mode Controller HUD (Desktop & Mobile) */}
-        {show3dControls && isMapLoaded && showWalkingControls && (
-          <div className="absolute bottom-[calc(var(--area-sheet-h,0px)+1.5rem)] transition-[bottom] duration-300 left-4 z-20 pointer-events-auto">
-            <div className="glass-panel p-2.5 rounded-2xl border border-white/15 bg-[#0A0E17]/85 backdrop-blur-xl shadow-2xl flex flex-col items-center gap-1.5">
-              <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                <Gamepad2 className="w-3 h-3 text-signal-400" />
-                <span>Walk (WASD)</span>
-              </div>
-
-              {/* D-Pad Buttons */}
-              <button
-                onClick={() => walkStep('forward')}
-                title="Walk Forward (W / Up Arrow)"
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
-              >
-                <ArrowUp className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => walkStep('turn-left')}
-                  title="Turn Left (A / Left Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => walkStep('backward')}
-                  title="Step Backward (S / Down Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
-                >
-                  <ArrowDown className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => walkStep('turn-right')}
-                  title="Turn Right (D / Right Arrow)"
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-signal-500/30 active:scale-95 text-slate-200 hover:text-signal-300 flex items-center justify-center border border-white/10 transition-all shadow-sm"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           </div>
         )}
