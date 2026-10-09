@@ -21,7 +21,7 @@ import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapPr
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
-import { getLocationStatus, locate, refineLocation, reportGpsFix, watchLocation, LocationFix } from '../../services/locationService';
+import { followUser, locate, refineLocation, LocationFix } from '../../services/locationService';
 
 /**
  * Pulse 3D: a self-hosted night-city map rendered with Three.js from
@@ -200,6 +200,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       const { latitude, longitude, heading } = fix;
       const [x, y] = lngLatToMeters(longitude, latitude);
       moveUser(x, y, heading ?? user.current.heading);
+      avatarRef.current?.setAccuracy(fix.source === 'gps' ? fix.accuracy : null);
       if (fly) applyCameraMode(cameraModeRef.current, { x, y });
       onLocationFoundRef.current?.(
         { latitude, longitude, accuracy: fix.accuracy, heading: fix.heading, speed: fix.speed, source: fix.source, place: fix.place },
@@ -219,6 +220,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         setLocationResolved(true);
         const [x, y] = lngLatToMeters(...lastCenterRef.current);
         moveUser(x, y);
+        avatarRef.current?.setAccuracy(null);
         if (shouldFly) applyCameraMode(cameraModeRef.current, { x, y });
       };
       setIsLocating(true);
@@ -239,6 +241,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     },
     [applyCameraMode, applyFix, moveUser, onLocationError]
   );
+  const applyFixRef = useRef(applyFix);
+  applyFixRef.current = applyFix;
   const locateUserRef = useRef(locateUser);
   locateUserRef.current = locateUser;
 
@@ -360,7 +364,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     avatar.group.visible = showUserMarker;
     avatar.setPosition(x, y);
     avatar.setHeading(heading);
-    pulseScene.scene.add(avatar.group);
+    pulseScene.scene.add(avatar.group, avatar.accuracyGroup);
     avatarRef.current = avatar;
 
     // Clicking a card selects the latest copy and flies to it at street level (like PulseMap)
@@ -441,36 +445,20 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       });
     pulseScene.start();
 
-    // Live position: moves the avatar (the camera stays where the user put it). It also comes back by
-    // itself if permission is granted later, and falls back to the IP position when the browser gives up.
+    // Live position: a high-accuracy watch that moves the avatar (the camera stays where the user put it).
+    // It ignores glitches, pauses while the tab is hidden, falls back to the IP position when the browser
+    // stops answering, and announces a recovery so the app drops its "approximate" state.
     let stopWatch: (() => void) | null = null;
     if (autoGeolocate) {
       locateUserRef.current(false, false);
-      let announcedGps = false;
-      let fellBack = false;
-      stopWatch = watchLocation({
-        onFix: (fix) => {
+      stopWatch = followUser({
+        onMove: (fix) => {
           if (simAnimationRef.current) return;
           const [wx, wy] = lngLatToMeters(fix.longitude, fix.latitude);
           moveUser(wx, wy, fix.heading ?? user.current.heading);
-          // The first real fix after an approximate (IP) or missing one upgrades the app's idea of "here"
-          const wasApproximate = getLocationStatus().source !== 'gps';
-          reportGpsFix();
-          if (wasApproximate && !announcedGps) {
-            announcedGps = true;
-            onLocationFoundRef.current?.(
-              { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, heading: fix.heading, speed: fix.speed, source: 'gps' },
-              'auto'
-            );
-          }
+          avatar.setAccuracy(fix.accuracy);
         },
-        onProblem: (problem) => {
-          console.info('[PULSE 3D] GPS watch note:', problem);
-          if (!fellBack) {
-            fellBack = true;
-            locateUserRef.current(false, false);
-          }
-        }
+        onAnnounce: (fix) => applyFixRef.current(fix, false, 'auto')
       });
     }
 

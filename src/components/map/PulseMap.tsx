@@ -7,7 +7,7 @@ import React, {
   useMemo,
   forwardRef
 } from 'react';
-import { locate, refineLocation, reportGpsFix, getLocationStatus, watchLocation } from '../../services/locationService';
+import { followUser, locate, refineLocation } from '../../services/locationService';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
@@ -62,6 +62,7 @@ import { createMomentFlyerElement } from './momentFlyer';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { ANCHORS } from '../../theme/tokens';
 import type { AvatarConfig } from '../avatar/avatarConfig';
+import { accuracyCircle } from '../../utils/geoUtils';
 
 export interface UserCoordinates {
   latitude: number;
@@ -770,6 +771,17 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
      * Resilient 2-Phase Geolocation (No timeout errors)
      */
     const refineCancelRef = useRef<(() => void) | null>(null);
+    /** Draws (or clears) the circle showing how accurate the position is */
+    const drawAccuracy = useCallback((lng: number, lat: number, meters: number | null) => {
+      const source = mapRef.current?.getSource('pulse-accuracy-source') as maplibregl.GeoJSONSource | undefined;
+      source?.setData(
+        (meters == null
+          ? { type: 'FeatureCollection', features: [] }
+          : accuracyCircle(lng, lat, Math.min(5000, Math.max(6, meters)))) as never
+      );
+    }, []);
+    const drawAccuracyRef = useRef(drawAccuracy);
+    drawAccuracyRef.current = drawAccuracy;
     const onLocationFoundRef = useRef(onLocationFound);
     onLocationFoundRef.current = onLocationFound;
     const locateAndCenterUserRef = useRef<((shouldFly?: boolean, explicit?: boolean) => void) | null>(null);
@@ -795,6 +807,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
           if (mapRef.current) {
             updateUserMarker(coords.longitude, coords.latitude, heading);
+            drawAccuracy(coords.longitude, coords.latitude, coords.source === 'ip' ? null : (coords.accuracy ?? null));
             if (fly) {
               applyCameraMode(cameraMode, [coords.longitude, coords.latitude], heading);
             }
@@ -823,10 +836,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               applyCameraMode(cameraMode, [fallback.longitude, fallback.latitude], userBearingRef.current);
             }
           }
+          drawAccuracy(fallback.longitude, fallback.latitude, null);
           console.info('[PULSE] No location available; centered on the active city hub:', fallback);
         });
       },
-      [applyCameraMode, cameraMode, stableCenter, onLocationFound, updateUserMarker]
+      [applyCameraMode, cameraMode, drawAccuracy, stableCenter, onLocationFound, updateUserMarker]
     );
 
     locateAndCenterUserRef.current = locateAndCenterUser;
@@ -925,7 +939,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       // Geolocate Control
       if (showGeolocateControl) {
         const geolocate = new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: false, timeout: 6000 },
+          positionOptions: { enableHighAccuracy: true, timeout: 20000 },
           trackUserLocation: true
         });
         map.addControl(geolocate, 'top-right');
@@ -961,6 +975,20 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           source: 'pulse-radius-source',
           layout: { visibility: visibility(on.radius) },
           paint: { 'line-color': ANCHORS.signal, 'line-width': 1.5, 'line-dasharray': [3, 2], 'line-opacity': 0.7 }
+        }, before);
+
+        map.addSource('pulse-accuracy-source', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } as never });
+        map.addLayer({
+          id: 'pulse-accuracy-fill',
+          type: 'fill',
+          source: 'pulse-accuracy-source',
+          paint: { 'fill-color': ANCHORS.signal, 'fill-opacity': 0.12 }
+        }, before);
+        map.addLayer({
+          id: 'pulse-accuracy-line',
+          type: 'line',
+          source: 'pulse-accuracy-source',
+          paint: { 'line-color': ANCHORS.signal, 'line-width': 1.2, 'line-opacity': 0.6 }
         }, before);
 
         map.addSource('pulse-heat-source', {
@@ -1024,13 +1052,12 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       map.on('style.load', markReady);
       map.on('load', markReady);
 
-      // Continuous position: follows the user, and comes back by itself if permission is granted later
+      // Continuous position: a high-accuracy watch that ignores glitches, pauses while the tab is hidden,
+      // falls back to the IP position when the browser stops answering, and announces a recovery
       let stopWatch: (() => void) | null = null;
       if (autoGeolocate) {
-        let announcedGps = false;
-        let fellBack = false;
-        stopWatch = watchLocation({
-          onFix: (fix) => {
+        stopWatch = followUser({
+          onMove: (fix) => {
             const coords: UserCoordinates = {
               latitude: fix.latitude,
               longitude: fix.longitude,
@@ -1043,21 +1070,22 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             userCoordsRef.current = coords;
             userBearingRef.current = heading;
             updateUserMarker(coords.longitude, coords.latitude, heading);
-            // The first real fix after an approximate (IP) or missing one upgrades the app's idea of "here"
-            const wasApproximate = getLocationStatus().source !== 'gps';
-            reportGpsFix();
-            if (wasApproximate && !announcedGps) {
-              announcedGps = true;
-              onLocationFoundRef.current?.(coords, 'auto');
-            }
+            drawAccuracyRef.current(coords.longitude, coords.latitude, coords.accuracy ?? null);
           },
-          onProblem: (problem) => {
-            console.info('[PULSE Geolocation watch note]:', problem);
-            // The browser stopped giving positions: let locate() work out the fallback and tell the user
-            if (!fellBack) {
-              fellBack = true;
-              locateAndCenterUserRef.current?.(false, false);
-            }
+          onAnnounce: (fix) => {
+            const coords: UserCoordinates = {
+              latitude: fix.latitude,
+              longitude: fix.longitude,
+              accuracy: fix.accuracy,
+              heading: fix.heading,
+              speed: fix.speed,
+              source: fix.source,
+              place: fix.place
+            };
+            userCoordsRef.current = coords;
+            updateUserMarker(coords.longitude, coords.latitude, userBearingRef.current);
+            drawAccuracyRef.current(coords.longitude, coords.latitude, coords.source === 'ip' ? null : (coords.accuracy ?? null));
+            onLocationFoundRef.current?.(coords, 'auto');
           }
         });
       }

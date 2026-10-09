@@ -15,6 +15,7 @@ import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 import { AuthModal } from '../auth/AuthModal';
 import { LocationNotice } from './LocationNotice';
+import { LocationStatusLine } from './LocationStatusLine';
 import { getApproximateAreaName } from '../../utils/geoUtils';
 import { planHubMove } from '../../utils/hubFollow';
 import { hubNameFor, shortHubName } from '../../services/locationService';
@@ -517,6 +518,7 @@ export const AppShell: React.FC = () => {
                     <span className="truncate">{shortHubName(currentLocation.name)}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
                   </button>
+                  <LocationStatusLine className="mt-1.5" />
                 </div>
 
                 {/* Hub Selection Dropdown */}
@@ -753,6 +755,7 @@ export const AppShell: React.FC = () => {
                     <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
                       Select Exploration Hub
                     </div>
+                    <LocationStatusLine className="px-2 pb-1.5" />
                     {PRESET_LOCATIONS.map((loc) => (
                       <button
                         key={loc.name}

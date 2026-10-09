@@ -1,8 +1,14 @@
-import { test } from 'node:test';
+import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { register } from 'node:module';
+
+register('./tsResolve.mjs', import.meta.url);
 
 const mod = await import('../src/services/locationService.ts');
 const { locate, getLocationPermission, ipLocation, describeLocationProblem, getLocationStatus, resetLocationStatus } = mod;
+
+// The service remembers the best fix it has seen: every test starts from a clean slate
+beforeEach(() => resetLocationStatus());
 
 const position = (over = {}) => ({ coords: { latitude: 6.45, longitude: 3.4, accuracy: 30, heading: null, speed: null, ...over } });
 const geolocation = (outcome) => ({
@@ -98,7 +104,7 @@ test('every problem has a plain explanation, and blocked access says how to fix 
 
 // ---- Retry ladder, freshness, refinement and the watcher --------------------------------------------
 
-const { refineLocation, watchLocation, hubNameFor, reportGpsFix, COARSE_ACCURACY_M } = mod;
+const { refineLocation, watchLocation, hubNameFor, reportFix, COARSE_ACCURACY_M } = mod;
 
 /** A geolocation whose answers are scripted per call, recording the options it was asked with */
 const scripted = (answers) => {
@@ -236,8 +242,9 @@ test('hub names say when a position is approximate; a GPS hub uses the area name
   assert.equal(hubNameFor({ source: 'gps' }, 'Lekki Phase 1'), 'Lekki Phase 1');
   assert.equal(hubNameFor({ source: 'gps' }, 'Local Area'), 'My location');
   resetLocationStatus();
-  reportGpsFix();
+  reportFix({ source: 'gps', accuracy: 12, latitude: 6.4, longitude: 3.4, heading: null, speed: null });
   assert.equal(getLocationStatus().source, 'gps');
+  assert.equal(getLocationStatus().accuracy, 12);
 });
 
 test('the short hub label marks an approximate spot with ~, which that a plain split(",") would drop', () => {

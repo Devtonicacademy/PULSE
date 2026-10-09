@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { LocateFixed, MapPinOff, X } from 'lucide-react';
-import { describeLocationProblem, useLocationStatus, watchLocationPermission } from '../../services/locationService';
+import { LocateFixed, MapPinOff, Smartphone, X } from 'lucide-react';
+import {
+  accuracyAdvice,
+  currentPlatform,
+  describeLocationProblem,
+  formatAccuracy,
+  useLocationStatus,
+  watchLocationPermission
+} from '../../services/locationService';
 
 interface LocationNoticeProps {
   /** Ask for the location again (the app's own "use my location" action) */
@@ -11,7 +18,8 @@ interface LocationNoticeProps {
 /**
  * Tells the user when they were not located by the browser: why, what the app is showing instead
  * (an approximate spot from their network, or the city hub) and how to switch on precise location.
- * Turning the permission on in the browser settings retries automatically.
+ * On phones it also says when the GPS fix is coarse (several kilometers usually means "precise
+ * location" is off). Turning the permission on in the browser settings retries automatically.
  */
 export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocating }) => {
   const status = useLocationStatus();
@@ -26,13 +34,22 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status.problem]);
 
-  if (!status.problem || (status.source !== 'ip' && status.source !== 'hub')) return null;
-  const key = `${status.source}:${status.problem}`;
+  const advice =
+    !status.problem && status.source === 'gps' && status.accuracy != null
+      ? accuracyAdvice({ source: 'gps', accuracy: status.accuracy }, currentPlatform())
+      : null;
+
+  const showProblem = status.problem && (status.source === 'ip' || status.source === 'hub');
+  if (!showProblem && !advice) return null;
+
+  const key = showProblem ? `${status.source}:${status.problem}` : `advice:${advice!.key}`;
   if (dismissed === key) return null;
 
   const approximate = status.source === 'ip';
-  const { title, hint } = describeLocationProblem(status.problem, approximate);
-  const Icon = approximate ? LocateFixed : MapPinOff;
+  const { title, hint } = showProblem
+    ? describeLocationProblem(status.problem!, approximate)
+    : { title: advice!.title, hint: advice!.hint };
+  const Icon = showProblem ? (approximate ? LocateFixed : MapPinOff) : Smartphone;
 
   return (
     <div
@@ -48,7 +65,10 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
           <div className="text-xs font-bold text-white">{title}</div>
           <p className="text-[11px] text-slate-200 leading-relaxed mt-0.5">{hint}</p>
           {approximate && status.place && (
-            <p className="text-[11px] text-amber-200 mt-1 font-medium">Approximate area: {status.place}</p>
+            <p className="text-[11px] text-amber-200 mt-1 font-medium">
+              Approximate area: {status.place}
+              {status.accuracy != null ? ` (${formatAccuracy(status.accuracy)})` : ''}
+            </p>
           )}
           <button
             onClick={onRetry}

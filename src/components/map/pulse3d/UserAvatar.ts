@@ -12,6 +12,11 @@ const CHARACTER_SCALE = 2.4;
  */
 export class UserAvatar {
   readonly group = new THREE.Group();
+  /**
+   * The "how accurate is this position" circle. It lives outside `group` (which is scaled with the
+   * camera distance) so its radius stays true to the real meters; add it to the scene beside the avatar.
+   */
+  readonly accuracyGroup = new THREE.Group();
   /** Map meters (x east, y north) */
   position = { x: 0, y: 0 };
   /** Degrees clockwise from north */
@@ -102,6 +107,27 @@ export class UserAvatar {
     this.headingGroup.add(cone, arrow);
     this.orbParts = [orb, halo, arrow];
     this.group.add(this.ring, this.headingGroup, orb, halo);
+
+    const discGeometry = new THREE.CircleGeometry(1, 64);
+    const discMaterial = new THREE.MeshBasicMaterial({
+      color: ANCHORS.signal, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide
+    });
+    const disc = new THREE.Mesh(discGeometry, discMaterial);
+    const edgeGeometry = new THREE.RingGeometry(0.985, 1, 96);
+    const edgeMaterial = new THREE.MeshBasicMaterial({
+      color: ANCHORS.signal, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide
+    });
+    const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+    for (const mesh of [disc, edge]) {
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 1;
+    }
+    disc.position.y = 0.15;
+    edge.position.y = 0.2;
+    this.accuracyGroup.add(disc, edge);
+    this.accuracyGroup.visible = false;
+    this.accuracyGroup.name = 'user-accuracy';
+    this.disposables.push(discGeometry, discMaterial, edgeGeometry, edgeMaterial);
     this.disposables.push(
       orbGeometry, orbMaterial, haloGeometry, haloMaterial, ringGeometry, ringMaterial,
       coneGeometry, coneMaterial, arrowGeometry, arrowMaterial
@@ -140,6 +166,7 @@ export class UserAvatar {
   setPosition(x: number, y: number) {
     this.position = { x, y };
     this.group.position.set(x, 0, -y);
+    this.accuracyGroup.position.set(x, 0, -y);
     // Ground speed drives the walk cycle (measured over the time between position updates)
     const now = performance.now();
     const dt = (now - this.lastMove.time) / 1000;
@@ -147,6 +174,17 @@ export class UserAvatar {
       this.speed = Math.hypot(x - this.lastMove.x, y - this.lastMove.y) / dt;
     }
     this.lastMove = { x, y, time: now };
+  }
+
+  /** Shows the accuracy circle (radius in meters), or hides it for null. Kept visible-sized: 6 m to 5 km. */
+  setAccuracy(meters: number | null) {
+    if (meters == null || !Number.isFinite(meters)) {
+      this.accuracyGroup.visible = false;
+      return;
+    }
+    const radius = Math.min(5000, Math.max(6, meters));
+    this.accuracyGroup.scale.set(radius, 1, radius);
+    this.accuracyGroup.visible = true;
   }
 
   setHeading(degrees: number) {
@@ -175,5 +213,6 @@ export class UserAvatar {
     this.character?.dispose();
     this.disposables.forEach((d) => d.dispose());
     this.group.removeFromParent();
+    this.accuracyGroup.removeFromParent();
   }
 }

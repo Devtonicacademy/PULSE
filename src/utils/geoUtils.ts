@@ -84,3 +84,22 @@ export function getApproximateAreaName(lat: number, lng: number): string {
   }
   return 'Local Area';
 }
+
+/**
+ * A GeoJSON polygon approximating a circle of `radiusMeters` around a point (for the "how accurate
+ * is this position" circle on the flat map). Flat-earth maths is exact enough at these sizes.
+ */
+export function accuracyCircle(lng: number, lat: number, radiusMeters: number, steps = 64) {
+  const earth = 6371008.8;
+  const dLat = (radiusMeters / earth) * (180 / Math.PI);
+  const dLng = dLat / Math.max(0.01, Math.cos((lat * Math.PI) / 180));
+  const ring: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * 2 * Math.PI;
+    ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+  }
+  return {
+    type: 'FeatureCollection' as const,
+    features: [{ type: 'Feature' as const, properties: {}, geometry: { type: 'Polygon' as const, coordinates: [ring] } }]
+  };
+}
