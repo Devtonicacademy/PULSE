@@ -188,3 +188,23 @@ test('walls, fences and hedges become barrier strips with a tagged or default he
   assert.deepEqual(tile.barriers.map((b) => [b[0], b[1]]), [[0, 22], [1, 25], [2, 14]]);
   assert.equal(serializeTile(tile).barriers.length, 3);
 });
+
+// ---- street and place names ------------------------------------------------------------------------
+
+test('named streets, shops and landmark buildings become labels; unnamed or minor ones do not', () => {
+  const way = (tags, ...pts) => ({ type: 'way', id: nextId++, nodes: pts.map((_, i) => nextId * 10 + i), geometry: pts.map(([x, y]) => pt(x, y)), tags });
+  const node = (tags, x, y) => ({ type: 'node', id: nextId++, ...pt(x, y), tags });
+  const { tile } = build([
+    way({ highway: 'residential', name: 'Adeola Odeku Street' }, [10, 100], [200, 100]),
+    way({ highway: 'residential', name: 'Tiny Lane' }, [10, 300], [20, 300]),
+    way({ highway: 'residential' }, [10, 400], [200, 400]),
+    node({ name: 'Mama Put', amenity: 'restaurant' }, 50, 50),
+    node({ name: 'Nameless Thing' }, 60, 60),
+    rectWay(300, 300, 320, 320, { building: 'yes', name: 'Small House' }),
+    rectWay(100, 200, 160, 260, { building: 'commercial', name: 'Big Tower', height: '60' })
+  ]);
+  assert.deepEqual(tile.streetNames.map((s) => s[0]), ['Adeola Odeku Street']);
+  const names = tile.places.map((p) => p[0]).sort();
+  assert.deepEqual(names, ['Big Tower', 'Mama Put']);
+  assert.equal(serializeTile(tile).places.length, 2);
+});

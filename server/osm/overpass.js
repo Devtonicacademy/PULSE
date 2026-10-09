@@ -22,6 +22,9 @@ export function overpassQuery([s, w, n, e], timeoutSeconds = 180) {
   way["building:part"](${bbox});
   relation["building"]["type"="multipolygon"](${bbox});
   way["highway"](${bbox});
+  node["name"]["amenity"](${bbox});
+  node["name"]["shop"](${bbox});
+  node["name"]["tourism"](${bbox});
   way["barrier"~"^(wall|fence|hedge|retaining_wall)$"](${bbox});
   way["natural"="coastline"](${bbox});
   way["natural"~"^(water|bay|wetland|beach|sand|wood|tree_cover|scrub|grassland|heath)$"](${bbox});

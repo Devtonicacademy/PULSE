@@ -7,6 +7,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { createPulseMaterials, PulseMaterials } from './materials';
 import { TileManager } from './TileManager';
+import { LabelLayer } from './LabelLayer';
 
 export interface PulseSceneOptions {
   /** Cap on devicePixelRatio (mobile performance) */
@@ -59,6 +60,9 @@ export class PulseScene {
   /** HTML labels (moment cards) composited over the WebGL canvas */
   readonly labelRenderer = new CSS2DRenderer();
 
+  /** Street and place names, one canvas over the WebGL view */
+  readonly labels: LabelLayer;
+  private daylight = 0;
   private composer: EffectComposer;
   private bloomPass: UnrealBloomPass | null = null;
   private clock = new THREE.Clock();
@@ -123,6 +127,9 @@ export class PulseScene {
     });
     this.scene.add(this.tiles.root);
 
+    this.labels = new LabelLayer(container, this.tiles);
+    this.labels.placeAfter(this.renderer.domElement);
+
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     if (options.bloom ?? true) {
@@ -157,6 +164,7 @@ export class PulseScene {
     this.renderer.toneMappingExposure = p.exposure;
     // Facades switch to plaster/concrete colours and the ground lightens with daylight
     this.materials.uniforms.uDay.value = p.daylight;
+    this.daylight = p.daylight;
     this.materials.lamp.visible = p.daylight < 0.5; // street lamps only glow after dark
     // Bloom is for neon at night; in daylight it would just haze bright plaster walls
     if (this.bloomPass) {
@@ -209,6 +217,7 @@ export class PulseScene {
       this.renderer.info.reset();
       this.composer.render(delta);
       this.labelRenderer.render(this.scene, this.camera);
+      this.labels.update(this.camera, this.daylight);
       this.sampleFps();
     };
     loop();
@@ -219,6 +228,7 @@ export class PulseScene {
     this.animationId = null;
     this.resizeObserver.disconnect();
     this.frameCallbacks.clear();
+    this.labels.dispose();
     this.tiles.dispose();
     this.ground.geometry.dispose();
     this.materials.dispose();

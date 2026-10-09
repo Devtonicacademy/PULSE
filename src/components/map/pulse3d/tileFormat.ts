@@ -15,6 +15,15 @@ export type TileRoad = [number, number, 0 | 1, FlatPoints];
 /** [kindIndex (wall, fence, hedge), height dm, points] */
 export type TileBarrier = [number, number, FlatPoints];
 
+/** [name, roadClassIndex, points] a named stretch of street */
+export type TileStreetName = [string, number, FlatPoints];
+
+/** [name, placeKindIndex, x dm, y dm, building height dm] */
+export type TilePlace = [string, number, number, number, number];
+
+/** Index = place kind in the tile builder (building, food, shop, health, education, worship, lodging, leisure, transport, finance, civic) */
+export const PLACE_KIND_NAMES = ['building', 'food', 'shop', 'health', 'education', 'worship', 'lodging', 'leisure', 'transport', 'finance', 'civic'] as const;
+
 /** [outerRing, ...holeRings] */
 export type TileSurface = [FlatPoints, ...FlatPoints[]];
 
@@ -27,6 +36,10 @@ export interface MapTile {
   roads: TileRoad[];
   /** Fences, compound walls and hedges (absent in tiles built before barriers were read) */
   barriers?: TileBarrier[];
+  /** Street names for map labels (absent when none are mapped) */
+  streetNames?: TileStreetName[];
+  /** Named shops, amenities and landmark buildings (absent when none are mapped) */
+  places?: TilePlace[];
   water: TileSurface[];
   /** Parks, gardens, grass, farmland: clean grass-coloured ground */
   green: TileSurface[];

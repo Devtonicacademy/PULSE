@@ -6,6 +6,14 @@ import { assembleTileGroup, buildTileGeometry, disposeTileGroup, TileGeometry } 
 import type { TileRequest, TileResponse } from './tileWorker';
 import { loadTileText } from './tileCache';
 import { orderTiles } from './tilePriority';
+import type { TileStreetName, TilePlace } from './tileFormat';
+
+/** Names of one loaded tile, for the label overlay */
+export interface TileLabels {
+  origin: [number, number];
+  streets: TileStreetName[];
+  places: TilePlace[];
+}
 
 export interface TileManagerOptions {
   /** Tiles whose center is within this distance of the focus are loaded */
@@ -46,6 +54,9 @@ export class TileManager {
   index: MapTileIndex | null = null;
 
   private loaded = new Map<string, THREE.Group>();
+  /** Names of the loaded tiles; `labelVersion` changes whenever the set does */
+  readonly labels = new Map<string, TileLabels>();
+  labelVersion = 0;
   /** Requested and not yet turned into meshes (downloading, or built and waiting for tick()) */
   private pending = new Set<string>();
   /** Wanted but not requested yet, nearest / most visible first */
@@ -185,6 +196,8 @@ export class TileManager {
       const group = assembleTileGroup(data, this.materials);
       this.root.add(group);
       this.loaded.set(key, group);
+      this.labels.set(key, { origin: data.origin, ...data.labels });
+      this.labelVersion++;
     }
   }
 
@@ -196,6 +209,7 @@ export class TileManager {
     this.requests.clear();
     this.loaded.forEach((group) => disposeTileGroup(group));
     this.loaded.clear();
+    this.labels.clear();
     this.buildQueue = [];
   }
 
@@ -220,6 +234,8 @@ export class TileManager {
       if (!this.isWithin(tx, ty, this.unloadRadius)) {
         disposeTileGroup(group);
         this.loaded.delete(key);
+        this.labels.delete(key);
+        this.labelVersion++;
       }
     });
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { MapTile, FlatPoints, TileSurface } from './tileFormat';
+import type { MapTile, FlatPoints, TileSurface, TileStreetName, TilePlace } from './tileFormat';
 import { ROOF_SHAPE_NAMES } from './tileFormat';
 import type { PulseMaterials } from './materials';
 import { LAYER_RENDER_ORDER } from './layerOrder';
@@ -25,6 +25,8 @@ export interface TileGeometry {
   ty: number;
   origin: [number, number];
   layers: LayerData[];
+  /** Street and place names for the label overlay (plain data, no meshes) */
+  labels: { streets: TileStreetName[]; places: TilePlace[] };
 }
 
 function layer(name: LayerName, renderOrder: number, attrs: Record<string, [number[], number]>): LayerData {
@@ -720,7 +722,7 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     props.trees,
     props.lamps
   ].filter((l): l is LayerData => l !== null);
-  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers };
+  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] } };
 }
 
 /** Every transferable buffer in a built tile, for postMessage's transfer list */

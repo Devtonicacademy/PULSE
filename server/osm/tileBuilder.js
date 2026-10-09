@@ -278,6 +278,35 @@ function barrierHeight(kind, tags) {
   return h > 0.3 && h < 15 ? h : BARRIER_DEFAULT_HEIGHT[kind];
 }
 
+/** Shortest stretch of a named street worth writing the name on, meters */
+const STREET_LABEL_MIN_METERS = 25;
+
+/** Categories of labelled places (index into this list is stored in the tile) */
+export const PLACE_KINDS = ['building', 'food', 'shop', 'health', 'education', 'worship', 'lodging', 'leisure', 'transport', 'finance', 'civic'];
+const AMENITY_KIND = {
+  restaurant: 'food', cafe: 'food', fast_food: 'food', bar: 'food', pub: 'food', food_court: 'food', ice_cream: 'food', nightclub: 'food',
+  hospital: 'health', clinic: 'health', pharmacy: 'health', doctors: 'health', dentist: 'health',
+  school: 'education', university: 'education', college: 'education', kindergarten: 'education', library: 'education',
+  place_of_worship: 'worship',
+  bank: 'finance', atm: 'finance', bureau_de_change: 'finance',
+  bus_station: 'transport', ferry_terminal: 'transport', fuel: 'transport', parking: 'transport', taxi: 'transport',
+  cinema: 'leisure', theatre: 'leisure', arts_centre: 'leisure', community_centre: 'civic',
+  police: 'civic', townhall: 'civic', courthouse: 'civic', fire_station: 'civic', post_office: 'civic', embassy: 'civic', marketplace: 'shop'
+};
+const TOURISM_KIND = { hotel: 'lodging', hostel: 'lodging', guest_house: 'lodging', motel: 'lodging', apartment: 'lodging', museum: 'leisure', attraction: 'leisure', gallery: 'leisure', viewpoint: 'leisure', zoo: 'leisure' };
+
+/** What a named feature is, or null when it is not a place worth a label (a bare named building keeps 'building') */
+function placeKind(tags) {
+  if (tags.amenity) return AMENITY_KIND[tags.amenity] ?? 'civic';
+  if (tags.shop) return 'shop';
+  if (tags.tourism) return TOURISM_KIND[tags.tourism] ?? 'leisure';
+  if (tags.leisure === 'stadium' || tags.leisure === 'sports_centre' || tags.leisure === 'park') return 'leisure';
+  if (tags.office) return 'civic';
+  if (tags.historic) return 'leisure';
+  if (tags.building === 'church' || tags.building === 'mosque' || tags.building === 'cathedral') return 'worship';
+  return null;
+}
+
 /** The outline is replaced by its building:part polygons once they cover at least this much of it */
 const PARTS_REPLACE_OUTLINE_FROM = 0.6;
 
@@ -286,12 +315,23 @@ export function extractFeatures(elements) {
   const buildingParts = [];
   const roads = [];
   const barriers = [];
+  const places = [];
   const surfaces = [];
   const coastlineWays = [];
   const walkWays = [];
 
   for (const el of elements) {
     const tags = el.tags ?? {};
+
+    // Named points of interest (shops, restaurants, clinics...)
+    if (el.type === 'node') {
+      const kind = tags.name && placeKind(tags);
+      if (kind && Number.isFinite(el.lat) && Number.isFinite(el.lon)) {
+        const [x, y] = toMeters([{ lat: el.lat, lon: el.lon }])[0];
+        places.push({ name: String(tags.name).slice(0, 48), kind, x, y, height: 0 });
+      }
+      continue;
+    }
 
     // Polygons: closed ways, or multipolygon relations assembled from their members
     let polygons = null;
@@ -320,6 +360,22 @@ export function extractFeatures(elements) {
         };
         (tags['building:part'] ? buildingParts : buildings).push(feature);
       }
+      // Named buildings get a label; collected here so a building replaced by its parts keeps its name
+      if (tags.name && !tags['building:part'] && polygons?.length) {
+        const biggest = polygons.reduce((a, b) => (Math.abs(ringSignedArea(b.outer)) > Math.abs(ringSignedArea(a.outer)) ? b : a));
+        const [x, y] = ringCentroid(biggest.outer);
+        const area = Math.abs(ringSignedArea(biggest.outer));
+        const heights = buildingHeights(tags, area);
+        places.push({
+          name: String(tags.name).slice(0, 48),
+          kind: placeKind(tags) ?? 'building',
+          x, y,
+          area,
+          height: heights.height,
+          // A guessed height says nothing about how tall the building really is
+          mapped: heights.source !== 'default'
+        });
+      }
       continue;
     }
 
@@ -337,6 +393,7 @@ export function extractFeatures(elements) {
           roadClass,
           width: roadWidth(roadClass, tags),
           bridge: Boolean(tags.bridge && tags.bridge !== 'no'),
+          name: tags.name ? String(tags.name).slice(0, 48) : null,
           points: toMeters(el.geometry)
         });
       }
@@ -372,6 +429,7 @@ export function extractFeatures(elements) {
     replacedByParts: buildings.length - outlines.length,
     roads,
     barriers,
+    places,
     surfaces,
     coastline: mergeCoastline(coastlineWays),
     walkWays
@@ -548,10 +606,19 @@ export function buildTiles(tileList, features, stats) {
       const rect = [origin[0], origin[1], origin[0] + TILE_SIZE_METERS, origin[1] + TILE_SIZE_METERS];
       return [
         tileKey(tx, ty),
-        { tx, ty, origin, rect, buildings: [], bmeta: {}, roads: [], barriers: [], water: [], green: [], forest: [], sand: [], land: 1 }
+        { tx, ty, origin, rect, buildings: [], bmeta: {}, roads: [], streetNames: [], places: [], barriers: [], water: [], green: [], forest: [], sand: [], land: 1 }
       ];
     })
   );
+
+  // Places belong to the tile holding their point
+  for (const p of features.places) {
+    const tile = tiles.get(tileKey(...tileForMeters(p.x, p.y)));
+    if (!tile) continue;
+    // Bare named buildings only earn a label when they are big or tall enough to be landmarks
+    if (p.kind === 'building' && !((p.mapped && p.height >= 20) || p.area >= 1500)) continue;
+    tile.places.push([p.name, PLACE_KINDS.indexOf(p.kind), dm(p.x - tile.origin[0]), dm(p.y - tile.origin[1]), dm(p.height)]);
+  }
 
   // Buildings belong to the tile holding their centroid (never split)
   for (const b of features.buildings) {
@@ -591,6 +658,9 @@ export function buildTiles(tileList, features, stats) {
           encodePoints(piece, tile.origin)
         ]);
         stats.roadMeters += polylineLength(piece);
+        if (road.name && polylineLength(piece) >= STREET_LABEL_MIN_METERS) {
+          tile.streetNames.push([road.name, ROAD_CLASSES.indexOf(road.roadClass), encodePoints(piece, tile.origin)]);
+        }
       }
     }
 
@@ -667,7 +737,7 @@ export function buildWalkGraph(walkWays) {
 // ---------------------------------------------------------------------------
 
 /** Bump when the tile format gains something old cached tiles do not have */
-export const TILE_FORMAT_VERSION = 4;
+export const TILE_FORMAT_VERSION = 5;
 
 /**
  * The tile as written to disk / the cache. Optional parts (forest, per-building style) are left out
@@ -688,6 +758,8 @@ export function serializeTile(tile) {
   };
   if (tile.forest?.length) out.forest = tile.forest;
   if (tile.barriers?.length) out.barriers = tile.barriers;
+  if (tile.streetNames?.length) out.streetNames = tile.streetNames;
+  if (tile.places?.length) out.places = tile.places;
   if (tile.bmeta && Object.keys(tile.bmeta).length) out.bmeta = tile.bmeta;
   return out;
 }
