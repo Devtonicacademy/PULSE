@@ -242,16 +242,19 @@ export const AppShell: React.FC = () => {
                 <div className="relative h-full">
                   <Pulse3DMap key={mapOrigin.id} {...mapProps} enableDynamicLighting>
                     {sheet}
-                    {!(selectedMoment || selectedZone) && (
-                      <button
-                        onClick={() => setMapEngine('map')}
-                        className="absolute bottom-[calc(var(--area-sheet-h,0px)+6rem)] transition-[bottom] duration-300 right-4 z-30 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10"
-                        title="Back to the map"
-                      >
-                        <MapIcon className="w-3.5 h-3.5 text-signal-400" />
-                        <span>Back to map</span>
-                      </button>
-                    )}
+                    {/* Always reachable: with a moment or zone open it moves to the top so the sheet never hides it */}
+                    <button
+                      onClick={() => setMapEngine('map')}
+                      className={`absolute right-4 z-40 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10 ${
+                        selectedMoment || selectedZone
+                          ? 'top-16'
+                          : 'bottom-[calc(var(--area-sheet-h,0px)+6rem)] transition-[bottom] duration-300'
+                      }`}
+                      title="Back to the map"
+                    >
+                      <MapIcon className="w-3.5 h-3.5 text-signal-400" />
+                      <span>Back to map</span>
+                    </button>
                   </Pulse3DMap>
                 </div>
               </Suspense>

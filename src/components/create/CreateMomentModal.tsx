@@ -10,6 +10,7 @@ import {
   PhotoUploadError
 } from '../../services/photoUploadService';
 import { getApproximateAreaName } from '../../utils/geoUtils';
+import { LocationPicker } from './LocationPicker';
 import {
   Camera,
   Loader2,
@@ -86,6 +87,9 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
   // GPS fix for this moment (falls back to the active hub when unavailable or denied)
   const [gps, setGps] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  // Where the moment goes: where the user is, or a spot they choose on a map
+  const [placeMode, setPlaceMode] = useState<'here' | 'pick'>('here');
+  const [picked, setPicked] = useState<{ latitude: number; longitude: number } | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'ready' | 'unavailable'>('idle');
 
   useEffect(() => {
@@ -174,7 +178,12 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
     try {
       addMoment({
-        location: gps ? { latitude: gps.latitude, longitude: gps.longitude } : undefined,
+        location:
+          placeMode === 'pick' && picked
+            ? picked
+            : gps
+              ? { latitude: gps.latitude, longitude: gps.longitude }
+              : undefined,
         title: title.trim(),
         description: description.trim(),
         category,
@@ -188,6 +197,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
       setDescription('');
       setPhotoUrl('');
       setPhoto(null);
+      setPlaceMode('here');
+      setPicked(null);
       setIsSubmitting(false);
       onClose();
     } catch (err: any) {
@@ -414,6 +425,43 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               </div>
             </div>
 
+            {/* Where the moment happens */}
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-200 font-medium flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-signal-400" />
+                  Location
+                </span>
+                <div className="flex bg-slate-900 p-0.5 rounded-lg border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setPlaceMode('here')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                      placeMode === 'here' ? 'bg-signal-500 text-slate-950' : 'text-slate-400'
+                    }`}
+                  >
+                    Where I am
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlaceMode('pick')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                      placeMode === 'pick' ? 'bg-signal-500 text-slate-950' : 'text-slate-400'
+                    }`}
+                  >
+                    Choose on map
+                  </button>
+                </div>
+              </div>
+              {placeMode === 'pick' && (
+                <LocationPicker
+                  center={picked ?? gps ?? currentLocation}
+                  onChange={setPicked}
+                  onUseMyLocation={gps ? () => setPicked({ latitude: gps.latitude, longitude: gps.longitude }) : undefined}
+                />
+              )}
+            </div>
+
             {/* GPS Proximity Check */}
             <div className="flex items-center justify-between text-xs pt-2 border-t border-white/5">
               <span className="text-slate-400 flex items-center gap-1.5">
@@ -421,17 +469,18 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 GPS Verification:
               </span>
               <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1 text-right" data-testid="gps-status">
-                {gpsStatus === 'locating' && (
+                {placeMode === 'pick' && <>Spot chosen on the map</>}
+                {placeMode === 'here' && gpsStatus === 'locating' && (
                   <>
                     <Loader2 className="w-3 h-3 animate-spin" /> Finding your GPS location...
                   </>
                 )}
-                {gpsStatus === 'ready' && gps && (
+                {placeMode === 'here' && gpsStatus === 'ready' && gps && (
                   <>
                     <Crosshair className="w-3 h-3" /> GPS: {getApproximateAreaName(gps.latitude, gps.longitude)} (±{Math.round(gps.accuracy)}m)
                   </>
                 )}
-                {(gpsStatus === 'unavailable' || gpsStatus === 'idle') && <>Using {currentLocation.name}</>}
+                {placeMode === 'here' && (gpsStatus === 'unavailable' || gpsStatus === 'idle') && <>Using {currentLocation.name}</>}
               </span>
             </div>
 
