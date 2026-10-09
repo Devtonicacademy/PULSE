@@ -3,6 +3,7 @@ import { usePulse } from '../../context/PulseContext';
 import { PulseMap } from '../map/PulseMap';
 import { HotspotBottomSheet } from '../map/HotspotBottomSheet';
 import { AreaSheet } from '../map/AreaSheet';
+import type { MapResume } from '../map/mapResume';
 import { DiscoverFeed } from '../feed/DiscoverFeed';
 import { CreateMomentModal } from '../create/CreateMomentModal';
 import { MomentCommentsDrawer } from '../comments/MomentCommentsDrawer';
@@ -95,6 +96,16 @@ export const AppShell: React.FC = () => {
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [mapEngine, setMapEngine] = useState<MapEngine>('pulse3d');
+  // Where the user stands on the open map, so switching maps keeps the spot instead of resetting it
+  const mapPosition = useRef<MapResume | null>(null);
+  const resumeOnNextMap = useRef(false);
+  const switchEngine = (next: MapEngine) => {
+    resumeOnNextMap.current = mapPosition.current !== null;
+    setMapEngine(next);
+  };
+  useEffect(() => {
+    resumeOnNextMap.current = false;
+  }, [mapEngine]);
   const [navigationDestination, setNavigationDestination] = useState<{
     latitude: number;
     longitude: number;
@@ -208,6 +219,10 @@ export const AppShell: React.FC = () => {
             onSelectMoment: setSelectedMoment,
             navigationDestination,
             onClearNavigation: () => setNavigationDestination(null),
+            resumeFrom: resumeOnNextMap.current ? mapPosition.current : null,
+            onPositionChange: (position: MapResume) => {
+              mapPosition.current = position;
+            },
             className: 'h-full'
           };
           const sheet = (
@@ -244,7 +259,7 @@ export const AppShell: React.FC = () => {
                     {sheet}
                     {/* Always reachable: with a moment or zone open it moves to the top so the sheet never hides it */}
                     <button
-                      onClick={() => setMapEngine('map')}
+                      onClick={() => switchEngine('map')}
                       className={`absolute right-4 z-40 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10 ${
                         selectedMoment || selectedZone
                           ? 'top-16'
@@ -261,7 +276,7 @@ export const AppShell: React.FC = () => {
             );
           }
           return (
-            <PulseMap {...mapProps} onWalkIn3D={() => setMapEngine('pulse3d')}>
+            <PulseMap {...mapProps} onWalkIn3D={() => switchEngine('pulse3d')}>
               {sheet}
             </PulseMap>
           );
@@ -656,7 +671,7 @@ export const AppShell: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
+                    onClick={() => switchEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
                       mapEngine === 'pulse3d'
                         ? 'bg-signal-500/20 text-signal-300 border border-signal-500/40 shadow-sm'
@@ -931,7 +946,7 @@ export const AppShell: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setMapEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
+                onClick={() => switchEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
                 className="px-3 py-1.5 rounded-xl bg-signal-500/20 text-signal-300 border border-signal-500/30 text-xs font-bold"
               >
                 {mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}

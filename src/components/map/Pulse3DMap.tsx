@@ -18,6 +18,7 @@ import {
 } from './pulse3d/quality';
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapProjection';
+import { isAwayFromFix } from './mapResume';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
@@ -68,6 +69,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   onClearNavigation,
   onLocationFound,
   onLocationError,
+  resumeFrom = null,
+  onPositionChange,
   avatarConfig = null,
   className = '',
   style,
@@ -90,7 +93,21 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const lastCenterRef = useRef<[number, number]>([centerLng, centerLat]);
 
   // User position in map meters + heading, kept in a ref so per-frame updates skip React
-  const user = useRef(initialUser(centerLng, centerLat, bearing));
+  const user = useRef(
+    resumeFrom ? initialUser(resumeFrom.longitude, resumeFrom.latitude, resumeFrom.heading) : initialUser(centerLng, centerLat, bearing)
+  );
+  // True while the map holds a spot carried over from the other map: automatic GPS updates elsewhere are ignored
+  const keepSpotRef = useRef(Boolean(resumeFrom));
+  const onPositionChangeRef = useRef(onPositionChange);
+  onPositionChangeRef.current = onPositionChange;
+  /** Skips an automatic GPS update that would drag the user off the spot they are on */
+  const ignoreAutoFix = (lng: number, lat: number) => {
+    if (!keepSpotRef.current) return false;
+    const [slng, slat] = metersToLngLat(user.current.x, user.current.y);
+    if (isAwayFromFix({ longitude: slng, latitude: slat }, lng, lat)) return true;
+    keepSpotRef.current = false; // the live position agrees with the spot: follow it again
+    return false;
+  };
   const cameraModeRef = useRef<CameraMode>(initialCameraMode);
   const activeRouteRef = useRef<NavigationRoute | null>(null);
 
@@ -135,6 +152,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     user.current = { x, y, heading: normalizeHeading(heading) };
     avatarRef.current?.setPosition(x, y);
     avatarRef.current?.setHeading(user.current.heading);
+    const [longitude, latitude] = metersToLngLat(x, y);
+    onPositionChangeRef.current?.({ longitude, latitude, heading: user.current.heading });
   }, []);
 
   /** Mirrors PulseMap.applyCameraMode: frame the user (or a target) in the given mode */
@@ -199,8 +218,12 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       setLocationResolved(true);
       const { latitude, longitude, heading } = fix;
       const [x, y] = lngLatToMeters(longitude, latitude);
-      moveUser(x, y, heading ?? user.current.heading);
-      avatarRef.current?.setAccuracy(fix.source === 'gps' ? fix.accuracy : null);
+      if (fly) keepSpotRef.current = false;
+      const stay = !fly && ignoreAutoFix(longitude, latitude);
+      if (!stay) {
+        moveUser(x, y, heading ?? user.current.heading);
+        avatarRef.current?.setAccuracy(fix.source === 'gps' ? fix.accuracy : null);
+      }
       if (fly) applyCameraMode(cameraModeRef.current, { x, y });
       onLocationFoundRef.current?.(
         { latitude, longitude, accuracy: fix.accuracy, heading: fix.heading, speed: fix.speed, source: fix.source, place: fix.place },
@@ -218,6 +241,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     (shouldFly: boolean, explicit = shouldFly) => {
       const fallback = () => {
         setLocationResolved(true);
+        // No position to go by: stay on the spot carried over from the other map, else the active hub
+        if (keepSpotRef.current && !shouldFly) return;
         const [x, y] = lngLatToMeters(...lastCenterRef.current);
         moveUser(x, y);
         avatarRef.current?.setAccuracy(null);
@@ -454,6 +479,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       stopWatch = followUser({
         onMove: (fix) => {
           if (simAnimationRef.current) return;
+          if (ignoreAutoFix(fix.longitude, fix.latitude)) return;
           const [wx, wy] = lngLatToMeters(fix.longitude, fix.latitude);
           moveUser(wx, wy, fix.heading ?? user.current.heading);
           avatar.setAccuracy(fix.accuracy);

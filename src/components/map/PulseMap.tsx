@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { followUser, locate, refineLocation } from '../../services/locationService';
 import maplibregl from 'maplibre-gl';
+import { MapResume, isAwayFromFix } from './mapResume';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import confetti from 'canvas-confetti';
 import {
@@ -121,6 +122,10 @@ export interface PulseMapProps {
   onClearNavigation?: () => void;
   /** Opens the Pulse 3D explore / walk mode (shows a "Walk in 3D" button when provided) */
   onWalkIn3D?: () => void;
+  /** Open on this spot (where the user stood in the other map) instead of the default centre */
+  resumeFrom?: MapResume | null;
+  /** Told the position of the user whenever it changes, so the other map can pick up from it */
+  onPositionChange?: (position: MapResume) => void;
   /** The user's customized 3D avatar; shown in place of the orb once their location is known */
   avatarConfig?: AvatarConfig | null;
   /** Whether the map accepts interactive user gestures (pan, pinch, zoom, tilt) (default: true) */
@@ -210,6 +215,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       navigationDestination: propNavDestination = null,
       onClearNavigation,
       onWalkIn3D,
+      resumeFrom = null,
+      onPositionChange,
       avatarConfig = null,
       interactive = true,
       className = '',
@@ -226,7 +233,17 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
     const [centerLng, centerLat] = defaultCenter;
     const stableCenter = useMemo<[number, number]>(() => [centerLng, centerLat], [centerLng, centerLat]);
     // Initial camera is read once at map creation so prop churn never rebuilds the map
-    const initialViewRef = useRef({ center: stableCenter, zoom: defaultZoom, pitch, bearing });
+    const resumeRef = useRef(resumeFrom);
+    const initialViewRef = useRef({
+      center: (resumeFrom ? [resumeFrom.longitude, resumeFrom.latitude] : stableCenter) as [number, number],
+      zoom: defaultZoom,
+      pitch,
+      bearing: resumeFrom ? resumeFrom.heading : bearing
+    });
+    // True while the map holds a spot carried over from the other map: automatic GPS updates elsewhere are ignored
+    const keepSpotRef = useRef(Boolean(resumeFrom));
+    const onPositionChangeRef = useRef(onPositionChange);
+    onPositionChangeRef.current = onPositionChange;
     const lastCenterRef = useRef<[number, number]>(stableCenter);
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -270,10 +287,17 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
     // Performance and coordination refs
     const userCoordsRef = useRef<UserCoordinates>({
-      latitude: stableCenter[1],
-      longitude: stableCenter[0]
+      latitude: resumeFrom ? resumeFrom.latitude : stableCenter[1],
+      longitude: resumeFrom ? resumeFrom.longitude : stableCenter[0]
     });
-    const userBearingRef = useRef<number>(bearing);
+    const userBearingRef = useRef<number>(resumeFrom ? resumeFrom.heading : bearing);
+    /** Skips an automatic GPS update that would drag the user off the spot they are on */
+    const ignoreAutoFix = (lng: number, lat: number) => {
+      if (!keepSpotRef.current) return false;
+      if (isAwayFromFix(userCoordsRef.current, lng, lat)) return true;
+      keepSpotRef.current = false; // the live position agrees with the spot: follow it again
+      return false;
+    };
     const simAnimationRef = useRef<number | null>(null);
     const lastProgressUpdateRef = useRef<number>(0);
     const activeRouteRef = useRef<NavigationRoute | null>(null);
@@ -355,6 +379,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
         userCoordsRef.current = { longitude: lng, latitude: lat };
         userBearingRef.current = heading;
+        onPositionChangeRef.current?.({ longitude: lng, latitude: lat, heading });
 
         if (!userMarkerRef.current) {
           const markerContainer = document.createElement('div');
@@ -799,6 +824,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             source: fix.source,
             place: fix.place
           };
+          if (fly) keepSpotRef.current = false;
+          else if (ignoreAutoFix(coords.longitude, coords.latitude)) {
+            onLocationFound?.(coords, reason);
+            return;
+          }
           const heading = coords.heading != null && !isNaN(coords.heading) ? coords.heading : userBearingRef.current;
           setUserCoords(coords);
           userCoordsRef.current = coords;
@@ -827,6 +857,8 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
           }
 
           // Nothing located the user: settle on the default city hub without any error UI
+          // (or stay on the spot carried over from the other map)
+          if (keepSpotRef.current && !shouldFly) return;
           const fallback: UserCoordinates = { latitude: stableCenter[1], longitude: stableCenter[0] };
           setUserCoords(fallback);
           userCoordsRef.current = fallback;
@@ -1043,6 +1075,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         onMapLoad?.(map);
 
         if (autoGeolocate) {
+          if (resumeRef.current) updateUserMarker(resumeRef.current.longitude, resumeRef.current.latitude, resumeRef.current.heading);
           locateAndCenterUser(false);
         } else {
           const [lng, lat] = initialViewRef.current.center;
@@ -1058,6 +1091,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
       if (autoGeolocate) {
         stopWatch = followUser({
           onMove: (fix) => {
+            if (ignoreAutoFix(fix.longitude, fix.latitude)) return;
             const coords: UserCoordinates = {
               latitude: fix.latitude,
               longitude: fix.longitude,
@@ -1082,6 +1116,10 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               source: fix.source,
               place: fix.place
             };
+            if (ignoreAutoFix(coords.longitude, coords.latitude)) {
+              onLocationFoundRef.current?.(coords, 'auto');
+              return;
+            }
             userCoordsRef.current = coords;
             updateUserMarker(coords.longitude, coords.latitude, userBearingRef.current);
             drawAccuracyRef.current(coords.longitude, coords.latitude, coords.source === 'ip' ? null : (coords.accuracy ?? null));
