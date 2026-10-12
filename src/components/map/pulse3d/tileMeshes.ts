@@ -30,6 +30,8 @@ export interface TileGeometry {
   labels: { streets: TileStreetName[]; places: TilePlace[] };
   /** What the walking avatar cannot pass through (plain data, no meshes) */
   obstacles: TileObstacles;
+  /** Walkable roads and sidewalks for the pathfinding system */
+  walkableRoads?: { classIndex: number; points: number[] }[];
 }
 
 function layer(name: LayerName, renderOrder: number, attrs: Record<string, [number[], number]>): LayerData {
@@ -739,7 +741,18 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     props.trees,
     props.lamps
   ].filter((l): l is LayerData => l !== null);
-  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] }, obstacles: buildObstacles(tile) };
+  const walkableRoads = tile.roads
+    .filter(([classIndex]) => classIndex >= 1 && classIndex <= 8)
+    .map(([classIndex, , , flat]) => ({ classIndex, points: flat }));
+  return {
+    tx: tile.tx,
+    ty: tile.ty,
+    origin: tile.origin,
+    layers,
+    labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] },
+    obstacles: buildObstacles(tile),
+    walkableRoads
+  };
 }
 
 /** Every transferable buffer in a built tile, for postMessage's transfer list */

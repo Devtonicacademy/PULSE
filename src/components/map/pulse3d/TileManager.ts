@@ -8,6 +8,7 @@ import { loadTileText } from './tileCache';
 import { orderTiles } from './tilePriority';
 import type { TileStreetName, TilePlace } from './tileFormat';
 import { obstacles } from '../../../utils/obstacles';
+import { roadNetworkGraph } from '../../../utils/roadNetwork';
 
 /** Names of one loaded tile, for the label overlay */
 export interface TileLabels {
@@ -199,6 +200,9 @@ export class TileManager {
       this.loaded.set(key, group);
       this.labels.set(key, { origin: data.origin, ...data.labels });
       obstacles.setTile(data.tx, data.ty, data.origin, data.obstacles);
+      if (data.walkableRoads) {
+        roadNetworkGraph.setTileRoads(data.tx, data.ty, data.origin, data.walkableRoads);
+      }
       this.labelVersion++;
     }
   }
@@ -213,6 +217,7 @@ export class TileManager {
     this.loaded.clear();
     this.labels.clear();
     obstacles.clear();
+    roadNetworkGraph.clearTileRoads();
     this.buildQueue = [];
   }
 
@@ -239,6 +244,7 @@ export class TileManager {
         this.loaded.delete(key);
         this.labels.delete(key);
         obstacles.removeTile(tx, ty);
+        roadNetworkGraph.removeTileRoads(tx, ty);
         this.labelVersion++;
       }
     });
