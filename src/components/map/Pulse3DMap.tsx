@@ -401,10 +401,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       }
       const { coordinates, bearing: heading } = getPositionAlongRoute(route, progress);
       const [x, y] = lngLatToMeters(coordinates[0], coordinates[1]);
-      // Prevent straight-line traversal through any building or obstruction during simulation
-      const safe = obstacles.move([user.current.x, user.current.y], [x, y]);
-      moveUser(safe.position[0], safe.position[1], heading);
-      rig.jumpTo({ x: safe.position[0], y: safe.position[1], heading, ...MODE_FRAMING.fpv });
+      moveUser(x, y, heading);
+      rig.jumpTo({ x, y, heading, ...MODE_FRAMING.fpv });
 
       if (progress < 1) {
         simAnimationRef.current = requestAnimationFrame(animateStep);

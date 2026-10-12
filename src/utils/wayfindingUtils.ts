@@ -1,6 +1,3 @@
-import { lngLatToMeters, metersToLngLat } from './mapProjection';
-import { obstacles } from './obstacles';
-
 export interface WaypointCue {
   id: string;
   index: number;
@@ -146,59 +143,6 @@ export function generateStreetNavigationRoute(
       pathCoordinates: [start, destination],
       routeSource: 'estimate'
     };
-  }
-
-  // Steer obstacle-free around buildings and water if obstacle data is available
-  if (obstacles.tileCount > 0) {
-    const startM = lngLatToMeters(startLng, startLat);
-    const destM = lngLatToMeters(destLng, destLat);
-    const clearPath = obstacles.findClearPath(startM, destM);
-    if (clearPath && clearPath.length > 2) {
-      const pathCoordinates = clearPath.map((p) => metersToLngLat(p[0], p[1]));
-      let totalDist = 0;
-      for (let i = 1; i < pathCoordinates.length; i++) {
-        totalDist += calculateDistanceMeters(pathCoordinates[i - 1][1], pathCoordinates[i - 1][0], pathCoordinates[i][1], pathCoordinates[i][0]);
-      }
-      const waypoints: WaypointCue[] = [
-        {
-          id: 'cue-0',
-          index: 0,
-          coordinates: pathCoordinates[0],
-          bearing: calculateBearing(pathCoordinates[0][1], pathCoordinates[0][0], pathCoordinates[1][1], pathCoordinates[1][0]),
-          distanceFromStart: 0,
-          distanceToEnd: Math.round(totalDist),
-          cueType: 'straight',
-          label: `${Math.round(totalDist)}m ahead`
-        },
-        {
-          id: 'cue-dest',
-          index: 1,
-          coordinates: destination,
-          bearing: calculateBearing(pathCoordinates[pathCoordinates.length - 2][1], pathCoordinates[pathCoordinates.length - 2][0], destination[1], destination[0]),
-          distanceFromStart: Math.round(totalDist),
-          distanceToEnd: 0,
-          cueType: 'destination',
-          label: destinationTitle
-        }
-      ];
-
-      return {
-        waypoints,
-        totalDistanceMeters: Math.round(totalDist),
-        estimatedWalkingMinutes: Math.max(1, Math.ceil(totalDist / 80)),
-        startCoordinates: start,
-        destinationCoordinates: destination,
-        destinationTitle,
-        destinationCategory,
-        geojsonFeature: {
-          type: 'Feature',
-          properties: { title: destinationTitle, distance: Math.round(totalDist) },
-          geometry: { type: 'LineString', coordinates: pathCoordinates }
-        },
-        pathCoordinates,
-        routeSource: 'estimate'
-      };
-    }
   }
 
   // To simulate realistic urban street blocks (e.g. grid navigation):
