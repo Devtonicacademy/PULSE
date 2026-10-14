@@ -17,7 +17,8 @@ import type {
  *
  * Areas covered: Victoria Island, Ikoyi, Obalende, Onikan, Lagos Island, Eko Atlantic, Oniru, Lekki Phase 1,
  * Ikate, Lekki Conservation Centre, Ajah, Yaba, Ojuelegba, UNILAG, Surulere, Maryland, Ikeja, Oshodi,
- * Apapa, Festac and Mile 12.
+ * Apapa, Festac and Mile 12, and out west the Ojo region: Alaba International Market, Alaba Rago, Ojo town,
+ * Okokomaiko, LASU, Ojo Barracks, Iba, Iyana-Iba, Agboju and Satellite Town.
  */
 
 const now = new Date();
@@ -92,7 +93,7 @@ const moment = (s: SeedMoment): Moment => {
   };
 };
 
-export const LAGOS_TEST_MOMENTS: Moment[] = [
+const CITY_TEST_MOMENTS: Moment[] = [
   // ---- Victoria Island, Ikoyi, Lagos Island, Eko Atlantic ------------------------------------------
   moment({ n: 1, person: 5, category: 'activities', title: 'Sunset Yoga on the Bar Beach Front', description: 'Free open-air session on the promenade, mats provided for the first 20. Bring water. Beginners welcome.', area: 'Bar Beach, Victoria Island', lat: 6.4262, lng: 3.4168, photo: undefined, ageHours: 1, leftHours: 5, reactions: { interested: 46, going: 22, trending: 18 }, comments: 5 }),
   moment({ n: 2, person: 3, category: 'events', title: 'Eko Atlantic Skyline Night Market', description: 'Street food, local designers and a live band on the new waterfront boulevard. Shuttle from the Ahmadu Bello Way gate every 15 minutes.', area: 'Eko Atlantic City', lat: 6.4125, lng: 3.402, photo: PHOTO.night, ageHours: 3, leftHours: 20, reactions: { trending: 77, interested: 120, going: 58 }, views: 2310, comments: 12, verified: true }),
@@ -136,11 +137,32 @@ export const LAGOS_TEST_MOMENTS: Moment[] = [
   moment({ n: 30, person: 5, category: 'events', title: 'Last Call: Pop-up Vinyl Swap at the Lekki Arts Hub', description: 'The final hour of a one-day swap meet. Bring records to trade or cash to buy. Wraps up soon.', area: 'Lekki Phase 1', lat: 6.4439, lng: 3.4614, photo: PHOTO.music, ageHours: 9, leftHours: 0.3, reactions: { interested: 20, going: 12 }, comments: 2 })
 ];
 
+/** Ojo and the Badagry Expressway corridor, about 25 km west of Victoria Island */
+const OJO_TEST_MOMENTS: Moment[] = [
+  moment({ n: 31, person: 3, category: 'events', title: 'Alaba International Market Trade Fair', description: 'Wholesale electronics, appliances and audio gear with manufacturer reps on site. Free entry at Gate 2, bring a trolley bag.', area: 'Alaba International Market, Ojo', lat: 6.4572, lng: 3.1915, photo: PHOTO.night, ageHours: 3, leftHours: 21, reactions: { trending: 84, interested: 132, going: 61 }, views: 2480, comments: 11, verified: true }),
+  moment({ n: 32, person: 1, category: 'deals', title: 'Alaba Rago Sound System Clearance', description: 'Speakers, amplifiers and car audio at end-of-season prices. Every unit is tested at the counter and comes with a receipt.', area: 'Alaba Rago, Ojo', lat: 6.459, lng: 3.196, ageHours: 2, leftHours: 9, reactions: { trending: 47, helpful: 21, interested: 39 }, views: 1330, comments: 6 }),
+  moment({ n: 33, person: 4, category: 'alerts', title: 'Gridlock on the Badagry Expressway at Okokomaiko', description: 'A broken-down trailer is blocking the inbound lane. Danfo drivers are cutting through Ojo Road. Expect an hour of delay.', area: 'Okokomaiko, Ojo', lat: 6.4612, lng: 3.211, photo: PHOTO.traffic, ageHours: 0.5, leftHours: 3, reactions: { helpful: 34, confirmed: 26, trending: 38 }, views: 1190, comments: 10, verified: true }),
+  moment({ n: 34, person: 4, category: 'alerts', title: 'Flooded Underpass at Iyana-Iba', description: 'Water is waist-high at the low point, small cars are stuck. Use the Iba Estate road or wait for the drainage crew.', area: 'Iyana-Iba, Ojo', lat: 6.479, lng: 3.217, ageHours: 0.7, leftHours: 2.5, reactions: { helpful: 25, confirmed: 18, trending: 22 }, comments: 7 }),
+  moment({ n: 35, person: 0, category: 'food_drinks', title: 'Okokomaiko Ofada Rice and Peppered Ponmo', description: 'Ofada with ayamase, plantain and goat meat wrapped in leaf. Cash or transfer, the pot finishes by 5 PM.', area: 'Okokomaiko, Ojo', lat: 6.4628, lng: 3.2085, photo: PHOTO.food, ageHours: 2, leftHours: 8, reactions: { trending: 54, interested: 48, helpful: 17 }, views: 1420, comments: 8 }),
+  moment({ n: 36, person: 2, category: 'activities', title: 'Morning Fun Run Around the LASU Campus', description: 'A relaxed 4K loop through the Ojo campus, open to staff, students and neighbours. Finish with free fruit and water.', area: 'Lagos State University, Ojo', lat: 6.466, lng: 3.1975, ageHours: 6, leftHours: 10, reactions: { going: 41, interested: 55, helpful: 9 }, comments: 5 }),
+  moment({ n: 37, person: 2, category: 'events', title: 'LASU Careers and Skills Fair', description: 'Employers from banking, logistics and tech take CVs at the main auditorium. Dress smart and bring printed copies.', area: 'Lagos State University, Ojo', lat: 6.4685, lng: 3.2012, photo: PHOTO.music, ageHours: 4, leftHours: 14, reactions: { interested: 72, going: 38, trending: 15 }, views: 1650, comments: 9, verified: true }),
+  moment({ n: 38, person: 1, category: 'community', title: 'Ojo Town Drain Clean-up and Market Sweep', description: 'Residents and traders are clearing the drains behind the market ahead of the rains. Gloves and sacks are provided.', area: 'Ojo Town', lat: 6.462, lng: 3.184, ageHours: 3, leftHours: 15, reactions: { going: 29, helpful: 21, interested: 24 }, comments: 4 }),
+  moment({ n: 39, person: 5, category: 'recommendations', title: 'Fresh Fish and Crayfish at Iba Market', description: 'Catfish, croaker and dried crayfish straight from the creek boats. Go before 9 AM and haggle politely.', area: 'Iba Market, Ojo', lat: 6.4895, lng: 3.209, ageHours: 8, leftHours: 16, reactions: { helpful: 31, trending: 14 }, comments: 3 }),
+  moment({ n: 40, person: 3, category: 'lost_found', title: 'Lost: Black Phone Near Alaba Market Gate 2', description: 'Dropped near the money changers around lunchtime. Black phone with a cracked cover and a green case. Reward offered.', area: 'Alaba International Market, Ojo', lat: 6.4565, lng: 3.1928, ageHours: 2, leftHours: 22, reactions: { helpful: 16, confirmed: 2 }, comments: 5 }),
+  moment({ n: 41, person: 0, category: 'food_drinks', title: 'Ojo Cantonment Sunday Buka and Grill', description: 'Jollof, fried rice and grilled chicken for the after-church crowd. Plenty of seating under the canopy.', area: 'Ojo Cantonment', lat: 6.478, lng: 3.184, photo: PHOTO.food, ageHours: 1, leftHours: 9, reactions: { trending: 33, interested: 37, helpful: 10 }, comments: 4 }),
+  moment({ n: 42, person: 4, category: 'events', title: 'Satellite Town Community Concert', description: 'Local bands, a gospel choir and a talent showcase on the open field. Bring a chair, free entry all evening.', area: 'Satellite Town, Amuwo-Odofin', lat: 6.4635, lng: 3.279, photo: PHOTO.music, ageHours: 2, leftHours: 13, reactions: { interested: 66, going: 44, trending: 29 }, views: 1710, comments: 8 }),
+  moment({ n: 43, person: 2, category: 'deals', title: 'Agboju Market Bulk Foodstuff Discount', description: 'Beans, rice and garri at wholesale prices for anyone buying by the bag. Stalls near the main gate.', area: 'Agboju Market, Amuwo-Odofin', lat: 6.4585, lng: 3.254, ageHours: 3, leftHours: 12, reactions: { trending: 27, helpful: 19, interested: 23 }, comments: 3 }),
+  moment({ n: 44, person: 5, category: 'activities', title: 'Canoe Ride on the Ojo Creek', description: 'One-hour guided paddle past the mangroves, life jackets provided. Leaves from the jetty every 30 minutes until dusk.', area: 'Ojo Creek jetty', lat: 6.4555, lng: 3.18, ageHours: 5, leftHours: 7, reactions: { interested: 35, going: 14, helpful: 6 }, comments: 2 })
+];
+
+export const LAGOS_TEST_MOMENTS: Moment[] = [...CITY_TEST_MOMENTS, ...OJO_TEST_MOMENTS];
+
 export const LAGOS_TEST_ZONES: ActivityZone[] = [
   { id: 'seed-zone-1', zoneName: 'Ikoyi & Obalende', activityScore: 79, activeUsers: 470, momentCount: 19, centerLat: 6.4470, centerLng: 3.4180, radiusMeters: 2600, summary: 'Cafes, suya queues at Obalende and heavy evening traffic through Falomo.' },
   { id: 'seed-zone-2', zoneName: 'Surulere', activityScore: 71, activeUsers: 390, momentCount: 16, centerLat: 6.4990, centerLng: 3.3580, radiusMeters: 2800, summary: 'Match-day crowds near the stadium and a lively street food strip on Adeniran Ogunsanya.' },
   { id: 'seed-zone-3', zoneName: 'Ikeja', activityScore: 85, activeUsers: 720, momentCount: 33, centerLat: 6.6010, centerLng: 3.3500, radiusMeters: 3400, summary: 'Computer Village, Allen Avenue nightlife and the Alausa malls keep the district busy all day.' },
   { id: 'seed-zone-4', zoneName: 'Ajah & Lekki-Epe', activityScore: 68, activeUsers: 330, momentCount: 14, centerLat: 6.4690, centerLng: 3.5700, radiusMeters: 4200, summary: 'Commuter build-ups at the Ajah roundabout and weekend beach trips toward the conservation centre.' },
+  { id: 'seed-zone-6', zoneName: 'Ojo & Alaba', activityScore: 76, activeUsers: 430, momentCount: 18, centerLat: 6.4620, centerLng: 3.2000, radiusMeters: 3600, summary: 'Alaba International Market trading, LASU campus energy and heavy Badagry Expressway traffic at Okokomaiko.' },
   { id: 'seed-zone-5', zoneName: 'Apapa & Port Corridor', activityScore: 58, activeUsers: 210, momentCount: 9, centerLat: 6.4480, centerLng: 3.3620, radiusMeters: 3000, summary: 'Truck queues on the access roads; allow extra time and watch the diversion signs.' }
 ];
 
@@ -151,6 +173,8 @@ export const LAGOS_TEST_BUSINESSES: Business[] = [
   { id: 'seed-biz-2', name: 'Stadium Suya Joint', description: 'Famous ram and beef suya, open late on match days.', category: 'Street Food', location: 'Adeniran Ogunsanya Street, Surulere', latitude: 6.4958, longitude: 3.356, verified: false, subscriptionPlan: 'starter', avatar: avatar('1514525253161-7a46d19cd819'), stats: { views: 1260, reach: 3100, clicks: 240, engagementRate: 9.6 } },
   { id: 'seed-biz-3', name: 'Cowrie Kitchen', description: 'Modern Nigerian small chops and palm wine on Lagos Island.', category: 'Restaurant', location: 'Marina, Lagos Island', latitude: 6.4505, longitude: 3.3935, verified: true, subscriptionPlan: 'pro', avatar: avatar('1517248135467-4c7edcad34c4'), stats: { views: 1980, reach: 5200, clicks: 380, engagementRate: 10.9 } },
   { id: 'seed-biz-4', name: 'Sandcastle Smoothie Bar', description: 'Fresh smoothies and acai bowls close to the Ajah beaches.', category: 'Cafe', location: 'Ajah, Lekki-Epe Expressway', latitude: 6.4698, longitude: 3.58, verified: false, subscriptionPlan: 'starter', avatar: avatar('1501339847302-ac426a4a7cbb'), stats: { views: 940, reach: 2300, clicks: 170, engagementRate: 8.1 } },
+  { id: 'seed-biz-6', name: 'Alaba Gadget World', description: 'Wholesale phones, laptops and accessories with warranty and receipts.', category: 'Electronics', location: 'Gate 2, Alaba International Market, Ojo', latitude: 6.4572, longitude: 3.1915, verified: true, subscriptionPlan: 'pro', avatar: avatar('1514525253161-7a46d19cd819'), stats: { views: 2210, reach: 5600, clicks: 430, engagementRate: 11.2 } },
+  { id: 'seed-biz-7', name: 'Ofada Corner Okokomaiko', description: 'Ofada rice, ayamase and peppered meats served in leaf.', category: 'Street Food', location: 'Okokomaiko, Ojo', latitude: 6.4628, longitude: 3.2085, verified: false, subscriptionPlan: 'starter', avatar: avatar('1555396273-367ea4eb4db5'), stats: { views: 890, reach: 2100, clicks: 160, engagementRate: 8.7 } },
   { id: 'seed-biz-5', name: 'Hub Brew Yaba', description: 'Coworking cafe with fast wifi and single-origin pour-overs.', category: 'Coffee & Cafe', location: 'Herbert Macaulay Way, Yaba', latitude: 6.5086, longitude: 3.3715, verified: true, subscriptionPlan: 'enterprise', avatar: avatar('1501339847302-ac426a4a7cbb'), stats: { views: 3410, reach: 8800, clicks: 720, engagementRate: 13.7 } }
 ];
 
@@ -159,6 +183,8 @@ export const LAGOS_TEST_BUSINESS_POSTS: BusinessPost[] = [
   { id: 'seed-bpost-2', businessId: 'seed-biz-2', businessName: 'Stadium Suya Joint', businessAvatar: avatar('1514525253161-7a46d19cd819'), title: 'Match-Day Suya Truck', offer: 'Buy five sticks, get the sixth free until the final whistle.', livePinType: 'Food Truck', latitude: 6.4958, longitude: 3.356, createdAt: hoursAgo(2), expiresAt: hoursFromNow(4), clicks: 61, views: 340 },
   { id: 'seed-bpost-3', businessId: 'seed-biz-3', businessName: 'Cowrie Kitchen', businessAvatar: avatar('1517248135467-4c7edcad34c4'), title: 'Marina Happy Hour', offer: 'Half-price palm wine and small chops between 4 and 7 PM.', livePinType: 'Happy Hour', latitude: 6.4505, longitude: 3.3935, createdAt: hoursAgo(1.5), expiresAt: hoursFromNow(5), clicks: 74, views: 410 },
   { id: 'seed-bpost-4', businessId: 'seed-biz-4', businessName: 'Sandcastle Smoothie Bar', businessAvatar: avatar('1501339847302-ac426a4a7cbb'), title: 'Beach Day Flash Sale', offer: '30% off every smoothie bowl before 3 PM. Mention #PULSERADAR.', livePinType: 'Flash Sale', latitude: 6.4698, longitude: 3.58, createdAt: hoursAgo(0.5), expiresAt: hoursFromNow(3), clicks: 39, views: 215 },
+  { id: 'seed-bpost-6', businessId: 'seed-biz-6', businessName: 'Alaba Gadget World', businessAvatar: avatar('1514525253161-7a46d19cd819'), title: 'Trade Fair Bundle: Phone and Power Bank', offer: 'Buy any phone during the fair and get a power bank at cost. Show this pin at the counter.', livePinType: 'Limited Offer', latitude: 6.4572, longitude: 3.1915, createdAt: hoursAgo(1), expiresAt: hoursFromNow(9), clicks: 71, views: 450 },
+  { id: 'seed-bpost-7', businessId: 'seed-biz-7', businessName: 'Ofada Corner Okokomaiko', businessAvatar: avatar('1555396273-367ea4eb4db5'), title: 'Lunch-Hour Ofada Plate', offer: 'Free extra plantain with every ofada plate before 3 PM. Mention #PULSERADAR.', livePinType: 'Food Truck', latitude: 6.4628, longitude: 3.2085, createdAt: hoursAgo(0.7), expiresAt: hoursFromNow(4), clicks: 44, views: 260 },
   { id: 'seed-bpost-5', businessId: 'seed-biz-5', businessName: 'Hub Brew Yaba', businessAvatar: avatar('1501339847302-ac426a4a7cbb'), title: 'Founders Hour Flat White', offer: 'Free pastry with any flat white during the 3 to 4 PM founders hour.', livePinType: 'Happy Hour', latitude: 6.5086, longitude: 3.3715, createdAt: hoursAgo(1), expiresAt: hoursFromNow(6), clicks: 97, views: 580 }
 ];
 
@@ -166,6 +192,8 @@ export const LAGOS_TEST_COMMUNITIES: TemporaryCommunity[] = [
   { id: 'seed-comm-1', name: 'Landmark Beach Weekend', description: 'Meet-up hub for the food fair: parking tips, who is selling what and where to find the group.', triggerType: 'festival', momentId: 'seed-moment-9', centerLat: 6.427, centerLng: 3.446, activeUntil: hoursFromNow(16), memberCount: 262, unreadCount: 3 },
   { id: 'seed-comm-2', name: 'Computer Village Fair', description: 'Swap price checks, warranty tips and trusted stalls for the laptop fair.', triggerType: 'event', momentId: 'seed-moment-21', centerLat: 6.5959, centerLng: 3.3436, activeUntil: hoursFromNow(18), memberCount: 188, unreadCount: 1 },
   { id: 'seed-comm-3', name: 'Ajah Commuters', description: 'Live road updates for the Ajah roundabout, alternate routes and carpool offers.', triggerType: 'event', momentId: 'seed-moment-13', centerLat: 6.4682, centerLng: 3.5852, activeUntil: hoursFromNow(3), memberCount: 144, unreadCount: 0 },
+  { id: 'seed-comm-5', name: 'Alaba Trade Fair', description: 'Traders and buyers swap price checks, trusted stalls and transport tips for the fair.', triggerType: 'event', momentId: 'seed-moment-31', centerLat: 6.4572, centerLng: 3.1915, activeUntil: hoursFromNow(20), memberCount: 226, unreadCount: 2 },
+  { id: 'seed-comm-6', name: 'LASU Campus Today', description: 'Students share timetable changes, the careers fair queue and shuttle times.', triggerType: 'campus', momentId: 'seed-moment-37', centerLat: 6.4685, centerLng: 3.2012, activeUntil: hoursFromNow(14), memberCount: 312, unreadCount: 0 },
   { id: 'seed-comm-4', name: 'Surulere Match Day', description: 'Pre-game banter, ticket swaps and post-match suya runs.', triggerType: 'concert', momentId: 'seed-moment-20', centerLat: 6.5006, centerLng: 3.3598, activeUntil: hoursFromNow(6), memberCount: 97, unreadCount: 2 }
 ];
 
@@ -181,5 +209,10 @@ export const LAGOS_TEST_COMMENTS: Comment[] = [
   comment(4, 0, 'seed-moment-21', 'Any trusted stall for second-hand ThinkPads? Budget is around ₦350k.', 2, 4),
   comment(5, 2, 'seed-moment-21', 'Try the shops near the Otigba junction, ask for a seven-day return.', 1.5, 8, 'seed-c-4'),
   comment(6, 1, 'seed-moment-19', 'The pepper soup stand at the corner is the best, go before 7 PM.', 1, 5),
-  comment(7, 4, 'seed-moment-4', 'Officers just cleared one lane, moving slowly now.', 0.2, 12)
+  comment(7, 4, 'seed-moment-4', 'Officers just cleared one lane, moving slowly now.', 0.2, 12),
+  comment(8, 3, 'seed-moment-31', 'Which gate is best for the audio section, and is there a trolley hire point?', 2, 5),
+  comment(9, 1, 'seed-moment-31', 'Gate 2 for audio. Trolleys are \u20a6500 at the gate, bring small notes.', 1.5, 9, 'seed-c-8'),
+  comment(10, 4, 'seed-moment-33', 'Trailer has been moved to the shoulder, the line is slowly moving now.', 0.2, 14),
+  comment(11, 2, 'seed-moment-37', 'Do they accept soft copies of the CV or only printed ones?', 1, 3),
+  comment(12, 5, 'seed-moment-44', 'Went last weekend, the mangrove stretch is worth it. Bring a hat.', 3, 7)
 ];

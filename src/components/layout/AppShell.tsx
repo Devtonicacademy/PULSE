@@ -186,7 +186,8 @@ export const AppShell: React.FC = () => {
     { name: 'Lekki Phase 1, Lagos', latitude: 6.4474, longitude: 3.4730 },
     { name: 'Yaba Tech Hub, Lagos', latitude: 6.5095, longitude: 3.3711 },
     { name: 'Freedom Park, Lagos Island', latitude: 6.4530, longitude: 3.3980 },
-    { name: 'University of Lagos (Akoka)', latitude: 6.5168, longitude: 3.3976 }
+    { name: 'University of Lagos (Akoka)', latitude: 6.5168, longitude: 3.3976 },
+    { name: 'Alaba Market, Ojo', latitude: 6.4572, longitude: 3.1915 }
   ];
 
   // Navigation runs on whichever map is open; it opens on the map tab
