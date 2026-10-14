@@ -1,4 +1,4 @@
-import {
+import type {
   Moment,
   ActivityZone,
   Business,
@@ -8,6 +8,14 @@ import {
   NotificationItem,
   Comment
 } from '../types/pulse';
+import {
+  LAGOS_TEST_BUSINESSES,
+  LAGOS_TEST_BUSINESS_POSTS,
+  LAGOS_TEST_COMMENTS,
+  LAGOS_TEST_COMMUNITIES,
+  LAGOS_TEST_MOMENTS,
+  LAGOS_TEST_ZONES
+} from './seedLagos';
 
 // Reference center coordinates (Victoria Island, Lagos)
 export const DEFAULT_COORDS = {
@@ -34,7 +42,7 @@ const now = new Date();
 const hoursAgo = (h: number) => new Date(now.getTime() - h * 60 * 60 * 1000).toISOString();
 const hoursFromNow = (h: number) => new Date(now.getTime() + h * 60 * 60 * 1000).toISOString();
 
-export const INITIAL_MOMENTS: Moment[] = [
+const CORE_MOMENTS: Moment[] = [
   {
     id: 'moment-1',
     userId: 'user-101',
@@ -264,7 +272,9 @@ export const INITIAL_MOMENTS: Moment[] = [
   }
 ];
 
-export const INITIAL_ZONES: ActivityZone[] = [
+export const INITIAL_MOMENTS: Moment[] = [...CORE_MOMENTS, ...LAGOS_TEST_MOMENTS];
+
+const CORE_ZONES: ActivityZone[] = [
   {
     id: 'zone-1',
     zoneName: 'Victoria Island',
@@ -300,7 +310,9 @@ export const INITIAL_ZONES: ActivityZone[] = [
   }
 ];
 
-export const INITIAL_BUSINESSES: Business[] = [
+export const INITIAL_ZONES: ActivityZone[] = [...CORE_ZONES, ...LAGOS_TEST_ZONES];
+
+const CORE_BUSINESSES: Business[] = [
   {
     id: 'biz-1',
     name: 'Sky Lounge & Bistro',
@@ -340,7 +352,9 @@ export const INITIAL_BUSINESSES: Business[] = [
   }
 ];
 
-export const INITIAL_BUSINESS_POSTS: BusinessPost[] = [
+export const INITIAL_BUSINESSES: Business[] = [...CORE_BUSINESSES, ...LAGOS_TEST_BUSINESSES];
+
+const CORE_BUSINESS_POSTS: BusinessPost[] = [
   {
     id: 'bpost-1',
     businessId: 'biz-1',
@@ -373,7 +387,9 @@ export const INITIAL_BUSINESS_POSTS: BusinessPost[] = [
   }
 ];
 
-export const INITIAL_COMMUNITIES: TemporaryCommunity[] = [
+export const INITIAL_BUSINESS_POSTS: BusinessPost[] = [...CORE_BUSINESS_POSTS, ...LAGOS_TEST_BUSINESS_POSTS];
+
+const CORE_COMMUNITIES: TemporaryCommunity[] = [
   {
     id: 'comm-1',
     name: 'Freedom Park Tonight',
@@ -411,6 +427,8 @@ export const INITIAL_COMMUNITIES: TemporaryCommunity[] = [
     unreadCount: 0
   }
 ];
+
+export const INITIAL_COMMUNITIES: TemporaryCommunity[] = [...CORE_COMMUNITIES, ...LAGOS_TEST_COMMUNITIES];
 
 export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
@@ -455,7 +473,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   }
 ];
 
-export const INITIAL_COMMENTS: Comment[] = [
+const CORE_COMMENTS: Comment[] = [
   {
     id: 'c-1',
     userId: 'user-201',
@@ -501,3 +519,5 @@ export const INITIAL_COMMENTS: Comment[] = [
     userLiked: true
   }
 ];
+
+export const INITIAL_COMMENTS: Comment[] = [...CORE_COMMENTS, ...LAGOS_TEST_COMMENTS];

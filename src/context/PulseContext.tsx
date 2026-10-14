@@ -286,15 +286,21 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // load so returning visitors don't get a permanently empty map once they expire.
     // User-created moments keep their real expiry.
     const freshSeeds = new Map(INITIAL_MOMENTS.map((m) => [m.id, m]));
-    return (JSON.parse(saved) as Moment[]).map((m) => {
+    const kept = (JSON.parse(saved) as Moment[]).map((m) => {
       const seed = freshSeeds.get(m.id);
       return seed ? { ...m, createdAt: seed.createdAt, expiresAt: seed.expiresAt } : m;
     });
+    // Seeds added since this visitor last saved (new demo places) join in
+    const have = new Set(kept.map((m) => m.id));
+    return [...kept, ...INITIAL_MOMENTS.filter((m) => !have.has(m.id))];
   });
 
   const [comments, setComments] = useState<Comment[]>(() => {
     const saved = localStorage.getItem('pulse_comments');
-    return saved ? JSON.parse(saved) : INITIAL_COMMENTS;
+    if (!saved) return INITIAL_COMMENTS;
+    const kept = JSON.parse(saved) as Comment[];
+    const have = new Set(kept.map((c) => c.id));
+    return [...kept, ...INITIAL_COMMENTS.filter((c) => !have.has(c.id))];
   });
 
   const [activityZones, setActivityZones] = useState<ActivityZone[]>(INITIAL_ZONES);
