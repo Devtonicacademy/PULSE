@@ -5,5 +5,6 @@ export const LAGOS_HOTSPOTS = [
   { name: 'Marina Island (Broad St)', coords: [3.3980, 6.4530] as [number, number] },
   { name: 'Yaba Tech Hub (Macaulay)', coords: [3.3711, 6.5095] as [number, number] },
   { name: 'Ikeja City Mall (Alausa)', coords: [3.3592, 6.6194] as [number, number] },
-  { name: 'Alaba Market (Ojo)', coords: [3.1915, 6.4572] as [number, number] }
+  { name: 'Alaba Market (Ojo)', coords: [3.1915, 6.4572] as [number, number] },
+  { name: 'Agbara Industrial Estate', coords: [2.8855, 6.5148] as [number, number] }
 ];

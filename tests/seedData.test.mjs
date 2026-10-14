@@ -9,8 +9,8 @@ const seeds = await import('../src/services/seedLagos.ts');
 const data = await import('../src/services/mockData.ts');
 
 const CATEGORIES = new Set(['events', 'alerts', 'food_drinks', 'lost_found', 'recommendations', 'activities', 'deals', 'community']);
-// Greater Lagos: Badagry to Ikorodu / Epe, lagoon to Ikeja
-const inLagos = (lat, lng) => lat > 6.35 && lat < 6.7 && lng > 3.1 && lng < 3.65;
+// Greater Lagos and the Badagry corridor out to Agbara: Badagry to Ikorodu / Epe, lagoon to Ikeja
+const inLagos = (lat, lng) => lat > 6.35 && lat < 6.7 && lng > 2.8 && lng < 3.65;
 const km = (a, b) => Math.hypot((a.latitude - b.latitude) * 110.5, (a.longitude - b.longitude) * 110.5 * Math.cos((6.5 * Math.PI) / 180));
 
 test('every seeded moment is complete, in Lagos and unique', () => {
@@ -26,7 +26,7 @@ test('every seeded moment is complete, in Lagos and unique', () => {
     assert.ok(new Date(m.expiresAt) > new Date(), `${m.id} is already expired`);
     assert.ok(m.approxAddress);
   }
-  assert.ok(seeds.LAGOS_TEST_MOMENTS.length >= 40);
+  assert.ok(seeds.LAGOS_TEST_MOMENTS.length >= 54);
 });
 
 test('the seeds cover every category and many neighbourhoods', () => {
@@ -35,7 +35,7 @@ test('the seeds cover every category and many neighbourhoods', () => {
   // far apart enough to be different places: count moments that are at least 600 m from every earlier one
   const spread = [];
   for (const m of seeds.LAGOS_TEST_MOMENTS) if (spread.every((o) => km(o, m) > 0.6)) spread.push(m);
-  assert.ok(spread.length >= 32, `only ${spread.length} distinct places`);
+  assert.ok(spread.length >= 44, `only ${spread.length} distinct places`);
   const north = seeds.LAGOS_TEST_MOMENTS.some((m) => m.latitude > 6.58);
   const east = seeds.LAGOS_TEST_MOMENTS.some((m) => m.longitude > 3.53);
   const west = seeds.LAGOS_TEST_MOMENTS.some((m) => m.longitude < 3.3);
@@ -44,6 +44,11 @@ test('the seeds cover every category and many neighbourhoods', () => {
   const ojo = seeds.LAGOS_TEST_MOMENTS.filter((m) => m.latitude > 6.44 && m.latitude < 6.5 && m.longitude > 3.17 && m.longitude < 3.23);
   assert.ok(ojo.length >= 10, `only ${ojo.length} moments around Ojo`);
   assert.ok(new Set(ojo.map((m) => m.category)).size >= 6, 'Ojo has a mix of categories');
+  // beyond Ojo, towards Agbara and Badagry
+  const agbara = seeds.LAGOS_TEST_MOMENTS.filter((m) => m.longitude > 2.82 && m.longitude < 3.0 && m.latitude > 6.35 && m.latitude < 6.56);
+  assert.ok(agbara.length >= 12, `only ${agbara.length} moments towards Agbara`);
+  assert.ok(new Set(agbara.map((m) => m.category)).size >= 6, 'Agbara has a mix of categories');
+  assert.ok(agbara.some((m) => /Agbara/.test(m.approxAddress)), 'Agbara itself is covered');
 });
 
 test('zones, businesses, pins, communities and comments all point at things that exist', () => {

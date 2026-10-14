@@ -18,7 +18,8 @@ import type {
  * Areas covered: Victoria Island, Ikoyi, Obalende, Onikan, Lagos Island, Eko Atlantic, Oniru, Lekki Phase 1,
  * Ikate, Lekki Conservation Centre, Ajah, Yaba, Ojuelegba, UNILAG, Surulere, Maryland, Ikeja, Oshodi,
  * Apapa, Festac and Mile 12, and out west the Ojo region: Alaba International Market, Alaba Rago, Ojo town,
- * Okokomaiko, LASU, Ojo Barracks, Iba, Iyana-Iba, Agboju and Satellite Town.
+ * Okokomaiko, LASU, Ojo Barracks, Iba, Iyana-Iba, Agboju and Satellite Town, and further out the Badagry
+ * Expressway towards Agbara: Ijanikin, Ilogbo-Eremi, Agbara Estate, Igbesa and Badagry town.
  */
 
 const now = new Date();
@@ -155,7 +156,25 @@ const OJO_TEST_MOMENTS: Moment[] = [
   moment({ n: 44, person: 5, category: 'activities', title: 'Canoe Ride on the Ojo Creek', description: 'One-hour guided paddle past the mangroves, life jackets provided. Leaves from the jetty every 30 minutes until dusk.', area: 'Ojo Creek jetty', lat: 6.4555, lng: 3.18, ageHours: 5, leftHours: 7, reactions: { interested: 35, going: 14, helpful: 6 }, comments: 2 })
 ];
 
-export const LAGOS_TEST_MOMENTS: Moment[] = [...CITY_TEST_MOMENTS, ...OJO_TEST_MOMENTS];
+/** The Badagry Expressway beyond Ojo: Ijanikin, Ilogbo-Eremi, Agbara and Igbesa (Ogun side), and Badagry town */
+const AGBARA_TEST_MOMENTS: Moment[] = [
+  moment({ n: 45, person: 4, category: 'alerts', title: 'Staff Shuttle Delays at the Agbara Estate Gate', description: 'Morning shift buses are queued back to the expressway while security checks are done. Allow an extra 40 minutes, or walk the last stretch.', area: 'Agbara Industrial Estate', lat: 6.5165, lng: 2.887, photo: PHOTO.traffic, ageHours: 0.6, leftHours: 3, reactions: { helpful: 29, confirmed: 22, trending: 31 }, views: 1040, comments: 8, verified: true }),
+  moment({ n: 46, person: 2, category: 'deals', title: 'Agbara Central Market Foodstuff Day', description: 'Rice, beans, garri and palm oil by the bag at the stalls near the main gate. Early buyers get a free measure of pepper.', area: 'Agbara Market', lat: 6.511, lng: 2.895, ageHours: 3, leftHours: 11, reactions: { trending: 36, helpful: 20, interested: 28 }, views: 1210, comments: 5 }),
+  moment({ n: 47, person: 1, category: 'community', title: 'Ilogbo-Eremi Road Repair Volunteer Day', description: 'Residents are filling potholes with donated gravel on the market road. Bring a shovel or just a pair of gloves.', area: 'Ilogbo-Eremi', lat: 6.495, lng: 2.937, ageHours: 4, leftHours: 14, reactions: { going: 31, helpful: 24, interested: 19 }, comments: 4 }),
+  moment({ n: 48, person: 4, category: 'alerts', title: 'Standstill on the Badagry Expressway at Agbara Junction', description: 'A broken-down tanker is blocking the left lane heading towards Lagos. Okada riders are using the shoulder. Expect long delays.', area: 'Agbara Junction, Badagry Expressway', lat: 6.5058, lng: 2.9065, photo: PHOTO.traffic, ageHours: 0.4, leftHours: 4, reactions: { helpful: 38, confirmed: 30, trending: 44 }, views: 1480, comments: 12 }),
+  moment({ n: 49, person: 0, category: 'food_drinks', title: 'Igbesa Pepper Soup and Roast Fish Joint', description: 'Catfish pepper soup, roasted tilapia and cold drinks under the mango tree. Busy after 6 PM, plenty of parking.', area: 'Igbesa', lat: 6.54, lng: 2.933, photo: PHOTO.food, ageHours: 2, leftHours: 10, reactions: { trending: 41, interested: 39, helpful: 12 }, comments: 6 }),
+  moment({ n: 50, person: 5, category: 'activities', title: 'Saturday Cycle Club Ride Around Agbara Estate', description: 'A relaxed 15 km loop on the estate roads, helmets required, loan bikes available at the clubhouse. Breakfast after the ride.', area: 'Agbara Estate', lat: 6.519, lng: 2.88, ageHours: 5, leftHours: 12, reactions: { going: 27, interested: 33, helpful: 6 }, comments: 3 }),
+  moment({ n: 51, person: 3, category: 'lost_found', title: 'Lost: Brown Handbag at the Agbara Bus Stop', description: 'Left on the shuttle seat around 6 PM. Brown leather handbag with an ID card and a work lanyard. Please call the number inside.', area: 'Agbara Bus Stop', lat: 6.5125, lng: 2.8925, ageHours: 3, leftHours: 21, reactions: { helpful: 15, confirmed: 2 }, comments: 4 }),
+  moment({ n: 52, person: 0, category: 'events', title: 'Agbara Industrial Trade Expo', description: 'Suppliers and manufacturers show packaging, tooling and logistics services in the estate conference hall. Free registration at the gate.', area: 'Agbara Industrial Estate', lat: 6.5148, lng: 2.8855, photo: PHOTO.night, ageHours: 4, leftHours: 20, reactions: { interested: 58, going: 33, trending: 17 }, views: 1390, comments: 7, verified: true }),
+  moment({ n: 53, person: 2, category: 'deals', title: 'Ilogbo Market Fabric and Lace Sale', description: 'Ankara, lace and aso-oke at wholesale prices from the weaver stalls. Tailors are on site for same-day fittings.', area: 'Ilogbo-Eremi Market', lat: 6.4965, lng: 2.9345, ageHours: 2, leftHours: 9, reactions: { trending: 29, helpful: 17, interested: 26 }, comments: 3 }),
+  moment({ n: 54, person: 1, category: 'events', title: 'Ijanikin Community Praise and Food Night', description: 'Choirs, a talent corner and a plate-sharing evening on the primary school field. Everyone is welcome, bring a chair.', area: 'Ijanikin', lat: 6.4725, lng: 3.13, photo: PHOTO.music, ageHours: 3, leftHours: 15, reactions: { interested: 44, going: 28, trending: 12 }, comments: 5 }),
+  moment({ n: 55, person: 5, category: 'recommendations', title: 'Quiet Palm Garden Restaurant on the Way to Agbara', description: 'Shaded tables, a good pounded yam and a clean restroom, rare on this road. Stop here before the long stretch to the border.', area: 'Badagry Expressway near Ajara', lat: 6.4585, lng: 2.985, ageHours: 7, leftHours: 17, reactions: { helpful: 26, trending: 11 }, comments: 3 }),
+  moment({ n: 56, person: 3, category: 'events', title: 'Heritage Weekend at the Badagry Museum', description: 'Guided walks through the old slave port exhibits and a drum and dance showcase in the courtyard. Entry from \u20a61,500.', area: 'Badagry Town', lat: 6.418, lng: 2.885, photo: PHOTO.music, ageHours: 4, leftHours: 18, reactions: { interested: 52, going: 24, helpful: 10 }, views: 1240, comments: 6, verified: true }),
+  moment({ n: 57, person: 5, category: 'activities', title: 'Sunrise Walk to the Point of No Return Beach', description: 'A guided walk along the old trail to the lagoon beach with a short history talk. Start at the jetty at 6 AM.', area: 'Point of No Return, Badagry', lat: 6.377, lng: 2.887, ageHours: 6, leftHours: 10, reactions: { going: 19, interested: 41, helpful: 7 }, comments: 2 }),
+  moment({ n: 58, person: 4, category: 'alerts', title: 'Flooded Stretch Near Mowo on the Badagry Road', description: 'Water is across both lanes at the low point, only high-clearance vehicles are getting through. Trucks are stopping to wait.', area: 'Mowo, Badagry Road', lat: 6.4335, lng: 2.9235, ageHours: 0.8, leftHours: 3.5, reactions: { helpful: 24, confirmed: 17, trending: 20 }, comments: 6 })
+];
+
+export const LAGOS_TEST_MOMENTS: Moment[] = [...CITY_TEST_MOMENTS, ...OJO_TEST_MOMENTS, ...AGBARA_TEST_MOMENTS];
 
 export const LAGOS_TEST_ZONES: ActivityZone[] = [
   { id: 'seed-zone-1', zoneName: 'Ikoyi & Obalende', activityScore: 79, activeUsers: 470, momentCount: 19, centerLat: 6.4470, centerLng: 3.4180, radiusMeters: 2600, summary: 'Cafes, suya queues at Obalende and heavy evening traffic through Falomo.' },
@@ -163,6 +182,7 @@ export const LAGOS_TEST_ZONES: ActivityZone[] = [
   { id: 'seed-zone-3', zoneName: 'Ikeja', activityScore: 85, activeUsers: 720, momentCount: 33, centerLat: 6.6010, centerLng: 3.3500, radiusMeters: 3400, summary: 'Computer Village, Allen Avenue nightlife and the Alausa malls keep the district busy all day.' },
   { id: 'seed-zone-4', zoneName: 'Ajah & Lekki-Epe', activityScore: 68, activeUsers: 330, momentCount: 14, centerLat: 6.4690, centerLng: 3.5700, radiusMeters: 4200, summary: 'Commuter build-ups at the Ajah roundabout and weekend beach trips toward the conservation centre.' },
   { id: 'seed-zone-6', zoneName: 'Ojo & Alaba', activityScore: 76, activeUsers: 430, momentCount: 18, centerLat: 6.4620, centerLng: 3.2000, radiusMeters: 3600, summary: 'Alaba International Market trading, LASU campus energy and heavy Badagry Expressway traffic at Okokomaiko.' },
+  { id: 'seed-zone-7', zoneName: 'Agbara & Badagry Corridor', activityScore: 64, activeUsers: 280, momentCount: 12, centerLat: 6.4900, centerLng: 2.9100, radiusMeters: 9000, summary: 'Estate shift traffic at Agbara, market days at Ilogbo-Eremi and heritage tourism in Badagry town.' },
   { id: 'seed-zone-5', zoneName: 'Apapa & Port Corridor', activityScore: 58, activeUsers: 210, momentCount: 9, centerLat: 6.4480, centerLng: 3.3620, radiusMeters: 3000, summary: 'Truck queues on the access roads; allow extra time and watch the diversion signs.' }
 ];
 
@@ -175,6 +195,7 @@ export const LAGOS_TEST_BUSINESSES: Business[] = [
   { id: 'seed-biz-4', name: 'Sandcastle Smoothie Bar', description: 'Fresh smoothies and acai bowls close to the Ajah beaches.', category: 'Cafe', location: 'Ajah, Lekki-Epe Expressway', latitude: 6.4698, longitude: 3.58, verified: false, subscriptionPlan: 'starter', avatar: avatar('1501339847302-ac426a4a7cbb'), stats: { views: 940, reach: 2300, clicks: 170, engagementRate: 8.1 } },
   { id: 'seed-biz-6', name: 'Alaba Gadget World', description: 'Wholesale phones, laptops and accessories with warranty and receipts.', category: 'Electronics', location: 'Gate 2, Alaba International Market, Ojo', latitude: 6.4572, longitude: 3.1915, verified: true, subscriptionPlan: 'pro', avatar: avatar('1514525253161-7a46d19cd819'), stats: { views: 2210, reach: 5600, clicks: 430, engagementRate: 11.2 } },
   { id: 'seed-biz-7', name: 'Ofada Corner Okokomaiko', description: 'Ofada rice, ayamase and peppered meats served in leaf.', category: 'Street Food', location: 'Okokomaiko, Ojo', latitude: 6.4628, longitude: 3.2085, verified: false, subscriptionPlan: 'starter', avatar: avatar('1555396273-367ea4eb4db5'), stats: { views: 890, reach: 2100, clicks: 160, engagementRate: 8.7 } },
+  { id: 'seed-biz-8', name: 'Estate Bistro Agbara', description: 'Hot lunches, pepper soup and cold drinks for the estate shifts.', category: 'Restaurant', location: 'Main Road, Agbara Estate', latitude: 6.5148, longitude: 2.8855, verified: true, subscriptionPlan: 'pro', avatar: avatar('1555396273-367ea4eb4db5'), stats: { views: 1450, reach: 3600, clicks: 270, engagementRate: 10.3 } },
   { id: 'seed-biz-5', name: 'Hub Brew Yaba', description: 'Coworking cafe with fast wifi and single-origin pour-overs.', category: 'Coffee & Cafe', location: 'Herbert Macaulay Way, Yaba', latitude: 6.5086, longitude: 3.3715, verified: true, subscriptionPlan: 'enterprise', avatar: avatar('1501339847302-ac426a4a7cbb'), stats: { views: 3410, reach: 8800, clicks: 720, engagementRate: 13.7 } }
 ];
 
@@ -185,6 +206,7 @@ export const LAGOS_TEST_BUSINESS_POSTS: BusinessPost[] = [
   { id: 'seed-bpost-4', businessId: 'seed-biz-4', businessName: 'Sandcastle Smoothie Bar', businessAvatar: avatar('1501339847302-ac426a4a7cbb'), title: 'Beach Day Flash Sale', offer: '30% off every smoothie bowl before 3 PM. Mention #PULSERADAR.', livePinType: 'Flash Sale', latitude: 6.4698, longitude: 3.58, createdAt: hoursAgo(0.5), expiresAt: hoursFromNow(3), clicks: 39, views: 215 },
   { id: 'seed-bpost-6', businessId: 'seed-biz-6', businessName: 'Alaba Gadget World', businessAvatar: avatar('1514525253161-7a46d19cd819'), title: 'Trade Fair Bundle: Phone and Power Bank', offer: 'Buy any phone during the fair and get a power bank at cost. Show this pin at the counter.', livePinType: 'Limited Offer', latitude: 6.4572, longitude: 3.1915, createdAt: hoursAgo(1), expiresAt: hoursFromNow(9), clicks: 71, views: 450 },
   { id: 'seed-bpost-7', businessId: 'seed-biz-7', businessName: 'Ofada Corner Okokomaiko', businessAvatar: avatar('1555396273-367ea4eb4db5'), title: 'Lunch-Hour Ofada Plate', offer: 'Free extra plantain with every ofada plate before 3 PM. Mention #PULSERADAR.', livePinType: 'Food Truck', latitude: 6.4628, longitude: 3.2085, createdAt: hoursAgo(0.7), expiresAt: hoursFromNow(4), clicks: 44, views: 260 },
+  { id: 'seed-bpost-8', businessId: 'seed-biz-8', businessName: 'Estate Bistro Agbara', businessAvatar: avatar('1555396273-367ea4eb4db5'), title: 'Shift-Change Lunch Special', offer: 'Show this pin for a free drink with any lunch combo between 12 and 3 PM.', livePinType: 'Limited Offer', latitude: 6.5148, longitude: 2.8855, createdAt: hoursAgo(0.8), expiresAt: hoursFromNow(5), clicks: 38, views: 230 },
   { id: 'seed-bpost-5', businessId: 'seed-biz-5', businessName: 'Hub Brew Yaba', businessAvatar: avatar('1501339847302-ac426a4a7cbb'), title: 'Founders Hour Flat White', offer: 'Free pastry with any flat white during the 3 to 4 PM founders hour.', livePinType: 'Happy Hour', latitude: 6.5086, longitude: 3.3715, createdAt: hoursAgo(1), expiresAt: hoursFromNow(6), clicks: 97, views: 580 }
 ];
 
@@ -194,6 +216,8 @@ export const LAGOS_TEST_COMMUNITIES: TemporaryCommunity[] = [
   { id: 'seed-comm-3', name: 'Ajah Commuters', description: 'Live road updates for the Ajah roundabout, alternate routes and carpool offers.', triggerType: 'event', momentId: 'seed-moment-13', centerLat: 6.4682, centerLng: 3.5852, activeUntil: hoursFromNow(3), memberCount: 144, unreadCount: 0 },
   { id: 'seed-comm-5', name: 'Alaba Trade Fair', description: 'Traders and buyers swap price checks, trusted stalls and transport tips for the fair.', triggerType: 'event', momentId: 'seed-moment-31', centerLat: 6.4572, centerLng: 3.1915, activeUntil: hoursFromNow(20), memberCount: 226, unreadCount: 2 },
   { id: 'seed-comm-6', name: 'LASU Campus Today', description: 'Students share timetable changes, the careers fair queue and shuttle times.', triggerType: 'campus', momentId: 'seed-moment-37', centerLat: 6.4685, centerLng: 3.2012, activeUntil: hoursFromNow(14), memberCount: 312, unreadCount: 0 },
+  { id: 'seed-comm-7', name: 'Agbara Estate Commuters', description: 'Shuttle times, gate delays and carpool offers for the Agbara industrial estate.', triggerType: 'event', momentId: 'seed-moment-45', centerLat: 6.5165, centerLng: 2.887, activeUntil: hoursFromNow(8), memberCount: 174, unreadCount: 2 },
+  { id: 'seed-comm-8', name: 'Badagry Heritage Weekend', description: 'Visitors and guides coordinating museum walks, transport and beach trips.', triggerType: 'festival', momentId: 'seed-moment-56', centerLat: 6.418, centerLng: 2.885, activeUntil: hoursFromNow(18), memberCount: 121, unreadCount: 1 },
   { id: 'seed-comm-4', name: 'Surulere Match Day', description: 'Pre-game banter, ticket swaps and post-match suya runs.', triggerType: 'concert', momentId: 'seed-moment-20', centerLat: 6.5006, centerLng: 3.3598, activeUntil: hoursFromNow(6), memberCount: 97, unreadCount: 2 }
 ];
 
@@ -214,5 +238,9 @@ export const LAGOS_TEST_COMMENTS: Comment[] = [
   comment(9, 1, 'seed-moment-31', 'Gate 2 for audio. Trolleys are \u20a6500 at the gate, bring small notes.', 1.5, 9, 'seed-c-8'),
   comment(10, 4, 'seed-moment-33', 'Trailer has been moved to the shoulder, the line is slowly moving now.', 0.2, 14),
   comment(11, 2, 'seed-moment-37', 'Do they accept soft copies of the CV or only printed ones?', 1, 3),
-  comment(12, 5, 'seed-moment-44', 'Went last weekend, the mangrove stretch is worth it. Bring a hat.', 3, 7)
+  comment(12, 5, 'seed-moment-44', 'Went last weekend, the mangrove stretch is worth it. Bring a hat.', 3, 7),
+  comment(13, 4, 'seed-moment-45', 'Gate is moving now but the queue still reaches the junction. Leave early.', 0.3, 8),
+  comment(14, 0, 'seed-moment-48', 'Tanker has been towed off the road, traffic is easing slowly.', 0.2, 13),
+  comment(15, 3, 'seed-moment-56', 'Is the museum open on Sunday, and is there parking at the gate?', 2, 4),
+  comment(16, 5, 'seed-moment-56', 'Open all weekend. Park at the jetty side, it is a short walk.', 1.5, 7, 'seed-c-15')
 ];
