@@ -5,6 +5,7 @@ import type { PulseMaterials } from './materials';
 import { LAYER_RENDER_ORDER } from './layerOrder';
 import { groundedMinHeights } from './buildingSupport';
 import type { TileObstacles } from '../../../utils/obstacles';
+import type { TileRoadData } from '../../../utils/streetGraph';
 import { buildRoof, defaultRoofHeight, orientedBox } from './roofShapes';
 import type { PitchedShape } from './roofShapes';
 
@@ -30,6 +31,8 @@ export interface TileGeometry {
   labels: { streets: TileStreetName[]; places: TilePlace[] };
   /** What the walking avatar cannot pass through (plain data, no meshes) */
   obstacles: TileObstacles;
+  /** The tile's roads, for the walking route network */
+  roads: TileRoadData[];
 }
 
 function layer(name: LayerName, renderOrder: number, attrs: Record<string, [number[], number]>): LayerData {
@@ -739,7 +742,7 @@ export function buildTileGeometry(tile: MapTile, tileSize: number): TileGeometry
     props.trees,
     props.lamps
   ].filter((l): l is LayerData => l !== null);
-  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] }, obstacles: buildObstacles(tile) };
+  return { tx: tile.tx, ty: tile.ty, origin: tile.origin, layers, labels: { streets: tile.streetNames ?? [], places: tile.places ?? [] }, obstacles: buildObstacles(tile), roads: tile.roads };
 }
 
 /** Every transferable buffer in a built tile, for postMessage's transfer list */

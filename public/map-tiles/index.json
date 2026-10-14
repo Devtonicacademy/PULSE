@@ -1,7 +1,7 @@
 {
   "v": 1,
   "attribution": "© OpenStreetMap contributors (ODbL)",
-  "generatedAt": "2026-10-09T12:18:39.188Z",
+  "generatedAt": "2026-10-14T09:45:28.683Z",
   "origin": {
     "latitude": 6.4281,
     "longitude": 3.4219
@@ -355,7 +355,10 @@
     "danglingCoastlinePieces": 0,
     "walkGraph": {
       "nodes": 5801,
-      "edges": 7134
+      "edges": 7134,
+      "components": 41,
+      "largestEdges": 3701,
+      "isolatedPieces": 22
     }
   }
 }

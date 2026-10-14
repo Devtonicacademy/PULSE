@@ -83,17 +83,38 @@ function nearestOnSegment(p: Point, a: Point, b: Point): { point: Point; dist: n
   return { point, dist: Math.hypot(p[0] - point[0], p[1] - point[1]) };
 }
 
-/** Distance from a point to a polyline, and the segment direction at the nearest spot */
-export function distanceToPolyline(p: Point, pts: Point[]): { dist: number; point: Point; tangent: Point } {
-  let best = { dist: Infinity, point: pts[0] ?? p, tangent: [1, 0] as Point };
+/**
+ * Where a point stands against a polyline: how far off the line it is, the nearest spot on the line, the
+ * direction of the line there, and how far along the line that spot is (meters from the first point).
+ */
+export function distanceToPolyline(
+  p: Point,
+  pts: Point[]
+): { dist: number; point: Point; tangent: Point; along: number } {
+  let best = { dist: Infinity, point: pts[0] ?? p, tangent: [1, 0] as Point, along: 0 };
+  let walked = 0;
   for (let i = 0; i < pts.length - 1; i++) {
+    const len = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
     const n = nearestOnSegment(p, pts[i], pts[i + 1]);
     if (n.dist < best.dist) {
-      const len = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) || 1;
-      best = { dist: n.dist, point: n.point, tangent: [(pts[i + 1][0] - pts[i][0]) / len, (pts[i + 1][1] - pts[i][1]) / len] };
+      const l = len || 1;
+      best = {
+        dist: n.dist,
+        point: n.point,
+        tangent: [(pts[i + 1][0] - pts[i][0]) / l, (pts[i + 1][1] - pts[i][1]) / l],
+        along: walked + Math.hypot(n.point[0] - pts[i][0], n.point[1] - pts[i][1])
+      };
     }
+    walked += len;
   }
   return best;
+}
+
+/** Length of a polyline in meters */
+export function polylineLength(pts: Point[]): number {
+  let total = 0;
+  for (let i = 0; i < pts.length - 1; i++) total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+  return total;
 }
 
 const near = (bbox: [number, number, number, number], p: Point, r: number) =>

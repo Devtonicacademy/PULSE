@@ -56,6 +56,28 @@ const AREAS = [
 
 const OVERPASS_MIRRORS = DEFAULT_MIRRORS;
 
+/**
+ * How many separate pieces the walking network falls into, and how big the biggest is. Many pieces
+ * means gaps in the map data (a street missing at a junction): routes between pieces cannot be found.
+ * graph = { nodes: [x, y, ...] decimeters, edges: [[a, b, ...], ...] } as built by buildWalkGraph.
+ */
+function walkGraphComponents(graph) {
+  const nodeCount = graph.nodes.length / 2;
+  const parent = Array.from({ length: nodeCount }, (_, i) => i);
+  const find = (x) => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  };
+  for (const [a, b] of graph.edges) parent[find(a)] = find(b);
+  const edgesIn = new Map();
+  for (const [a] of graph.edges) edgesIn.set(find(a), (edgesIn.get(find(a)) ?? 0) + 1);
+  const sizes = [...edgesIn.values()].sort((x, y) => y - x);
+  return { components: sizes.length, largestEdges: sizes[0] ?? 0, isolatedPieces: sizes.filter((n) => n <= 2).length };
+}
+
 const args = process.argv.slice(2);
 const flags = {
   refresh: args.includes('--refresh'),
@@ -213,7 +235,7 @@ async function main() {
       roadKm: Math.round(stats.roadMeters / 100) / 10,
       coastlineChains: features.coastline.length,
       danglingCoastlinePieces: stats.danglingPieces,
-      walkGraph: { nodes: graph.nodes.length / 2, edges: graph.edges.length }
+      walkGraph: { nodes: graph.nodes.length / 2, edges: graph.edges.length, ...walkGraphComponents(graph) }
     }
   };
   fs.writeFileSync(path.join(OUT_DIR, 'index.json'), JSON.stringify(index, null, 2));
@@ -222,6 +244,8 @@ async function main() {
   console.log(`\nWrote ${tiles.size} tiles to public/map-tiles/`);
   console.log(`  tiles:      ${kb(totalBytes)} total, largest ${kb(Math.max(...Object.values(tileIndex)))}`);
   console.log(`  walk graph: ${kb(graphJson.length)} (${index.stats.walkGraph.nodes} nodes, ${index.stats.walkGraph.edges} edges)`);
+  const wg = index.stats.walkGraph;
+  console.log(`  components: ${wg.components} connected pieces, the largest has ${wg.largestEdges} of ${wg.edges} edges (${wg.isolatedPieces} tiny pieces of 1-2 edges)`);
   console.log(`  buildings:  ${totalBuildings} — height tag ${pct(stats.buildings.height)}, levels ${pct(stats.buildings.levels)}, defaulted ${pct(stats.buildings.default)}`);
   console.log(`  styling:    wall colour ${stats.styled.wallColour}, roof colour ${stats.styled.roofColour}, roof shape ${stats.styled.roofShape}`);
   console.log(`  roads:      ${index.stats.roadKm} km`);

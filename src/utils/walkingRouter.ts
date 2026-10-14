@@ -1,36 +1,15 @@
 /**
- * In-browser walking directions over the OpenStreetMap street network
- * (public/map-tiles/walk-graph.json, built by scripts/build-map-tiles.mjs).
- * No routing server: the graph is a few hundred KB and A* runs in milliseconds.
+ * In-browser walking directions over the OpenStreetMap street network, with no routing server.
+ *
+ * The network comes from the roads of the loaded map tiles (src/utils/streetGraph.ts) when there are
+ * any near the start, otherwise from the pre-built Lagos graph (public/map-tiles/walk-graph.json,
+ * built by scripts/build-map-tiles.mjs). A* runs in milliseconds. Routes only ever follow streets:
+ * where there is no street route the answer is null, never a guessed straight line.
  */
 import { lngLatToMeters, metersToLngLat, usesLagosData } from './mapProjection';
 import { obstacles } from './obstacles';
-import {
-  generateStreetNavigationRoute,
-  calculateBearing,
-  NavigationRoute,
-  WaypointCue
-} from './wayfindingUtils';
-
-type Point = [number, number]; // map meters (x east, y north)
-
-interface Edge {
-  a: number;
-  b: number;
-  length: number;
-  /** Full polyline a -> b, in meters */
-  points: Point[];
-  /** Cumulative distance at each polyline vertex */
-  cumulative: number[];
-  bbox: [number, number, number, number];
-}
-
-interface Graph {
-  nodes: Point[];
-  edges: Edge[];
-  /** node -> list of edge indices */
-  adjacency: number[][];
-}
+import { calculateBearing, type NavigationRoute, type WaypointCue } from './wayfindingUtils';
+import { streetGraph, type Edge, type Graph, type Point } from './streetGraph';
 
 interface Snap {
   edge: number;
@@ -41,15 +20,15 @@ interface Snap {
 }
 
 const GRAPH_URL = '/map-tiles/walk-graph.json';
-/** Farther than this from any mapped street, we can't route (outside coverage) */
-const MAX_SNAP_METERS = 250;
+/** The start must be within this of a street, or there is nothing to walk along from here */
+const MAX_START_SNAP_METERS = 250;
 /** The leg from the street to the exact start or end point may be this long at most */
 const MAX_CONNECTOR_METERS = 40;
 const TURN_THRESHOLD_DEG = 35;
 const MAX_TURN_CUES = 12;
 const WALKING_METERS_PER_MINUTE = 80;
 
-let graphPromise: Promise<Graph | null> | null = null;
+let staticGraphPromise: Promise<Graph | null> | null = null;
 
 const dist = (p: Point, q: Point) => Math.hypot(q[0] - p[0], q[1] - p[1]);
 
@@ -59,8 +38,9 @@ const dist = (p: Point, q: Point) => Math.hypot(q[0] - p[0], q[1] - p[1]);
  */
 const connectorOk = (street: Point, exact: Point) => dist(street, exact) <= MAX_CONNECTOR_METERS && !obstacles.segmentBlocked(street, exact);
 
-function loadGraph(): Promise<Graph | null> {
-  graphPromise ??= fetch(GRAPH_URL)
+/** The pre-built Lagos graph (used when no tile roads are loaded near the start) */
+function loadStaticGraph(): Promise<Graph | null> {
+  staticGraphPromise ??= fetch(GRAPH_URL)
     .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
     .then((raw: { nodes: number[]; edges: [number, number, number, number[]][] }) => {
       const nodes: Point[] = [];
@@ -88,19 +68,19 @@ function loadGraph(): Promise<Graph | null> {
       return { nodes, edges, adjacency };
     })
     .catch((err) => {
-      console.warn('[PULSE Routing] Walk graph unavailable, using estimated routes:', err);
+      console.warn('[PULSE Routing] Walk graph unavailable:', err);
       return null;
     });
-  return graphPromise;
+  return staticGraphPromise;
 }
 
 /** Nearest point on the street network */
-function snapToNetwork(graph: Graph, p: Point): Snap | null {
+function snapToNetwork(graph: Graph, p: Point, maxOffset = Infinity): Snap | null {
   let best: Snap | null = null;
   for (let e = 0; e < graph.edges.length; e++) {
     const edge = graph.edges[e];
     const [minX, minY, maxX, maxY] = edge.bbox;
-    const limit = best ? best.offset : MAX_SNAP_METERS;
+    const limit = best ? best.offset : maxOffset;
     if (p[0] < minX - limit || p[0] > maxX + limit || p[1] < minY - limit || p[1] > maxY + limit) continue;
     for (let i = 0; i < edge.points.length - 1; i++) {
       const [ax, ay] = edge.points[i];
@@ -239,7 +219,8 @@ function shortestPath(graph: Graph, start: Snap, goal: Snap): Point[] | null {
     }
   }
 
-  if (direct <= g[GOAL]) return sliceEdge(startEdge, start.along, goal.along);
+  // (an unreachable goal leaves both infinite: that is no route, not a short one)
+  if (Number.isFinite(direct) && direct <= g[GOAL]) return sliceEdge(startEdge, start.along, goal.along);
   if (!Number.isFinite(g[GOAL])) return null;
 
   // Walk back from the goal, collecting street geometry
@@ -380,34 +361,56 @@ function buildRoute(path: Point[], start: [number, number], destination: [number
 }
 
 /**
- * Walking route along real streets. Falls back to the estimated route when either end
- * is outside the mapped areas, the two ends aren't connected, or the graph can't load.
+ * The street network to route on: the loaded tiles' roads when the start is next to one of them,
+ * otherwise the pre-built Lagos graph. Null when neither can place the start on a street.
+ */
+async function networkFor(startPoint: Point): Promise<{ graph: Graph; startSnap: Snap } | null> {
+  const tiles = streetGraph.graph();
+  if (tiles && tiles.edges.length) {
+    const startSnap = snapToNetwork(tiles, startPoint, MAX_START_SNAP_METERS);
+    if (startSnap) return { graph: tiles, startSnap };
+  }
+  const prebuilt = usesLagosData() ? await loadStaticGraph() : null;
+  if (prebuilt) {
+    const startSnap = snapToNetwork(prebuilt, startPoint, MAX_START_SNAP_METERS);
+    if (startSnap) return { graph: prebuilt, startSnap };
+  }
+  return null;
+}
+
+/**
+ * Walking route along real streets, or null when there is none ("No street route here"): the start is not
+ * next to a street, or the street it is on does not connect to the destination's. A destination off the
+ * streets (inside a block, far from any road) is snapped to the nearest street and the route ends there.
  */
 export async function findWalkingRoute(
   start: [number, number], // [lng, lat]
   destination: [number, number],
   destinationTitle = 'Destination',
   destinationCategory = 'events'
-): Promise<NavigationRoute> {
-  const fallback = () => generateStreetNavigationRoute(start, destination, destinationTitle, destinationCategory);
-  // The street graph is Lagos-only; elsewhere the estimated route is the honest answer
-  const graph = usesLagosData() ? await loadGraph() : null;
-  if (!graph) return fallback();
-
+): Promise<NavigationRoute | null> {
   const startPoint = lngLatToMeters(start[0], start[1]);
   const destPoint = lngLatToMeters(destination[0], destination[1]);
-  const startSnap = snapToNetwork(graph, startPoint);
+  const network = await networkFor(startPoint);
+  if (!network) return null;
+  const { graph, startSnap } = network;
+
   const goalSnap = snapToNetwork(graph, destPoint);
-  if (!startSnap || !goalSnap) return fallback();
+  if (!goalSnap) return null;
 
   const street = shortestPath(graph, startSnap, goalSnap);
-  if (!street || street.length < 2) return fallback();
+  if (!street || street.length < 2) return null;
 
   // Walk from the exact start to the street, and from the street to the exact spot
   // (only when that leg is short and clear: the route itself never leaves the streets otherwise)
   const path: Point[] = [];
   if (startSnap.offset > 2 && connectorOk(startSnap.point, startPoint)) path.push(startPoint);
   path.push(...street);
-  if (goalSnap.offset > 2 && connectorOk(goalSnap.point, destPoint)) path.push(destPoint);
-  return buildRoute(path, start, destination, destinationTitle, destinationCategory);
+  const reachesDestination = goalSnap.offset <= 2 || connectorOk(goalSnap.point, destPoint);
+  if (goalSnap.offset > 2 && reachesDestination) path.push(destPoint);
+
+  const route = buildRoute(path, start, destination, destinationTitle, destinationCategory);
+  // How far the end of the route is from the place asked for (it stops at the street)
+  route.endsShortMeters = reachesDestination ? 0 : Math.round(goalSnap.offset);
+  return route;
 }

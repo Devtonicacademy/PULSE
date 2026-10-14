@@ -19,7 +19,8 @@ import {
 import { LAGOS_HOTSPOTS } from './lagosHotspots';
 import { lngLatToMeters, metersToLngLat, usesLagosData } from '../../utils/mapProjection';
 import { isAwayFromFix } from './mapResume';
-import { obstacles, distanceToPolyline } from '../../utils/obstacles';
+import { obstacles, distanceToPolyline, polylineLength } from '../../utils/obstacles';
+import { RouteChooserSheet, type RouteStatus } from './pulse3d/RouteChooserSheet';
 import { getPositionAlongRoute, NavigationRoute } from '../../utils/wayfindingUtils';
 import { findWalkingRoute } from '../../utils/walkingRouter';
 import { ANCHORS } from '../../theme/tokens';
@@ -58,6 +59,25 @@ const REROUTE_COOLDOWN_SECONDS = 6;
 const ARRIVED_METERS = 12;
 
 const normalizeHeading = (deg: number) => ((deg % 360) + 360) % 360;
+
+type NavMode = 'choose' | 'guide' | 'auto';
+
+/** "Turn left in 40 m": distances read in tens, and "now" when the corner is right here */
+function spokenDistance(meters: number): string {
+  if (meters < 8) return 'now';
+  if (meters < 25) return `in ${Math.max(10, Math.round(meters / 5) * 5)} m`;
+  if (meters < 1000) return `in ${Math.round(meters / 10) * 10} m`;
+  return `in ${(meters / 1000).toFixed(1)} km`;
+}
+
+/** What to do next, given how far along the route the walker is */
+function nextInstruction(route: NavigationRoute, along: number): string {
+  const cue = route.waypoints.find((w) => w.cueType !== 'straight' && w.distanceFromStart > along + 2);
+  if (!cue) return 'Keep going straight';
+  const away = cue.distanceFromStart - along;
+  if (cue.cueType === 'destination') return away < 8 ? 'Arriving' : `Destination ${spokenDistance(away)}`;
+  return `${cue.cueType === 'turn-left' ? 'Turn left' : 'Turn right'} ${spokenDistance(away)}`;
+}
 
 function initialUser(lng: number, lat: number, heading: number) {
   const [x, y] = lngLatToMeters(lng, lat);
@@ -110,6 +130,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   const keepSpotRef = useRef(Boolean(resumeFrom));
   const onPositionChangeRef = useRef(onPositionChange);
   onPositionChangeRef.current = onPositionChange;
+  /** While the avatar walks the route by itself ('Walk it for me'), the real GPS is not followed */
+  const gpsPaused = () => navModeRef.current === 'auto' && activeRouteRef.current !== null;
   /** Skips an automatic GPS update that would drag the user off the spot they are on */
   const ignoreAutoFix = (lng: number, lat: number) => {
     if (!keepSpotRef.current) return false;
@@ -148,6 +170,19 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   // True once the first GPS attempt has resolved (a fix, or the active hub as the fallback)
   const [locationResolved, setLocationResolved] = useState(false);
   const [activeRoute, setActiveRoute] = useState<NavigationRoute | null>(null);
+  // How the route is taken: 'choose' = the chooser sheet is up, 'guide' = the walker walks (real GPS) with
+  // directions, 'auto' = the avatar walks it. routeStatus is null while there is no navigation at all.
+  const [navMode, setNavModeState] = useState<NavMode>('choose');
+  const navModeRef = useRef<NavMode>('choose');
+  const setNavMode = useCallback((mode: NavMode) => {
+    navModeRef.current = mode;
+    setNavModeState(mode);
+  }, []);
+  const [routeStatus, setRouteStatus] = useState<RouteStatus | null>(null);
+  const [navTitle, setNavTitle] = useState('');
+  const [instruction, setInstruction] = useState<string | null>(null);
+  const [remainingMeters, setRemainingMeters] = useState<number | null>(null);
+  const [arrived, setArrived] = useState(false);
   const [isSimulatingWalk, setIsSimulatingWalk] = useState(false);
   const [simulationProgress, setSimulationProgress] = useState(0);
   const [hotspotCoverage, setHotspotCoverage] = useState<boolean[]>(LAGOS_HOTSPOTS.map(() => true));
@@ -231,7 +266,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       const { latitude, longitude, heading } = fix;
       const [x, y] = lngLatToMeters(longitude, latitude);
       if (fly) keepSpotRef.current = false;
-      const stay = !fly && ignoreAutoFix(longitude, latitude);
+      const stay = !fly && (gpsPaused() || ignoreAutoFix(longitude, latitude));
       if (!stay) {
         moveUser(x, y, heading ?? user.current.heading);
         avatarRef.current?.setAccuracy(fix.source === 'gps' ? fix.accuracy : null);
@@ -287,16 +322,44 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   // joined it yet (a start far from the street must not trigger endless re-routing)
   const navDestRef = useRef<{ latitude: number; longitude: number; title: string; category?: string } | null>(null);
   const routeMetersRef = useRef<[number, number][] | null>(null);
+  const routeLengthRef = useRef(0);
   const armedRef = useRef(false);
   const deviationSinceRef = useRef<number | null>(null);
   const rerouteReadyAtRef = useRef(0);
   const reroutingRef = useRef(false);
   const lastDeviationCheckRef = useRef(0);
+  const arrivedRef = useRef(false);
+  /** How much of the route the autopilot has walked (0..1), so it can pause and carry on */
+  const simProgressRef = useRef(0);
+  const arriveRef = useRef<() => void>(() => {});
+
+  const stopWalkSimulation = useCallback(() => {
+    if (simAnimationRef.current) cancelAnimationFrame(simAnimationRef.current);
+    simAnimationRef.current = null;
+    setIsSimulatingWalk(false);
+  }, []);
 
   const startNavigation = useCallback(
     async (destination: { latitude: number; longitude: number; title: string; category?: string }, options: { reroute?: boolean } = {}) => {
       navDestRef.current = destination;
       const request = ++routeRequestRef.current;
+      if (!options.reroute) {
+        // A new trip: forget the old one and show the chooser once the route is found
+        stopWalkSimulation();
+        setNavTitle(destination.title);
+        setRouteStatus('finding');
+        setNavMode('choose');
+        setArrived(false);
+        arrivedRef.current = false;
+        setInstruction(null);
+        setRemainingMeters(null);
+        setSimulationProgress(0);
+        simProgressRef.current = 0;
+        activeRouteRef.current = null;
+        routeMetersRef.current = null;
+        setActiveRoute(null);
+        routeLayerRef.current?.setRoute(null);
+      }
       const start = metersToLngLat(user.current.x, user.current.y);
       const route = await findWalkingRoute(
         start,
@@ -307,12 +370,21 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       // Ignore results for a destination that was replaced or cancelled meanwhile
       if (request !== routeRequestRef.current || !sceneRef.current) return;
 
+      if (!route) {
+        // No street route from here: keep the old route when re-routing, otherwise say so in the chooser
+        if (options.reroute) showNotice('🚫 No street route from here');
+        else setRouteStatus('none');
+        return;
+      }
+      setRouteStatus('ready');
+
       activeRouteRef.current = route;
       setActiveRoute(route);
       routeLayerRef.current?.setRoute(route);
 
       const meters = (route.pathCoordinates ?? []).map(([lng, lat]) => lngLatToMeters(lng, lat) as [number, number]);
       routeMetersRef.current = meters.length > 1 ? meters : null;
+      routeLengthRef.current = meters.length > 1 ? polylineLength(meters) : 0;
       deviationSinceRef.current = null;
       armedRef.current = meters.length > 1 && distanceToPolyline([user.current.x, user.current.y], meters).dist <= ON_ROUTE_METERS;
       if (options.reroute) return; // the walker keeps going: no camera or position jump
@@ -321,25 +393,51 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       moveUser(user.current.x, user.current.y, initialHeading);
       applyCameraMode('fpv', undefined, initialHeading);
     },
-    [applyCameraMode, moveUser]
+    [applyCameraMode, moveUser, setNavMode, showNotice, stopWalkSimulation]
   );
 
+  /** The walk is over: stop, say so, celebrate */
+  const arrive = () => {
+    if (arrivedRef.current) return;
+    arrivedRef.current = true;
+    stopWalkSimulation();
+    setArrived(true);
+    setInstruction('You have arrived');
+    setRemainingMeters(0);
+    if (navModeRef.current === 'auto') setSimulationProgress(1);
+    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: [ANCHORS.signal, ANCHORS.accent, ANCHORS.accent2, '#10B981'] });
+  };
+  arriveRef.current = arrive;
+
   /**
-   * Re-routes when the walker has left the route: more than REROUTE_DEVIATION_METERS away for a moment
-   * (a wrong turn, a block walked around, a GPS jump). It starts from where they are now.
+   * Once per half second while a route is being followed ('guide' or 'auto'): works out how far along and
+   * how far off the route the walker is, writes the next instruction, notices arrival, and, only when
+   * guiding, re-routes once the walker has left the route (a wrong turn, a block walked around, a GPS
+   * jump): more than REROUTE_DEVIATION_METERS away for a moment. The new route starts where they are.
    */
   const monitorRoute = (elapsed: number) => {
+    const mode = navModeRef.current;
+    const route = activeRouteRef.current;
     const path = routeMetersRef.current;
     const destination = navDestRef.current;
-    if (!path || !destination || simAnimationRef.current || reroutingRef.current) return;
+    if (!route || !path || !destination || mode === 'choose' || arrivedRef.current || reroutingRef.current) return;
     if (elapsed - lastDeviationCheckRef.current < 0.5) return;
     lastDeviationCheckRef.current = elapsed;
 
     const here: [number, number] = [user.current.x, user.current.y];
-    const off = distanceToPolyline(here, path).dist;
-    if (off <= ON_ROUTE_METERS) armedRef.current = true;
+    const { dist: off, along } = distanceToPolyline(here, path);
     const end = path[path.length - 1];
-    if (!armedRef.current || Math.hypot(end[0] - here[0], end[1] - here[1]) < ARRIVED_METERS) return;
+    if (Math.hypot(end[0] - here[0], end[1] - here[1]) < ARRIVED_METERS) {
+      arrive();
+      return;
+    }
+    if (off <= ON_ROUTE_METERS) armedRef.current = true;
+
+    setRemainingMeters(Math.round(Math.max(0, routeLengthRef.current - along) + off));
+    setInstruction(off > REROUTE_DEVIATION_METERS && mode === 'guide' ? 'Off route: head back to the line' : nextInstruction(route, along));
+
+    // The autopilot stays on the route by itself, and re-routing is a guiding feature
+    if (mode !== 'guide' || simAnimationRef.current || !armedRef.current) return;
 
     if (off <= REROUTE_DEVIATION_METERS) {
       deviationSinceRef.current = null;
@@ -351,6 +449,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     reroutingRef.current = true;
     rerouteReadyAtRef.current = elapsed + REROUTE_COOLDOWN_SECONDS;
     deviationSinceRef.current = null;
+    setInstruction('Rerouting…');
     showNotice('↩️ Off route: finding a new way…');
     void startNavigation(destination, { reroute: true }).finally(() => {
       reroutingRef.current = false;
@@ -358,12 +457,6 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
   };
   const monitorRouteRef = useRef(monitorRoute);
   monitorRouteRef.current = monitorRoute;
-
-  const stopWalkSimulation = useCallback(() => {
-    if (simAnimationRef.current) cancelAnimationFrame(simAnimationRef.current);
-    simAnimationRef.current = null;
-    setIsSimulatingWalk(false);
-  }, []);
 
   const stopNavigation = useCallback(() => {
     routeRequestRef.current++;
@@ -373,28 +466,33 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     routeLayerRef.current?.setRoute(null);
     activeRouteRef.current = null;
     setActiveRoute(null);
+    setRouteStatus(null);
+    setNavMode('choose');
+    setArrived(false);
+    arrivedRef.current = false;
+    setInstruction(null);
+    setRemainingMeters(null);
     setSimulationProgress(0);
+    simProgressRef.current = 0;
     onClearNavigation?.();
-  }, [onClearNavigation, stopWalkSimulation]);
+  }, [onClearNavigation, setNavMode, stopWalkSimulation]);
 
-  /** Autopilot along the route at street level (same timing as PulseMap) */
-  const toggleWalkSimulation = useCallback(() => {
+  /** Autopilot along the route at street level; carries on from where it was paused */
+  const startSimulation = useCallback(() => {
     const route = activeRouteRef.current;
     const rig = rigRef.current;
-    if (!route || !rig) return;
-    if (simAnimationRef.current) {
-      stopWalkSimulation();
-      return;
-    }
+    if (!route || !rig || simAnimationRef.current) return;
 
-    setIsSimulatingWalk(true);
-    const startTime = performance.now();
     const durationMs = Math.max(8000, Math.min(45000, route.totalDistanceMeters * 35));
+    const from = simProgressRef.current >= 1 ? 0 : simProgressRef.current;
+    const startTime = performance.now() - from * durationMs;
+    setIsSimulatingWalk(true);
     cameraModeRef.current = 'fpv';
     setCameraMode('fpv');
 
     const animateStep = (now: number) => {
       const progress = Math.min(1, (now - startTime) / durationMs);
+      simProgressRef.current = progress;
       if (now - lastProgressUpdateRef.current > 180 || progress >= 1) {
         lastProgressUpdateRef.current = now;
         setSimulationProgress(progress);
@@ -409,11 +507,42 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       } else {
         simAnimationRef.current = null;
         setIsSimulatingWalk(false);
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, colors: [ANCHORS.signal, ANCHORS.accent, ANCHORS.accent2, '#10B981'] });
+        arriveRef.current();
       }
     };
     simAnimationRef.current = requestAnimationFrame(animateStep);
-  }, [moveUser, stopWalkSimulation]);
+  }, [moveUser]);
+
+  /** Pause / resume the autopilot */
+  const toggleWalkSimulation = useCallback(() => {
+    if (simAnimationRef.current) stopWalkSimulation();
+    else startSimulation();
+  }, [startSimulation, stopWalkSimulation]);
+
+  /** "Guide me": the walker walks, the avatar follows real GPS, directions and re-routing are on */
+  const beginGuide = () => {
+    stopWalkSimulation();
+    setNavMode('guide');
+    // Where the avatar stands is kept until the live position agrees with it (e.g. after the autopilot)
+    keepSpotRef.current = true;
+    deviationSinceRef.current = null;
+    const path = routeMetersRef.current;
+    armedRef.current = Boolean(path) && distanceToPolyline([user.current.x, user.current.y], path!).dist <= ON_ROUTE_METERS;
+  };
+
+  /** "Walk it for me": the avatar walks the route from where it stands on it; GPS and re-routing are off */
+  const beginAuto = () => {
+    const path = routeMetersRef.current;
+    const length = routeLengthRef.current;
+    if (path && length > 0) {
+      const { dist, along } = distanceToPolyline([user.current.x, user.current.y], path);
+      simProgressRef.current = dist <= ON_ROUTE_METERS ? Math.min(0.999, along / length) : 0;
+    }
+    setNavMode('auto');
+    startSimulation();
+  };
+
+  const switchNavMode = () => (navModeRef.current === 'guide' ? beginAuto() : beginGuide());
 
   const teleportTo = useCallback(
     ([lng, lat]: [number, number]) => {
@@ -545,7 +674,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
       locateUserRef.current(false, false);
       stopWatch = followUser({
         onMove: (fix) => {
-          if (simAnimationRef.current) return;
+          if (simAnimationRef.current || gpsPaused()) return;
           if (ignoreAutoFix(fix.longitude, fix.latitude)) return;
           const [wx, wy] = lngLatToMeters(fix.longitude, fix.latitude);
           moveUser(wx, wy, fix.heading ?? user.current.heading);
@@ -564,7 +693,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
     if (import.meta.env.DEV) {
       Object.assign(container, {
-        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality, nav: { routeMetersRef, armedRef, navDestRef } }
+        __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality, nav: { routeMetersRef, armedRef, navDestRef, navModeRef, simProgressRef } }
       });
     }
 
@@ -692,11 +821,29 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
           onRecenter={() => locateUser(true)}
           isLocating={isLocating}
           cameraNotice={cameraNotice}
-          route={activeRoute}
+          route={navMode === 'choose' ? null : activeRoute}
           isSimulatingWalk={isSimulatingWalk}
           simulationProgress={simulationProgress}
           onToggleWalkSimulation={toggleWalkSimulation}
           onStopNavigation={stopNavigation}
+          navMode={navMode === 'choose' ? undefined : navMode}
+          instruction={instruction}
+          remainingMeters={remainingMeters}
+          arrived={arrived}
+          onSwitchMode={switchNavMode}
+        />
+      )}
+
+      {routeStatus && navMode === 'choose' && (
+        <RouteChooserSheet
+          status={routeStatus}
+          destinationTitle={navTitle}
+          distanceMeters={activeRoute?.totalDistanceMeters}
+          minutes={activeRoute?.estimatedWalkingMinutes}
+          endsShortMeters={activeRoute?.endsShortMeters}
+          onGuide={beginGuide}
+          onAuto={beginAuto}
+          onCancel={stopNavigation}
         />
       )}
 

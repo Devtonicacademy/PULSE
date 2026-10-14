@@ -14,7 +14,7 @@ import {
   Sunset
 } from 'lucide-react';
 import type { NavigationRoute } from '../../../utils/wayfindingUtils';
-import { WayfindingHud } from '../WayfindingHud';
+import { WayfindingHud, type GuidanceMode } from '../WayfindingHud';
 import type { CameraMode } from './CameraRig';
 import type { LightPreset } from './PulseScene';
 
@@ -49,6 +49,12 @@ interface MapHudProps {
   simulationProgress: number;
   onToggleWalkSimulation: () => void;
   onStopNavigation: () => void;
+  /** How the route is being followed ('guide' or 'auto'), with the guidance for it */
+  navMode?: GuidanceMode;
+  instruction?: string | null;
+  remainingMeters?: number | null;
+  arrived?: boolean;
+  onSwitchMode?: () => void;
 }
 
 const LIGHT_PRESET_OPTIONS = [
@@ -75,7 +81,12 @@ export const MapHud: React.FC<MapHudProps> = ({
   isSimulatingWalk,
   simulationProgress,
   onToggleWalkSimulation,
-  onStopNavigation
+  onStopNavigation,
+  navMode,
+  instruction,
+  remainingMeters,
+  arrived,
+  onSwitchMode
 }) => {
   const [showHotspotMenu, setShowHotspotMenu] = useState(false);
   const [showEnvironmentMenu, setShowEnvironmentMenu] = useState(false);
@@ -86,9 +97,14 @@ export const MapHud: React.FC<MapHudProps> = ({
       {route && (
         <WayfindingHud
           route={route}
+          mode={navMode}
           isSimulatingWalk={isSimulatingWalk}
           simulationProgress={simulationProgress}
+          instruction={instruction}
+          remainingMeters={remainingMeters}
+          arrived={arrived}
           onToggleWalkSimulation={onToggleWalkSimulation}
+          onSwitchMode={onSwitchMode}
           onStop={onStopNavigation}
         />
       )}

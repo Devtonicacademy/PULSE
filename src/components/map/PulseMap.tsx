@@ -636,6 +636,14 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
         void findWalkingRoute(startPoint, destPoint, destination.title, destination.category).then((route) => {
           // Ignore results for a destination that was replaced or cancelled meanwhile
           if (request !== routeRequestRef.current || !mapRef.current) return;
+          if (!route) {
+            // No streets join here to there: say so and drop the destination
+            setCameraNotification('🚫 No street route here');
+            if (cameraNoticeTimeoutRef.current) clearTimeout(cameraNoticeTimeoutRef.current);
+            cameraNoticeTimeoutRef.current = window.setTimeout(() => setCameraNotification(null), 2600);
+            onClearNavigation?.();
+            return;
+          }
           setActiveRoute(route);
           renderStreetWayfindingCues(route);
 
