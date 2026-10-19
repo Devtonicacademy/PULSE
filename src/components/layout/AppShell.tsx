@@ -14,6 +14,7 @@ import { NotificationsDrawer } from '../notifications/NotificationsDrawer';
 import { ReportModal } from '../modals/ReportModal';
 import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { useTheme, ThemePreference } from '../../hooks/useTheme';
 import { AuthModal } from '../auth/AuthModal';
 import { LocationNotice } from './LocationNotice';
 import { LocationStatusLine } from './LocationStatusLine';
@@ -40,8 +41,18 @@ import {
   Crosshair,
   LogIn,
   SlidersHorizontal,
-  Settings
+  Settings,
+  Palette,
+  Monitor,
+  Sun,
+  Moon
 } from 'lucide-react';
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
+  { value: 'system', label: 'System', Icon: Monitor },
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'dark', label: 'Dark', Icon: Moon }
+];
 
 // Three.js only downloads when someone opens the Pulse 3D explore mode
 const Pulse3DMap = lazy(() => import('../map/Pulse3DMap'));
@@ -84,6 +95,7 @@ export const AppShell: React.FC = () => {
   } = usePulse();
 
   const { isInstalled, isInstallable, promptToInstall } = usePWAInstall();
+  const theme = useTheme();
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -842,7 +854,39 @@ export const AppShell: React.FC = () => {
               </button>
             </div>
 
-            {/* Setting 3: PWA Install (if applicable) */}
+            {/* Setting 3: Appearance (follows the browser unless overridden) */}
+            <div className="p-3 rounded-2xl glass-card space-y-2.5">
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-accent-400" /> Appearance
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  {theme.preference === 'system'
+                    ? `Following your browser (${theme.resolved})`
+                    : `Always ${theme.preference}`}
+                </div>
+              </div>
+              <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-1.5">
+                {THEME_OPTIONS.map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    role="radio"
+                    aria-checked={theme.preference === value}
+                    onClick={() => theme.setPreference(value)}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
+                      theme.preference === value
+                        ? 'bg-accent-500/20 text-accent-300 border-accent-500/40'
+                        : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Setting 4: PWA Install (if applicable) */}
             {!isInstalled && (
               <button
                 onClick={() => {

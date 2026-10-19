@@ -21,6 +21,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- Apply the saved or browser theme before first paint, so light mode never flashes dark -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('pulse-theme');
+          var pref = saved === 'light' || saved === 'dark' ? saved : 'system';
+          var dark = pref === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches : pref === 'dark';
+          var root = document.documentElement;
+          root.classList.toggle('dark', dark);
+          root.classList.toggle('light', !dark);
+          root.style.colorScheme = dark ? 'dark' : 'light';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0A0E17' : '#F4F6FA');
+        } catch (e) {}
+      })();
+    </script>
+
     <title>PULSE — Never miss what's happening nearby</title>
   </head>
   <body class="bg-[#0A0E17] text-slate-100 antialiased selection:bg-accent-500/30 selection:text-white overflow-hidden">
