@@ -112,7 +112,7 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-xl h-[85vh] flex flex-col rounded-3xl glass-panel border border-white/10 shadow-2xl text-white overflow-hidden">
+      <div className="w-full max-w-xl h-[85dvh] max-h-[calc(100dvh-1rem)] flex flex-col rounded-3xl glass-panel border border-white/10 shadow-2xl text-white overflow-hidden">
         {/* Top Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-slate-900/50">
           <div className="flex items-center gap-2.5">

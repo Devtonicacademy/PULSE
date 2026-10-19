@@ -34,7 +34,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl glass-panel border border-accent-500/30 p-5 shadow-2xl text-white animate-slide-up">
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl glass-panel border border-accent-500/30 p-5 shadow-2xl text-white animate-slide-up">
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2 text-accent-400">
             <ShieldAlert className="w-5 h-5" />

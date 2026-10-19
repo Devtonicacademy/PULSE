@@ -306,7 +306,7 @@ export const AppShell: React.FC = () => {
 
   // Helper renderer for mobile/compact bottom navigation bar
   const renderBottomNav = () => (
-    <nav className="relative z-40 shrink-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] glass-bottom-bar px-2 sm:px-3 flex items-center justify-around">
+    <nav className="relative z-40 shrink-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] [@media(max-height:500px)]:h-[calc(2.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] glass-bottom-bar px-2 sm:px-3 flex items-center justify-around">
       {/* 1. MAP (Default) */}
       <button
         onClick={() => setActiveTab('map')}
@@ -317,7 +317,7 @@ export const AppShell: React.FC = () => {
         }`}
       >
         <MapIcon className={`w-5 h-5 ${activeTab === 'map' ? 'stroke-[2.5]' : ''}`} />
-        <span className="text-[10px] font-bold mt-0.5">MAP</span>
+        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">MAP</span>
       </button>
 
       {/* 2. DISCOVER */}
@@ -330,7 +330,7 @@ export const AppShell: React.FC = () => {
         }`}
       >
         <Compass className={`w-5 h-5 ${activeTab === 'discover' ? 'stroke-[2.5]' : ''}`} />
-        <span className="text-[10px] font-bold mt-0.5">DISCOVER</span>
+        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">DISCOVER</span>
       </button>
 
       {/* 3. CREATE (Center Raised Action) */}
@@ -338,12 +338,12 @@ export const AppShell: React.FC = () => {
         <button
           onClick={() => setIsCreateOpen(true)}
           aria-label="Create live moment"
-          className="w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
+          className="w-12 h-12 [@media(max-height:500px)]:w-10 [@media(max-height:500px)]:h-10 shrink-0 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 [@media(max-height:500px)]:-mt-2 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
           title="Create Live Moment"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
-        <span className="text-[10px] font-bold text-slate-300 mt-0.5">CREATE</span>
+        <span className="text-[10px] font-bold text-slate-300 mt-0.5 [@media(max-height:500px)]:hidden">CREATE</span>
       </div>
 
       {/* 4. NOTIFICATIONS */}
@@ -361,7 +361,7 @@ export const AppShell: React.FC = () => {
             {unreadCount}
           </span>
         )}
-        <span className="text-[10px] font-bold mt-0.5">ALERTS</span>
+        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">ALERTS</span>
       </button>
 
       {/* 5. PROFILE / BIZ */}
@@ -378,7 +378,7 @@ export const AppShell: React.FC = () => {
         ) : (
           <User className={`w-5 h-5 ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
         )}
-        <span className="text-[10px] font-bold mt-0.5">
+        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">
           {isBusinessMode ? 'BUSINESS' : 'PROFILE'}
         </span>
       </button>
@@ -408,7 +408,7 @@ export const AppShell: React.FC = () => {
           </div>
 
           {/* Simulated Mobile Phone Hardware Frame */}
-          <div className="w-full max-w-[420px] h-[100dvh] sm:h-[860px] sm:rounded-[44px] sm:border-[8px] sm:border-slate-800 shadow-2xl relative flex flex-col overflow-hidden bg-[#0A0E17]">
+          <div className="w-full max-w-[420px] h-[100dvh] sm:h-[min(860px,calc(100dvh-5rem))] sm:rounded-[44px] sm:border-[8px] sm:border-slate-800 shadow-2xl relative flex flex-col overflow-hidden bg-[#0A0E17]">
             {/* Dynamic Island Notch */}
             <div className="hidden sm:flex items-center justify-center pt-2 pb-1 shrink-0 z-40 bg-[#0A0E17]">
               <div className="w-28 h-4 rounded-full bg-slate-900/90 border border-white/10 flex items-center justify-between px-3">
@@ -501,13 +501,13 @@ export const AppShell: React.FC = () => {
         /* =========================================================================
             MODE B: FULLY RESPONSIVE APPLICATION (Mobile, Tablet, Desktop)
            ========================================================================= */
-        <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17]">
+        <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
           {/* 1. DESKTOP SIDEBAR NAVIGATION (Visible on screens >= 1024px) */}
-          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none px-5 py-6 justify-between gap-6 relative overflow-y-auto">
+          <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none px-5 py-6 [@media(max-height:760px)]:py-3 justify-between gap-6 [@media(max-height:760px)]:gap-3 relative overflow-y-auto">
             {/* Top Brand & Location */}
-            <div className="space-y-5">
+            <div className="space-y-5 [@media(max-height:760px)]:space-y-3">
               {/* Brand Logo */}
-              <div className="flex items-center gap-3 pb-5 border-b border-white/10">
+              <div className="flex items-center gap-3 pb-5 [@media(max-height:760px)]:pb-3 border-b border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-white shadow-lg shadow-accent-500/30">
                   P
                 </div>
@@ -654,7 +654,7 @@ export const AppShell: React.FC = () => {
             </div>
 
             {/* Bottom Consolidated Control Dock & User Profile */}
-            <div className="space-y-3 pt-5 border-t border-white/10">
+            <div className="space-y-3 [@media(max-height:760px)]:space-y-2 pt-5 [@media(max-height:760px)]:pt-3 border-t border-white/10">
               {/* Consolidated Preferences Capsule */}
               <div className="p-3 rounded-2xl glass-card space-y-2.5 text-xs">
                 {/* Segmented Mode & Engine Controls in Compact Dual Grid */}
@@ -745,7 +745,7 @@ export const AppShell: React.FC = () => {
           {/* 2. MAIN APP CONTENT CONTAINER */}
           <div className="flex-1 h-full flex flex-col min-w-0 overflow-hidden relative">
             {/* Mobile / Tablet Compact Top Header (Hidden on lg: desktop) */}
-            <header className="lg:hidden px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] shrink-0 glass-header flex items-center justify-between gap-2 z-30 relative">
+            <header className="lg:hidden px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] [@media(max-height:500px)]:pb-1 [@media(max-height:500px)]:pt-[max(0.25rem,env(safe-area-inset-top))] shrink-0 glass-header flex items-center justify-between gap-2 z-30 relative">
               {/* Logo & Brand */}
               <div className="flex items-center gap-2 shrink-0">
                 <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
@@ -834,7 +834,7 @@ export const AppShell: React.FC = () => {
 
                 <button
                   onClick={() => setShowQuickSettings(true)}
-                  className="p-1.5 rounded-xl glass-hud border border-white/15 text-slate-300 hover:text-white hover:border-signal-400/40 transition-all shadow-sm"
+                  className="p-1.5 [@media(pointer:coarse)]:p-2.5 rounded-xl glass-hud border border-white/15 text-slate-300 hover:text-white hover:border-signal-400/40 transition-all shadow-sm"
                   title="App Preferences & Settings"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5 text-signal-400" />

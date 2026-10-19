@@ -10,6 +10,9 @@
   body {
     @apply bg-[#0A0E17] text-slate-100 font-sans select-none;
     -webkit-tap-highlight-color: transparent;
+    /* taps are instant (no double-tap-to-zoom delay), pinch zoom still works on the page */
+    touch-action: manipulation;
+    overscroll-behavior: none;
   }
 }
 

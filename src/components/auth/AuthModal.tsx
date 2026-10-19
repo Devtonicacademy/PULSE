@@ -118,7 +118,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div
-        className="w-full max-w-md rounded-3xl glass-panel border border-white/15 bg-[#0D1322]/95 shadow-2xl overflow-hidden relative"
+        className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-3xl glass-panel border border-white/15 bg-[#0D1322]/95 shadow-2xl relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow ambient circles */}

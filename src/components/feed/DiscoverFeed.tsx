@@ -614,7 +614,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                               key={r.type}
                               onClick={() => toggleReaction(moment.id, r.type)}
                               aria-pressed={isReacted}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+                              className={`flex items-center gap-1 px-2 py-1 [@media(pointer:coarse)]:py-2 rounded-lg text-xs font-semibold transition-all ${
                                 isReacted
                                   ? 'bg-accent-500 text-white border border-accent-300 shadow-md shadow-accent-500/30 ring-1 ring-accent-300/50'
                                   : 'bg-slate-800/70 hover:bg-slate-700 text-slate-200 border border-white/15'
@@ -632,7 +632,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                         {onNavigateMoment && (
                           <button
                             onClick={() => onNavigateMoment(moment)}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-signal-500/15 hover:bg-signal-500/25 text-signal-300 border border-signal-500/30 transition-all shadow-sm active:scale-95"
+                            className="flex items-center gap-1 px-2 py-1 [@media(pointer:coarse)]:py-2 rounded-lg text-xs font-bold bg-signal-500/15 hover:bg-signal-500/25 text-signal-300 border border-signal-500/30 transition-all shadow-sm active:scale-95"
                             title="Walk There in 3D (FPV)"
                           >
                             <Navigation className="w-3 h-3 text-signal-400" />
@@ -641,7 +641,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                         )}
                         <button
                           onClick={() => onOpenComments(moment.id)}
-                          className="flex items-center gap-1 p-1.5 rounded-lg text-xs text-slate-300 hover:text-signal-300 hover:bg-slate-800 transition-colors"
+                          className="flex items-center gap-1 p-1.5 [@media(pointer:coarse)]:p-2.5 rounded-lg text-xs text-slate-300 hover:text-signal-300 hover:bg-slate-800 transition-colors"
                           title="Comments"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
@@ -649,7 +649,7 @@ export const DiscoverFeed: React.FC<DiscoverFeedProps> = ({
                         </button>
                         <button
                           onClick={() => onOpenReport(moment.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-accent-400 hover:bg-slate-800 transition-colors"
+                          className="p-1.5 [@media(pointer:coarse)]:p-2.5 rounded-lg text-slate-400 hover:text-accent-400 hover:bg-slate-800 transition-colors"
                           title="Report"
                         >
                           <ShieldAlert className="w-3.5 h-3.5" />

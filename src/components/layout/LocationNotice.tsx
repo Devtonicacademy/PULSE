@@ -36,10 +36,10 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status.problem]);
 
-  // On phones the notice covers the map controls, so it steps aside after a few seconds
+  // Below desktop width the notice sits over the map, so it steps aside after a few seconds
   const noticeKey = status.problem ? `${status.source}:${status.problem}` : 'advice';
   useEffect(() => {
-    if (!window.matchMedia?.('(max-width: 639px)').matches) return;
+    if (!window.matchMedia?.('(max-width: 1023px)').matches) return;
     const timer = window.setTimeout(() => setDismissed(status.problem ? `${status.source}:${status.problem}` : null), 7000);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,19 +65,19 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
   return (
     <div
       role="status"
-      className="fixed inset-x-0 z-40 top-[3.75rem] sm:top-[4.25rem] lg:top-4 flex justify-center px-2 sm:px-4 pointer-events-none"
+      className="fixed inset-x-0 lg:left-64 xl:left-72 z-40 top-[3.75rem] [@media(max-height:500px)]:top-[2.75rem] lg:top-16 flex justify-center px-2 sm:px-4 pointer-events-none"
       data-testid="location-notice"
     >
-      <div className="pointer-events-auto w-full max-w-md flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3.5 rounded-2xl glass-panel border border-amber-400/40 bg-[#0A0E17]/80 sm:bg-transparent shadow-xl sm:shadow-2xl animate-fade-in">
-        <div className="hidden sm:block p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 shrink-0">
+      <div className="pointer-events-auto w-full max-w-md flex items-start gap-2 lg:gap-3 p-2.5 lg:p-3.5 rounded-2xl glass-panel border border-amber-400/40 bg-[#0A0E17]/80 lg:bg-transparent shadow-xl lg:shadow-2xl animate-fade-in">
+        <div className="hidden lg:block p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 shrink-0">
           <Icon className="w-4 h-4" />
         </div>
-        <Icon className="sm:hidden w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+        <Icon className="lg:hidden w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="text-xs font-bold text-white">{title}</div>
           <p
             onClick={() => setExpanded((open) => !open)}
-            className={`text-[11px] text-slate-200 leading-snug sm:leading-relaxed mt-0.5 sm:line-clamp-none ${
+            className={`text-[11px] text-slate-200 leading-snug lg:leading-relaxed mt-0.5 lg:line-clamp-none ${
               expanded ? '' : 'line-clamp-1'
             }`}
           >
@@ -92,7 +92,7 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
           <button
             onClick={onRetry}
             disabled={isLocating}
-            className="hidden sm:block mt-2 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 text-[11px] font-bold transition-colors"
+            className="hidden lg:block mt-2 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-60 text-slate-950 text-[11px] font-bold transition-colors"
           >
             {isLocating ? 'Locating…' : 'Try again'}
           </button>
@@ -101,14 +101,14 @@ export const LocationNotice: React.FC<LocationNoticeProps> = ({ onRetry, isLocat
         <button
           onClick={onRetry}
           disabled={isLocating}
-          className="sm:hidden self-center px-2.5 py-1.5 rounded-lg bg-amber-400 active:bg-amber-300 disabled:opacity-60 text-slate-950 text-[11px] font-bold shrink-0"
+          className="lg:hidden self-center px-3 py-2 rounded-lg bg-amber-400 active:bg-amber-300 disabled:opacity-60 text-slate-950 text-[11px] font-bold shrink-0"
         >
           {isLocating ? '…' : 'Retry'}
         </button>
         <button
           onClick={() => setDismissed(key)}
           aria-label="Dismiss"
-          className="p-1 rounded-full text-slate-300 hover:text-white shrink-0"
+          className="p-1 [@media(pointer:coarse)]:p-2 rounded-full text-slate-300 hover:text-white shrink-0"
         >
           <X className="w-3.5 h-3.5" />
         </button>

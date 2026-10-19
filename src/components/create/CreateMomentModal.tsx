@@ -209,7 +209,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-      <div className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl p-5 text-white animate-slide-up">
+      <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl p-5 text-white animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">

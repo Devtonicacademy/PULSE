@@ -141,7 +141,7 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
       <div
         role="dialog"
         aria-label="Live discussion"
-        className="w-full sm:max-w-lg h-[80vh] flex flex-col rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl text-white animate-slide-up"
+        className="w-full sm:max-w-lg h-[80dvh] max-h-[100dvh] flex flex-col rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl text-white animate-slide-up"
       >
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">

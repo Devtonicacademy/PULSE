@@ -102,7 +102,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({
         {unreadCount > 0 && (
           <button
             onClick={markAllNotificationsRead}
-            className="text-xs text-signal-400 hover:text-signal-300 font-semibold flex items-center gap-1 transition-colors"
+            className="text-xs text-signal-400 hover:text-signal-300 font-semibold flex items-center gap-1 transition-colors [@media(pointer:coarse)]:py-2.5"
           >
             <CheckCheck className="w-3.5 h-3.5" />
             <span>Mark all read</span>

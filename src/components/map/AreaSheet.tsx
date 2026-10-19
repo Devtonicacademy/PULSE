@@ -158,7 +158,7 @@ export const AreaSheet: React.FC = () => {
             <button
               key={r}
               onClick={() => setRadiusKm(r)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+              className={`px-2.5 py-1 [@media(pointer:coarse)]:py-2 rounded-full text-[11px] font-bold border transition-colors ${
                 radiusKm === r
                   ? 'bg-accent-500 border-accent-400 text-white'
                   : 'bg-slate-900/70 border-white/10 text-slate-300 hover:text-white'

@@ -116,7 +116,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             <button
               onClick={() => onCameraMode('fpv')}
               title="First-Person Street Level View (72° tilt, locked to avatar)"
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'fpv'
                   ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -128,7 +128,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             <button
               onClick={() => onCameraMode('aerial')}
               title="3D Aerial Perspective (58° pitch)"
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'aerial'
                   ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -140,7 +140,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             <button
               onClick={() => onCameraMode('overview')}
               title="2D Tactical Overview (0° pitch)"
-              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                 cameraMode === 'overview'
                   ? 'bg-white/20 text-white border border-white/30 shadow-md'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -150,11 +150,11 @@ export const MapHud: React.FC<MapHudProps> = ({
             </button>
           </div>
 
-          <div className="relative">
+          <div className="sm:relative">
             <button
               onClick={() => setShowHotspotMenu((prev) => !prev)}
               title="Teleport to Iconic Lagos 3D Hotspots"
-              className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
+              className={`flex items-center gap-1.5 py-1.5 [@media(pointer:coarse)]:py-2.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
                 showHotspotMenu ? 'bg-signal-500/20 text-signal-300 border-signal-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
               }`}
             >
@@ -163,7 +163,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             </button>
 
             {showHotspotMenu && (
-              <div className="absolute top-full left-0 mt-2 p-2 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-1 min-w-[230px] z-30 animate-fade-in bg-[#0A0E17]/95">
+              <div className="absolute top-full left-0 max-sm:right-0 mt-2 p-2 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-1 sm:min-w-[230px] max-h-[60dvh] overflow-y-auto z-30 animate-fade-in bg-[#0A0E17]/95">
                 <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
                   Lagos 3D Hotspots
                 </div>
@@ -188,7 +188,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             )}
           </div>
 
-          <div className="relative">
+          <div className="sm:relative">
             <button
               onClick={() => setShowEnvironmentMenu((prev) => !prev)}
               title="Atmosphere, Lighting & 3D Settings"
@@ -200,7 +200,7 @@ export const MapHud: React.FC<MapHudProps> = ({
             </button>
 
             {showEnvironmentMenu && (
-              <div className="absolute top-full left-0 mt-2 p-2.5 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 min-w-[200px] z-30 animate-fade-in bg-[#0A0E17]/95">
+              <div className="absolute top-full left-0 max-sm:right-0 mt-2 p-2.5 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 sm:min-w-[200px] max-h-[60dvh] overflow-y-auto z-30 animate-fade-in bg-[#0A0E17]/95">
                 <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider flex items-center justify-between">
                   <span>Atmosphere Lighting</span>
                   <span className="text-signal-400 capitalize">{lightPreset}</span>

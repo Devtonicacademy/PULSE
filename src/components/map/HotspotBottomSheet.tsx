@@ -112,7 +112,7 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   const hoursLeft = Math.max(0, Math.round((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60)));
 
   return (
-    <div className="absolute bottom-20 left-2 right-2 sm:left-6 sm:bottom-6 sm:max-w-md sm:right-auto z-30 animate-slide-up max-h-[80vh] overflow-y-auto">
+    <div className="absolute bottom-20 left-2 right-2 sm:left-6 sm:bottom-6 sm:max-w-md sm:right-auto z-30 animate-slide-up max-h-[80dvh] overflow-y-auto">
       <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl text-white">
         {/* Header Photo (if available) */}
         {selectedMoment.photoUrl && (

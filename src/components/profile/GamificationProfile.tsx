@@ -250,7 +250,7 @@ export const GamificationProfile: React.FC = () => {
       <div className="shrink-0 flex items-center gap-1 sm:gap-2 border-b border-white/10 pb-3 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('badges')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'badges'
               ? 'bg-white/10 text-white'
               : 'text-slate-400 hover:text-slate-200'
@@ -261,7 +261,7 @@ export const GamificationProfile: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'active'
               ? 'bg-white/10 text-white'
               : 'text-slate-400 hover:text-slate-200'
@@ -272,7 +272,7 @@ export const GamificationProfile: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('archived')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeTab === 'archived'
               ? 'bg-white/10 text-white'
               : 'text-slate-400 hover:text-slate-200'

@@ -1443,7 +1443,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={() => applyCameraMode('fpv')}
                 title="First-Person Street Level View (72° tilt, locked to avatar)"
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'fpv'
                     ? 'bg-gradient-to-r from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/30 ring-1 ring-white/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1457,7 +1457,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={() => applyCameraMode('aerial')}
                 title="3D Aerial Perspective (58° pitch)"
-                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'aerial'
                     ? 'bg-signal-500/30 text-signal-200 border border-signal-400/50 shadow-lg shadow-signal-500/20'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1471,7 +1471,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={() => applyCameraMode('overview')}
                 title="2D Tactical Overview (0° pitch)"
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 [@media(pointer:coarse)]:py-2.5 rounded-xl text-[11px] font-bold transition-all ${
                   cameraMode === 'overview'
                     ? 'bg-white/20 text-white border border-white/30 shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -1482,11 +1482,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             </div>
 
             {/* Lagos Hotspot Quick-Teleport Button */}
-            <div className="relative">
+            <div className="sm:relative">
               <button
                 onClick={() => setShowHotspotMenu((prev) => !prev)}
                 title="Teleport to Iconic Lagos 3D Hotspots"
-                className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1.5 py-1.5 [@media(pointer:coarse)]:py-2.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
                   showHotspotMenu ? 'bg-signal-500/20 text-signal-300 border-signal-400/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
@@ -1495,7 +1495,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               </button>
 
               {showHotspotMenu && (
-                <div className="absolute top-full left-0 mt-2 p-2 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-1 min-w-[210px] z-30 animate-fade-in bg-[#0A0E17]/95">
+                <div className="absolute top-full left-0 max-sm:right-0 mt-2 p-2 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-1 sm:min-w-[210px] max-h-[60dvh] overflow-y-auto z-30 animate-fade-in bg-[#0A0E17]/95">
                   <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
                     Lagos 3D Hotspots
                   </div>
@@ -1531,7 +1531,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               <button
                 onClick={onWalkIn3D}
                 title="Explore and walk the city in Pulse 3D"
-                className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-signal-400/40 shadow-2xl backdrop-blur-2xl text-[11px] font-bold text-signal-200 hover:bg-signal-500/20 transition-all"
+                className="flex items-center gap-1.5 py-1.5 [@media(pointer:coarse)]:py-2.5 px-2.5 rounded-2xl glass-hud border border-signal-400/40 shadow-2xl backdrop-blur-2xl text-[11px] font-bold text-signal-200 hover:bg-signal-500/20 transition-all"
               >
                 <Footprints className="w-3.5 h-3.5 text-signal-400" />
                 <span>Walk in 3D</span>
@@ -1539,11 +1539,11 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
             )}
 
             {/* Layers: 3D buildings and the Radar overlays */}
-            <div className="relative">
+            <div className="sm:relative">
               <button
                 onClick={() => setShowLayerMenu((prev) => !prev)}
                 title="Map layers and Radar overlays"
-                className={`flex items-center gap-1.5 py-1.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
+                className={`flex items-center gap-1.5 py-1.5 [@media(pointer:coarse)]:py-2.5 px-2.5 rounded-2xl glass-hud border border-white/15 shadow-2xl backdrop-blur-2xl text-[11px] font-bold transition-all ${
                   showLayerMenu ? 'bg-white/20 text-white border-white/40' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
@@ -1552,7 +1552,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
               </button>
 
               {showLayerMenu && (
-                <div className="absolute top-full left-0 mt-2 p-3 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 w-64 z-30 animate-fade-in bg-[#0A0E17]/95 text-xs">
+                <div className="absolute top-full left-0 max-sm:right-0 mt-2 p-3 rounded-2xl glass-dropdown border border-white/15 shadow-2xl backdrop-blur-2xl flex flex-col gap-2 sm:w-64 max-h-[60dvh] overflow-y-auto z-30 animate-fade-in bg-[#0A0E17]/95 text-xs">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1 border-b border-white/10">
                     Map
                   </div>
