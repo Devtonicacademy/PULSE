@@ -32,8 +32,6 @@ import {
   User,
   MapPin,
   ChevronDown,
-  Smartphone,
-  Maximize2,
   X,
   Sparkles,
   Briefcase,
@@ -93,7 +91,6 @@ export const AppShell: React.FC = () => {
   const [activeReportMomentId, setActiveReportMomentId] = useState<string | null>(null);
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [isMobileFrameMode, setIsMobileFrameMode] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [mapEngine, setMapEngine] = useState<MapEngine>('pulse3d');
@@ -393,121 +390,8 @@ export const AppShell: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#070A11] text-slate-100 flex flex-col">
-      {/* =========================================================================
-          MODE A: PHONE SIMULATOR (Developer / Testing Preview Container)
-         ========================================================================= */}
-      {isMobileFrameMode ? (
-        <div className="min-h-screen w-full flex flex-col items-center justify-center p-2 sm:p-4 bg-[#05070D]">
-          {/* Top Simulator Control Bar */}
-          <div className="w-full max-w-[430px] mb-2 flex items-center justify-between text-xs text-slate-400 px-2">
-            <div className="flex items-center gap-1.5 font-bold text-white">
-              <span className="w-2 h-2 rounded-full bg-accent-500 animate-ping" />
-              <span>PULSE Phone Simulator</span>
-            </div>
-            <button
-              onClick={() => setIsMobileFrameMode(false)}
-              className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-900 border border-white/10 hover:border-signal-400 text-signal-300 text-[11px] font-bold transition-colors"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>Full Screen View</span>
-            </button>
-          </div>
-
-          {/* Simulated Mobile Phone Hardware Frame */}
-          <div className="w-full max-w-[420px] h-[100dvh] sm:h-[min(860px,calc(100dvh-5rem))] sm:rounded-[44px] sm:border-[8px] sm:border-slate-800 shadow-2xl relative flex flex-col overflow-hidden bg-[#0A0E17]">
-            {/* Dynamic Island Notch */}
-            <div className="hidden sm:flex items-center justify-center pt-2 pb-1 shrink-0 z-40 bg-[#0A0E17]">
-              <div className="w-28 h-4 rounded-full bg-slate-900/90 border border-white/10 flex items-center justify-between px-3">
-                <span className="w-2 h-2 rounded-full bg-accent-500/80"></span>
-                <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
-              </div>
-            </div>
-
-            {/* Simulated Mobile Header */}
-            <header className="px-4 py-3 shrink-0 glass-panel border-b border-white/10 flex items-center justify-between z-30">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
-                  P
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5 leading-none">
-                    <span className="font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
-                  </div>
-                  <span className="text-[9px] uppercase tracking-wider text-accent-400 font-bold">
-                    Live Radar
-                  </span>
-                </div>
-              </div>
-
-              {/* Location Switcher */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-900/90 border border-white/10 text-xs text-white"
-                >
-                  <MapPin className="w-3 h-3 text-accent-400 shrink-0" />
-                  <span className="font-semibold truncate max-w-[100px]">
-                    {shortHubName(currentLocation.name)}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {showLocationDropdown && (
-                  <div className="absolute top-10 right-0 z-50 w-60 rounded-2xl glass-dropdown border border-white/15 p-2 shadow-2xl text-xs">
-                    {PRESET_LOCATIONS.map((loc) => (
-                      <button
-                        key={loc.name}
-                        onClick={() => {
-                          chooseHub(loc);
-                          setShowLocationDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-1.5 rounded-xl transition-colors ${
-                          currentLocation.name === loc.name
-                            ? 'bg-accent-500/20 text-accent-300 font-bold'
-                            : 'text-slate-300 hover:bg-slate-800'
-                        }`}
-                      >
-                        {loc.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Auth / Score Badges */}
-              <div className="flex items-center gap-1.5">
-                {!isAuthenticated && (
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/30 text-[10px] font-bold"
-                  >
-                    <LogIn className="w-3 h-3" />
-                    <span>Join</span>
-                  </button>
-                )}
-                <div
-                  onClick={() => setActiveTab('discover')}
-                  className="cursor-pointer px-2 py-1 rounded-full bg-gradient-to-r from-accent-500/20 to-accent2-500/20 border border-accent-500/30 flex items-center gap-1"
-                >
-                  <span className="text-xs">⚡</span>
-                  <span className="text-xs font-black text-accent-300">{currentPulseScore}</span>
-                </div>
-              </div>
-            </header>
-
-            {/* Main Screen */}
-            <main className="flex-1 relative overflow-hidden">{renderActiveScreen()}</main>
-
-            {/* Bottom Nav */}
-            {renderBottomNav()}
-          </div>
-        </div>
-      ) : (
-        /* =========================================================================
-            MODE B: FULLY RESPONSIVE APPLICATION (Mobile, Tablet, Desktop)
-           ========================================================================= */
-        <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+      {/* Responsive application shell (mobile, tablet, desktop) */}
+      <div className="h-[100dvh] w-full flex flex-col lg:flex-row overflow-hidden bg-[#0A0E17] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
           {/* 1. DESKTOP SIDEBAR NAVIGATION (Visible on screens >= 1024px) */}
           <aside className="hidden lg:flex w-64 xl:w-72 h-full flex-col shrink-0 glass-sidebar z-30 select-none px-5 py-6 [@media(max-height:760px)]:py-3 justify-between gap-6 [@media(max-height:760px)]:gap-3 relative overflow-y-auto">
             {/* Top Brand & Location */}
@@ -835,9 +719,8 @@ export const AppShell: React.FC = () => {
             <div className="relative z-40 shrink-0 lg:hidden">{renderBottomNav()}</div>
           </div>
         </div>
-      )}
 
-      {/* Global Modals & Notifications (Present in both modes) */}
+      {/* Global Modals & Notifications */}
       <PWAInstallBanner
         forceShow={forceShowInstallPrompt}
         onClose={() => setForceShowInstallPrompt(false)}
@@ -959,26 +842,7 @@ export const AppShell: React.FC = () => {
               </button>
             </div>
 
-            {/* Setting 3: Phone Simulator */}
-            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Smartphone className="w-3.5 h-3.5 text-accent-400" /> Phone Simulator
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Test simulated device viewport</div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsMobileFrameMode(true);
-                  setShowQuickSettings(false);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold"
-              >
-                Launch
-              </button>
-            </div>
-
-            {/* Setting 4: PWA Install (if applicable) */}
+            {/* Setting 3: PWA Install (if applicable) */}
             {!isInstalled && (
               <button
                 onClick={() => {
