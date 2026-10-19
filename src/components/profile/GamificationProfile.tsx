@@ -17,7 +17,7 @@ import {
   Clock,
   Sparkles,
   ChevronRight,
-  Download,
+  Settings,
   Smartphone,
   LogIn,
   LogOut
@@ -72,7 +72,11 @@ const BADGE_CONFIG: Record<
   }
 };
 
-export const GamificationProfile: React.FC = () => {
+interface GamificationProfileProps {
+  onOpenSettings?: () => void;
+}
+
+export const GamificationProfile: React.FC<GamificationProfileProps> = ({ onOpenSettings }) => {
   const {
     userProfile,
     moments,
@@ -87,7 +91,7 @@ export const GamificationProfile: React.FC = () => {
     avatarConfig,
     openSurvey
   } = usePulse();
-  const { isInstalled, promptToInstall, isIOS } = usePWAInstall();
+  const { isInstalled } = usePWAInstall();
   const [activeTab, setActiveTab] = useState<'badges' | 'active' | 'archived'>('badges');
 
   const myMoments = moments.filter((m) => m.userId === userProfile.id);
@@ -223,13 +227,15 @@ export const GamificationProfile: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {!isInstalled && (
+            {onOpenSettings && (
               <button
-                onClick={() => promptToInstall()}
+                onClick={onOpenSettings}
+                aria-label="Open settings"
+                title="Settings"
                 className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-colors border border-white/10"
               >
-                <Download className="w-3 h-3 text-accent-400" />
-                <span>Install App</span>
+                <Settings className="w-3 h-3 text-accent-400" />
+                <span>Settings</span>
               </button>
             )}
 
