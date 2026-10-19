@@ -244,6 +244,7 @@ export const AppShell: React.FC = () => {
                 onOpenComments={(id) => setActiveCommentMomentId(id)}
                 onOpenReport={(id) => setActiveReportMomentId(id)}
                 onStartNavigation={startNavigation}
+                onBackToMap={mapEngine === 'pulse3d' ? () => switchEngine('map') : undefined}
               />
             </>
           );
@@ -264,7 +265,7 @@ export const AppShell: React.FC = () => {
                       onClick={() => switchEngine('map')}
                       className={`absolute right-4 z-40 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10 ${
                         selectedMoment || selectedZone
-                          ? 'top-16'
+                          ? `top-16 ${selectedMoment ? 'max-sm:hidden' : ''}`
                           : 'bottom-[calc(var(--area-sheet-h,0px)+6rem)] transition-[bottom] duration-300'
                       }`}
                       title="Back to the map"

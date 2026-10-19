@@ -14,6 +14,7 @@ import {
   Heart,
   PartyPopper,
   Eye,
+  Map as MapIcon,
   Navigation
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,6 +23,8 @@ interface HotspotBottomSheetProps {
   onOpenComments: (momentId: string) => void;
   onOpenReport: (momentId: string) => void;
   onStartNavigation?: (moment: Moment) => void;
+  /** In Pulse 3D: a way back to the flat map from inside the sheet (phones, where the floating button would sit on it) */
+  onBackToMap?: () => void;
 }
 
 export const CATEGORY_META: Record<
@@ -41,7 +44,8 @@ export const CATEGORY_META: Record<
 export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   onOpenComments,
   onOpenReport,
-  onStartNavigation
+  onStartNavigation,
+  onBackToMap
 }) => {
   const {
     selectedMoment,
@@ -56,8 +60,8 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   // Render Zone Details when a zone hotspot polygon is clicked
   if (selectedZone && !selectedMoment) {
     return (
-      <div className="absolute bottom-20 left-2 right-2 sm:left-6 sm:bottom-6 sm:max-w-md sm:right-auto z-30 animate-slide-up">
-        <div className="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl text-white">
+      <div className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 animate-slide-up flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
+        <div className="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl text-white overflow-y-auto overscroll-contain min-h-0">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -112,8 +116,27 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   const hoursLeft = Math.max(0, Math.round((expiresDate.getTime() - now.getTime()) / (1000 * 60 * 60)));
 
   return (
-    <div className="absolute bottom-20 left-2 right-2 sm:left-6 sm:bottom-6 sm:max-w-md sm:right-auto z-30 animate-slide-up max-h-[80dvh] overflow-y-auto">
-      <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl text-white">
+    // The sheet is sized to the map area (not the whole screen), so on a short phone its top is never hidden
+    // under the header; the close button stays put while the content scrolls inside.
+    <div className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 animate-slide-up flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
+      <div className="relative glass-panel rounded-2xl overflow-hidden shadow-2xl text-white flex flex-col min-h-0">
+        <button
+          onClick={() => setSelectedMoment(null)}
+          aria-label="Close"
+          className="absolute top-2.5 right-2.5 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 active:scale-95 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        {onBackToMap && (
+          <button
+            onClick={onBackToMap}
+            className="sm:hidden absolute top-2.5 left-2.5 z-20 h-9 px-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-bold active:scale-95 transition-colors"
+          >
+            <MapIcon className="w-3.5 h-3.5 text-signal-400" />
+            <span>Back to map</span>
+          </button>
+        )}
+        <div className="overflow-y-auto overscroll-contain min-h-0">
         {/* Header Photo (if available) */}
         {selectedMoment.photoUrl && (
           <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-slate-900">
@@ -123,14 +146,6 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0A0E17] via-transparent to-black/40" />
-
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedMoment(null)}
-              className="absolute top-3 right-3 p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors z-10"
-            >
-              <X className="w-4 h-4" />
-            </button>
 
             {/* Badges on photo */}
             <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2">
@@ -155,8 +170,8 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
         {/* Content Body */}
         <div className="p-4 sm:p-5">
           {!selectedMoment.photoUrl && (
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+            <div className={`flex items-center justify-between mb-3 pr-10 ${onBackToMap ? 'max-sm:mt-9' : ''}`}>
+              <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${catMeta.badgeClass} flex items-center gap-1`}
                 >
@@ -166,12 +181,6 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
                   <Clock className="w-3 h-3" /> {hoursLeft}h left
                 </span>
               </div>
-              <button
-                onClick={() => setSelectedMoment(null)}
-                className="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:bg-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
           )}
 
@@ -321,6 +330,7 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
               <ShieldAlert className="w-4 h-4" />
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
