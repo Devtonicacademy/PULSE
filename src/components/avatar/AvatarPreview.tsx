@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Loader2 } from 'lucide-react';
 import { AvatarConfig, AvatarInstance, createAvatar } from './avatarModel';
 import { ANCHORS } from '../../theme/tokens';
@@ -22,11 +23,16 @@ export const AvatarPreview: React.FC<AvatarPreviewProps> = ({ config, className 
     if (!mount) return;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.5));
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;touch-action:none;cursor:grab';
 
     const scene = new THREE.Scene();
+    // Soft studio reflections give skin, cloth and glasses real highlights instead of flat shading
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = environment;
+    scene.environmentIntensity = 0.55;
     scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a4560, 1.9));
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(2, 3, 3);
@@ -41,6 +47,28 @@ export const AvatarPreview: React.FC<AvatarPreviewProps> = ({ config, className 
     stage.rotation.x = -Math.PI / 2;
     stage.position.y = 0.005;
     scene.add(stage);
+
+    // Soft contact shadow so the avatar sits on the stage rather than floating
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = shadowCanvas.height = 128;
+    const shadowCtx = shadowCanvas.getContext('2d');
+    if (shadowCtx) {
+      const g = shadowCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, 'rgba(0,0,0,0.55)');
+      g.addColorStop(0.55, 'rgba(0,0,0,0.22)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      shadowCtx.fillStyle = g;
+      shadowCtx.fillRect(0, 0, 128, 128);
+    }
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+    shadowTexture.colorSpace = THREE.SRGBColorSpace;
+    const contactShadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.3, 1.3),
+      new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false })
+    );
+    contactShadow.rotation.x = -Math.PI / 2;
+    contactShadow.position.y = 0.003;
+    scene.add(contactShadow);
 
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 30);
     camera.position.set(0, 1.25, 6.2);
@@ -124,6 +152,11 @@ export const AvatarPreview: React.FC<AvatarPreviewProps> = ({ config, className 
       avatarRef.current = null;
       stage.geometry.dispose();
       (stage.material as THREE.Material).dispose();
+      contactShadow.geometry.dispose();
+      (contactShadow.material as THREE.Material).dispose();
+      shadowTexture.dispose();
+      environment.dispose();
+      pmrem.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };

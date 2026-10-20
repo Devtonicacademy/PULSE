@@ -38,3 +38,8 @@ firestore-debug.log
 ui-debug.log
 firebase-debug.log
 .photo-uploads/
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo

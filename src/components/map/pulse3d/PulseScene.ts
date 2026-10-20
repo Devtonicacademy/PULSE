@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { createPulseMaterials, PulseMaterials } from './materials';
 import { TileManager } from './TileManager';
@@ -12,6 +13,10 @@ import { LabelLayer } from './LabelLayer';
 export interface PulseSceneOptions {
   /** Cap on devicePixelRatio (mobile performance) */
   maxPixelRatio?: number;
+  /** Edge smoothing: multisampled render targets (best), SMAA post pass (cheap, works everywhere) or none */
+  antialias?: 'msaa' | 'smaa' | 'none';
+  /** Samples when antialias is 'msaa' */
+  msaaSamples?: number;
   bloom?: boolean;
   maxTiles?: number;
   maxLoadRadius?: number;
@@ -81,7 +86,12 @@ export class PulseScene {
     const width = container.clientWidth || 1;
     const height = container.clientHeight || 1;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({
+      // The scene is drawn through the post-processing composer, so the canvas's own multisampling would
+      // only smooth the final copy. Edge smoothing is done on the composer's targets instead (below).
+      antialias: false,
+      powerPreference: 'high-performance'
+    });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, options.maxPixelRatio ?? 2));
     this.renderer.setSize(width, height);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -104,7 +114,8 @@ export class PulseScene {
     this.scene.background = new THREE.Color(NIGHT_SKY);
     this.scene.fog = new THREE.FogExp2(NIGHT_SKY, FOG_DENSITY);
 
-    this.camera = new THREE.PerspectiveCamera(55, width / height, 0.5, 6000);
+    // Near plane 1.2 m instead of 0.5 m: about 2.4x the depth precision, so far roads stop flickering
+    this.camera = new THREE.PerspectiveCamera(55, width / height, 1.2, 6000);
 
     // Moonlight + cool ambient; city glow comes from emissive windows and road edges
     this.hemiLight = new THREE.HemisphereLight(0x5a6ea8, 0x0a0d18, 1.5);
@@ -130,13 +141,22 @@ export class PulseScene {
     this.labels = new LabelLayer(container, this.tiles);
     this.labels.placeAfter(this.renderer.domElement);
 
-    this.composer = new EffectComposer(this.renderer);
+    // Multisampled targets keep building edges, road lines and wires smooth through the bloom pipeline
+    const pixelRatio = this.renderer.getPixelRatio();
+    const samples = options.antialias === 'msaa' ? options.msaaSamples ?? 4 : 0;
+    const target = new THREE.WebGLRenderTarget(width * pixelRatio, height * pixelRatio, {
+      type: THREE.HalfFloatType,
+      samples
+    });
+    this.composer = new EffectComposer(this.renderer, target);
+    this.composer.setPixelRatio(pixelRatio);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     if (options.bloom ?? true) {
       this.bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), BLOOM_STRENGTH, 0.45, BLOOM_THRESHOLD);
       this.composer.addPass(this.bloomPass);
     }
     this.composer.addPass(new OutputPass());
+    if (options.antialias === 'smaa') this.composer.addPass(new SMAAPass());
     this.composer.setSize(width, height);
 
     this.resizeObserver = new ResizeObserver(() => this.resize());

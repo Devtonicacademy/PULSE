@@ -112,7 +112,7 @@ export const AreaSheet: React.FC = () => {
     <div
       ref={rootRef}
       aria-hidden={hidden}
-      className={`absolute bottom-0 left-0 right-0 sm:left-4 sm:right-auto sm:w-[26rem] z-[35] flex flex-col glass-panel rounded-t-3xl border-b-0 text-white ${
+      className={`absolute bottom-0 left-0 right-0 sm:left-4 sm:right-auto sm:w-[26rem] z-[35] flex flex-col glass-panel rounded-t-xl border-b-0 text-white ${
         dragH === null ? 'transition-[height,transform] duration-300 ease-out' : ''
       } ${hidden ? 'translate-y-full pointer-events-none' : ''}`}
       style={{ height }}
@@ -135,16 +135,16 @@ export const AreaSheet: React.FC = () => {
         <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-white/25" />
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-accent-400">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
               <MapPin className="w-3 h-3" /> Around you
             </div>
-            <div className="truncate text-sm font-extrabold">{currentZoneName}</div>
+            <div className="truncate text-sm font-semibold">{currentZoneName}</div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               {sorted.length} live · {radiusKm}km
             </span>
-            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-accent-500/15 border border-accent-500/30 text-xs font-black text-accent-300">
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-accent-500/15 border border-white/10 text-xs font-medium text-slate-300">
               <Flame className="w-3 h-3" />
               {currentPulseScore}
             </span>
@@ -158,7 +158,7 @@ export const AreaSheet: React.FC = () => {
             <button
               key={r}
               onClick={() => setRadiusKm(r)}
-              className={`px-2.5 py-1 [@media(pointer:coarse)]:py-2 rounded-full text-[11px] font-bold border transition-colors ${
+              className={`px-2.5 py-1 [@media(pointer:coarse)]:py-2 rounded-full text-xs font-medium border transition-colors ${
                 radiusKm === r
                   ? 'bg-accent-500 border-accent-400 text-white'
                   : 'bg-slate-900/70 border-white/10 text-slate-300 hover:text-white'
@@ -181,24 +181,24 @@ export const AreaSheet: React.FC = () => {
             <button
               key={m.id}
               onClick={() => setSelectedMoment(m)}
-              className="w-full flex gap-3 text-left p-2.5 rounded-2xl bg-slate-900/60 border border-white/10 hover:border-signal-400/40 transition-colors"
+              className="w-full flex gap-3 text-left p-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
             >
               {m.photoUrl ? (
-                <img src={m.photoUrl} alt="" loading="lazy" className="w-14 h-14 rounded-xl object-cover shrink-0 bg-slate-800" />
+                <img src={m.photoUrl} alt="" loading="lazy" className="w-14 h-14 rounded-md object-cover shrink-0 bg-slate-800" />
               ) : (
-                <div className="w-14 h-14 rounded-xl shrink-0 bg-slate-800 flex items-center justify-center text-2xl">{meta.icon}</div>
+                <div className="w-14 h-14 rounded-md shrink-0 bg-white/5 border border-white/10 flex items-center justify-center"><MapPin className="w-5 h-5 text-slate-400" /></div>
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${meta.badgeClass}`}>{meta.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-medium border ${meta.badgeClass}`}>{meta.label}</span>
                   {m.distanceKm !== undefined && (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[11px] text-slate-400">
                       {m.distanceKm < 1 ? `${Math.round(m.distanceKm * 1000)}m` : `${m.distanceKm.toFixed(1)}km`}
                     </span>
                   )}
                 </div>
-                <div className="truncate text-xs font-bold mt-0.5">{m.title}</div>
-                <div className="flex items-center gap-3 mt-0.5 text-[10px] text-slate-400">
+                <div className="truncate text-xs font-medium mt-0.5">{m.title}</div>
+                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-400">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}

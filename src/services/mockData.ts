@@ -434,7 +434,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-1',
     type: 'alert',
-    title: '🚨 Emergency Alert Nearby',
+    title: 'Emergency Alert Nearby',
     message: 'Heavy congestion on Ozumba Mbadiwe Ave due to a broken-down vehicle. Rerouting advised.',
     momentId: 'moment-3',
     distanceKm: 0.8,
@@ -444,7 +444,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-2',
     type: 'trending',
-    title: '🔥 Trending Moment Nearby',
+    title: 'Trending Moment Nearby',
     message: 'Food Festival & Artisan Grill at Freedom Park is rapidly gaining reactions (+89 trending)!',
     momentId: 'moment-1',
     distanceKm: 2.1,
@@ -454,7 +454,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-3',
     type: 'deal',
-    title: '🍕 Food Deal within 500m',
+    title: 'Food Deal within 500m',
     message: 'The Bean Vault Artisan Cafe has launched a Flash 50% discount for today only!',
     momentId: 'moment-4',
     distanceKm: 0.4,
@@ -464,7 +464,7 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-4',
     type: 'event',
-    title: '🎉 New Event within 2km',
+    title: 'New Event within 2km',
     message: 'Live Jazz Night & Sunset Rooftop at Sky Lounge starts in less than 2 hours.',
     momentId: 'moment-2',
     distanceKm: 1.2,

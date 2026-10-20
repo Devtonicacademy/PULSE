@@ -69,7 +69,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ center, onChange
 
   return (
     <div className="space-y-1.5">
-      <div className="relative h-48 rounded-xl overflow-hidden border border-white/10" data-testid="location-picker">
+      <div className="relative h-48 rounded-md overflow-hidden border border-white/10" data-testid="location-picker">
         <div ref={containerRef} className="absolute inset-0" />
         {/* Pin fixed at the centre; its tip sits on the chosen spot */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full pointer-events-none drop-shadow-lg">
@@ -81,13 +81,13 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ center, onChange
             type="button"
             onClick={recenter}
             title="Jump to my location"
-            className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-900/90 border border-white/15 text-[10px] font-bold text-slate-200 hover:bg-slate-800"
+            className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/90 border border-white/10 text-[11px] font-bold text-slate-200 hover:bg-slate-800"
           >
             <Locate className="w-3 h-3 text-signal-400" /> My location
           </button>
         )}
       </div>
-      <div className="text-[10px] text-slate-400 flex items-center justify-between">
+      <div className="text-[11px] text-slate-400 flex items-center justify-between">
         <span>Drag the map to put the pin on the spot</span>
         <span className="text-signal-300 font-medium">{getApproximateAreaName(spot.latitude, spot.longitude)}</span>
       </div>

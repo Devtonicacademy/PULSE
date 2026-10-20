@@ -6,6 +6,7 @@ interface ReportModalProps {
   momentId: string | null;
   onClose: () => void;
 }
+import { ResponsiveSheet, useRetained } from '../ui/ResponsiveSheet';
 
 const REPORT_REASONS = [
   { id: 'spam', label: 'Spam or Promotional Abuse', desc: 'Misleading ads or repetitive unwanted content.' },
@@ -14,7 +15,7 @@ const REPORT_REASONS = [
   { id: 'dangerous_content', label: 'Dangerous or Illegal Activity', desc: 'Violent threats, physical danger, illegal acts.' }
 ];
 
-export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) => {
+const ReportContent: React.FC<ReportModalProps> = ({ momentId, onClose }) => {
   const { reportMoment } = usePulse();
   const [reason, setReason] = useState('spam');
   const [notes, setNotes] = useState('');
@@ -33,8 +34,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-3xl glass-panel border border-accent-500/30 p-5 shadow-2xl text-white animate-slide-up">
+    <>
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2 text-accent-400">
             <ShieldAlert className="w-5 h-5" />
@@ -67,7 +67,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                 <label
                   key={r.id}
                   onClick={() => setReason(r.id)}
-                  className={`p-3 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                  className={`p-3 rounded-md border flex items-start gap-3 cursor-pointer transition-all ease-apple ${
                     reason === r.id
                       ? 'bg-accent-500/20 border-accent-500 text-white'
                       : 'bg-slate-900/60 border-white/5 text-slate-300 hover:border-white/10'
@@ -82,14 +82,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">{r.label}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{r.desc}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{r.desc}</div>
                   </div>
                 </label>
               ))}
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
                 Additional Context (Optional)
               </label>
               <textarea
@@ -97,7 +97,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Explain the issue with this location or post..."
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500"
+                className="w-full px-3 py-2 rounded-md bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-accent-500"
               />
             </div>
 
@@ -105,20 +105,28 @@ export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) =
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
+                className="flex-1 py-2.5 rounded-md bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 rounded-xl bg-accent-600 hover:bg-accent-700 text-white text-xs font-bold shadow-lg shadow-accent-600/30 transition-all"
+                className="flex-1 py-2.5 rounded-md bg-accent-600 hover:bg-accent-700 text-white text-xs font-bold shadow-lg transition-all ease-apple"
               >
                 Submit Report
               </button>
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </>
+  );
+};
+
+export const ReportModal: React.FC<ReportModalProps> = ({ momentId, onClose }) => {
+  const retained = useRetained(momentId);
+  return (
+    <ResponsiveSheet open={!!momentId} onClose={onClose} label="Report content" size="md" className="p-5">
+      {retained && <ReportContent momentId={retained} onClose={onClose} />}
+    </ResponsiveSheet>
   );
 };

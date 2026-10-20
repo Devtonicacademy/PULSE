@@ -46,8 +46,8 @@ export function createMomentFlyerElement(moment: Moment): HTMLDivElement {
         </div>
       </div>
       <!-- Street Anchor Post -->
-      <div style="width: 2.5px; height: 14px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 0 8px ${isBiz ? '#FCD34D' : 'var(--signal)'};"></div>
-      <div style="width: 8px; height: 8px; border-radius: 9999px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 0 10px var(--signal);"></div>
+      <div style="width: 2.5px; height: 14px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);"></div>
+      <div style="width: 8px; height: 8px; border-radius: 9999px; background: ${isBiz ? '#FCD34D' : 'var(--signal)'}; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);"></div>
     </div>
   `;
   return el;

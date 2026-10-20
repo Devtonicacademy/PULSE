@@ -14,7 +14,11 @@ import { NotificationsDrawer } from '../notifications/NotificationsDrawer';
 import { ReportModal } from '../modals/ReportModal';
 import { PWAInstallBanner } from '../pwa/PWAInstallBanner';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
-import { useTheme, ThemePreference } from '../../hooks/useTheme';
+import { AnimatePresence, motion } from 'framer-motion';
+import { EASE } from '../ui/ResponsiveSheet';
+import { AppTour } from '../onboarding/AppTour';
+import { SettingsPage } from '../settings/SettingsPage';
+import { PAGE_TITLES } from '../../utils/routes';
 import { AuthModal } from '../auth/AuthModal';
 import { LocationNotice } from './LocationNotice';
 import { LocationStatusLine } from './LocationStatusLine';
@@ -34,7 +38,6 @@ import {
   MapPin,
   ChevronDown,
   X,
-  Sparkles,
   Briefcase,
   Download,
   Layers,
@@ -48,15 +51,9 @@ import {
   Moon
 } from 'lucide-react';
 
-const THEME_OPTIONS: { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
-  { value: 'system', label: 'System', Icon: Monitor },
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'dark', label: 'Dark', Icon: Moon }
-];
-
 // Three.js only downloads when someone opens the Pulse 3D explore mode
 const Pulse3DMap = lazy(() => import('../map/Pulse3DMap'));
-const OnboardingSurvey = lazy(() => import('../onboarding/OnboardingSurvey'));
+const SetupWizard = lazy(() => import('../onboarding/SetupWizard'));
 
 // 'map' is the MapLibre map; 'pulse3d' is the walkable Three.js city
 type MapEngine = 'map' | 'pulse3d';
@@ -94,8 +91,7 @@ export const AppShell: React.FC = () => {
     avatarConfig
   } = usePulse();
 
-  const { isInstalled, isInstallable, promptToInstall } = usePWAInstall();
-  const theme = useTheme();
+  const { isInstalled } = usePWAInstall();
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -104,7 +100,6 @@ export const AppShell: React.FC = () => {
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [forceShowInstallPrompt, setForceShowInstallPrompt] = useState(false);
-  const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [mapEngine, setMapEngine] = useState<MapEngine>('pulse3d');
   // Where the user stands on the open map, so switching maps keeps the spot instead of resetting it
   const mapPosition = useRef<MapResume | null>(null);
@@ -124,6 +119,22 @@ export const AppShell: React.FC = () => {
   } | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  // Business mode follows the page: /business is the merchant portal, /profile the resident profile
+  useEffect(() => {
+    if (activeTab === 'business' && !isBusinessMode) setIsBusinessMode(true);
+    if (activeTab === 'profile' && isBusinessMode) setIsBusinessMode(false);
+  }, [activeTab, isBusinessMode, setIsBusinessMode]);
+
+  // A new sign-in opens the setup wizard, which is its own page
+  useEffect(() => {
+    if (isSurveyOpen && activeTab !== 'setup') setActiveTab('setup');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSurveyOpen]);
+
+  useEffect(() => {
+    document.title = `${PAGE_TITLES[activeTab as keyof typeof PAGE_TITLES] ?? 'Map'} · PULSE`;
+  }, [activeTab]);
 
   // The 3D map measures everything from an origin: Victoria Island near Lagos, a grid point
   // elsewhere. It is set while rendering, before the map builds, and a different origin
@@ -242,11 +253,11 @@ export const AppShell: React.FC = () => {
               <AreaSheet />
               {coverage && coverage.state !== 'done' && (
                 <div
-                  className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full glass-hud border border-signal-500/30 text-[11px] font-bold text-signal-200 pointer-events-none"
+                  className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full glass-hud border border-white/10 text-xs font-bold text-slate-200 pointer-events-none"
                   title={`Downloading map data for ${coverage.radiusKm} km around you`}
                   role="status"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-signal-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-signal-400" />
                   {coverage.state === 'paused' ? 'Map data paused' : `Map data ${coverage.percent}%`}
                 </div>
               )}
@@ -273,7 +284,7 @@ export const AppShell: React.FC = () => {
                     {/* Always reachable: with a moment or zone open it moves to the top so the sheet never hides it */}
                     <button
                       onClick={() => switchEngine('map')}
-                      className={`absolute right-4 z-40 flex items-center gap-1.5 px-3 py-2 rounded-2xl glass-hud border border-white/20 text-[11px] font-bold text-white shadow-2xl hover:bg-white/10 ${
+                      className={`absolute right-4 z-40 flex items-center gap-1.5 px-3 py-2 rounded-lg glass-hud border border-white/10 text-xs font-bold text-white shadow-2xl hover:bg-white/10 ${
                         selectedMoment || selectedZone
                           ? `top-16 ${selectedMoment ? 'max-sm:hidden' : ''}`
                           : 'bottom-[calc(var(--area-sheet-h,0px)+6rem)] transition-[bottom] duration-300'
@@ -309,10 +320,12 @@ export const AppShell: React.FC = () => {
           <NotificationsDrawer onSelectMoment={openMomentOnMap} />
         );
       case 'profile':
-        return isBusinessMode ? (
-          <BusinessDashboard />
-        ) : (
-          <GamificationProfile onOpenSettings={() => setShowQuickSettings(true)} />
+        return <GamificationProfile onOpenSettings={() => setActiveTab('settings')} />;
+      case 'business':
+        return <BusinessDashboard />;
+      case 'settings':
+        return (
+          <SettingsPage mapEngine={mapEngine} onToggleMapEngine={() => switchEngine(mapEngine === 'map' ? 'pulse3d' : 'map')} />
         );
       default:
         return null;
@@ -324,77 +337,77 @@ export const AppShell: React.FC = () => {
     <nav className="relative z-40 shrink-0 h-[calc(4rem+env(safe-area-inset-bottom,0px))] [@media(max-height:500px)]:h-[calc(2.75rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] glass-bottom-bar px-2 sm:px-3 flex items-center justify-around">
       {/* 1. MAP (Default) */}
       <button
-        onClick={() => setActiveTab('map')}
-        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
+        onClick={() => setActiveTab('map')} data-tour="nav-map"
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-lg transition-all ease-apple ${
           activeTab === 'map'
-            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
+            ? 'text-accent-400 bg-accent-500/10'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <MapIcon className={`w-5 h-5 ${activeTab === 'map' ? 'stroke-[2.5]' : ''}`} />
-        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">MAP</span>
+        <span className="text-[11px] font-medium mt-0.5 [@media(max-height:500px)]:hidden">Map</span>
       </button>
 
       {/* 2. DISCOVER */}
       <button
-        onClick={() => setActiveTab('discover')}
-        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
+        onClick={() => setActiveTab('discover')} data-tour="nav-discover"
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-lg transition-all ease-apple ${
           activeTab === 'discover'
-            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
+            ? 'text-accent-400 bg-accent-500/10'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <Compass className={`w-5 h-5 ${activeTab === 'discover' ? 'stroke-[2.5]' : ''}`} />
-        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">DISCOVER</span>
+        <span className="text-[11px] font-medium mt-0.5 [@media(max-height:500px)]:hidden">Discover</span>
       </button>
 
       {/* 3. CREATE (Center Raised Action) */}
       <div className="flex flex-col items-center justify-center px-1 shrink-0">
         <button
-          onClick={() => setIsCreateOpen(true)}
+          onClick={() => setIsCreateOpen(true)} data-tour="nav-create"
           aria-label="Create live moment"
-          className="w-12 h-12 [@media(max-height:500px)]:w-10 [@media(max-height:500px)]:h-10 shrink-0 rounded-full bg-gradient-to-tr from-accent-500 to-accent2-500 text-white flex items-center justify-center shadow-lg shadow-accent-500/40 -mt-6 [@media(max-height:500px)]:-mt-2 hover:scale-110 active:scale-95 transition-all border-2 border-[#0A0E17]"
+          className="w-12 h-12 [@media(max-height:500px)]:w-10 [@media(max-height:500px)]:h-10 shrink-0 rounded-full bg-accent-500 text-white flex items-center justify-center shadow-lg -mt-6 [@media(max-height:500px)]:-mt-2 hover:scale-105 active:scale-95 transition-all ease-apple ring-4 ring-[#0A0E17]/80"
           title="Create Live Moment"
         >
           <Plus className="w-6 h-6 stroke-[3]" />
         </button>
-        <span className="text-[10px] font-bold text-slate-300 mt-0.5 [@media(max-height:500px)]:hidden">CREATE</span>
+        <span className="text-[11px] font-medium text-slate-300 mt-0.5 [@media(max-height:500px)]:hidden">Create</span>
       </div>
 
       {/* 4. NOTIFICATIONS */}
       <button
-        onClick={() => setActiveTab('notifications')}
-        className={`relative flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
+        onClick={() => setActiveTab('notifications')} data-tour="nav-alerts"
+        className={`relative flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-lg transition-all ease-apple ${
           activeTab === 'notifications'
-            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
+            ? 'text-accent-400 bg-accent-500/10'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <Bell className={`w-5 h-5 ${activeTab === 'notifications' ? 'stroke-[2.5]' : ''}`} />
         {unreadCount > 0 && (
-          <span className="absolute top-0.5 right-6 w-4 h-4 rounded-full bg-accent-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+          <span className="absolute top-0.5 right-6 w-4 h-4 rounded-full bg-accent-500 text-white text-[11px] font-semibold flex items-center justify-center shadow-sm">
             {unreadCount}
           </span>
         )}
-        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">ALERTS</span>
+        <span className="text-[11px] font-medium mt-0.5 [@media(max-height:500px)]:hidden">Alerts</span>
       </button>
 
       {/* 5. PROFILE / BIZ */}
       <button
-        onClick={() => setActiveTab('profile')}
-        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-2xl transition-all ${
-          activeTab === 'profile'
-            ? 'text-accent-400 bg-accent-500/15 scale-105 shadow-[0_0_12px] shadow-accent-500/20'
+        onClick={() => setActiveTab(isBusinessMode ? 'business' : 'profile')} data-tour="nav-profile"
+        className={`flex flex-col items-center justify-center flex-1 min-w-0 py-1 px-0.5 rounded-lg transition-all ease-apple ${
+          (activeTab === 'profile' || activeTab === 'business')
+            ? 'text-accent-400 bg-accent-500/10'
             : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         {isBusinessMode ? (
-          <Briefcase className={`w-5 h-5 text-amber-400 ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
+          <Briefcase className={`w-5 h-5 text-amber-400 ${activeTab === 'profile' || activeTab === 'business' ? 'stroke-[2.5]' : ''}`} />
         ) : (
-          <User className={`w-5 h-5 ${activeTab === 'profile' ? 'stroke-[2.5]' : ''}`} />
+          <User className={`w-5 h-5 ${activeTab === 'profile' || activeTab === 'business' ? 'stroke-[2.5]' : ''}`} />
         )}
-        <span className="text-[10px] font-bold mt-0.5 [@media(max-height:500px)]:hidden">
-          {isBusinessMode ? 'BUSINESS' : 'PROFILE'}
+        <span className="text-[11px] font-medium mt-0.5 [@media(max-height:500px)]:hidden">
+          {isBusinessMode ? 'Business' : 'Profile'}
         </span>
       </button>
     </nav>
@@ -410,28 +423,28 @@ export const AppShell: React.FC = () => {
             <div className="space-y-5 [@media(max-height:760px)]:space-y-3">
               {/* Brand Logo */}
               <div className="flex items-center gap-3 pb-5 [@media(max-height:760px)]:pb-3 border-b border-white/10">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-white shadow-lg shadow-accent-500/30">
+                <div className="w-8 h-8 rounded-md bg-accent-500 flex items-center justify-center font-semibold text-white shadow-lg">
                   P
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 leading-none">
-                    <span className="font-extrabold text-base tracking-tight text-white">PULSE</span>
-                    <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse"></span>
+                    <span className="font-semibold text-base tracking-tight text-white">PULSE</span>
+                    <span className="w-2 h-2 rounded-full bg-accent-500"></span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider text-accent-400 font-bold">
-                    Live Social Radar
+                  <span className="text-[11px] tracking-wide text-slate-400 font-medium">
+                    Live nearby
                   </span>
                 </div>
               </div>
 
               {/* Active Zone / Location Card */}
               <div className="relative">
-                <div className="p-3.5 rounded-2xl glass-card-interactive border border-white/10">
-                  <div className="flex items-center justify-between text-[11px] text-slate-300 mb-1.5">
+                <div className="p-3.5 rounded-lg glass-card-interactive border border-white/10">
+                  <div className="flex items-center justify-between text-xs text-slate-300 mb-1.5">
                     <span className="flex items-center gap-1 font-semibold">
                       <MapPin className="w-3 h-3 text-accent-400" /> Active Hub
                     </span>
-                    <span className="text-accent-400 font-bold">Score ⚡{currentPulseScore}</span>
+                    <span className="text-slate-200 font-medium">Score {currentPulseScore}</span>
                   </div>
                   <button
                     onClick={() => setShowLocationDropdown(!showLocationDropdown)}
@@ -444,10 +457,11 @@ export const AppShell: React.FC = () => {
                 </div>
 
                 {/* Hub Selection Dropdown */}
+                <AnimatePresence>
                 {showLocationDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-2xl glass-dropdown border border-white/15 p-2 shadow-2xl text-xs space-y-1 animate-fade-in">
-                    <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                      Explore City Hubs
+                  <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }} transition={{ duration: 0.18, ease: EASE }} className="absolute top-full left-0 right-0 mt-2 z-50 origin-top rounded-lg glass-dropdown border border-white/10 p-2 shadow-2xl text-xs space-y-1">
+                    <div className="text-[11px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wide">
+                      City hubs
                     </div>
                     {PRESET_LOCATIONS.map((loc) => (
                       <button
@@ -456,7 +470,7 @@ export const AppShell: React.FC = () => {
                           chooseHub(loc);
                           setShowLocationDropdown(false);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
+                        className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between ${
                           currentLocation.name === loc.name
                             ? 'bg-accent-500/20 text-accent-300 font-bold'
                             : 'text-slate-300 hover:bg-slate-800'
@@ -474,74 +488,75 @@ export const AppShell: React.FC = () => {
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
+                      className="w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
                     >
                       <Crosshair className="w-3.5 h-3.5" />
-                      <span>{isLocating ? 'Locating...' : 'Use My Exact GPS'}</span>
+                      <span>{isLocating ? 'Locating...' : 'Use my location'}</span>
                     </button>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
 
               {/* Primary Call to Action Button */}
               <button
-                onClick={() => setIsCreateOpen(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all"
+                onClick={() => setIsCreateOpen(true)} data-tour="nav-create"
+                className="w-full py-2.5 px-4 rounded-md bg-accent-500 hover:bg-accent-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all ease-apple"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Broadcast Moment</span>
+                <span>New moment</span>
               </button>
 
               {/* Desktop Navigation Links */}
               <nav className="pt-3 space-y-1.5" aria-label="Primary">
                 <button
-                  onClick={() => setActiveTab('map')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  onClick={() => setActiveTab('map')} data-tour="nav-map"
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-[13px] font-semibold transition-all ease-apple ${
                     activeTab === 'map'
-                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
+                      ? 'bg-accent-500/15 text-accent-300'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <MapIcon className="w-4 h-4" />
-                  <span>Live Map Radar</span>
+                  <span>Map</span>
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('discover')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  onClick={() => setActiveTab('discover')} data-tour="nav-discover"
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-[13px] font-semibold transition-all ease-apple ${
                     activeTab === 'discover'
-                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
+                      ? 'bg-accent-500/15 text-accent-300'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <Compass className="w-4 h-4" />
-                  <span>Discover Feed</span>
+                  <span>Discover</span>
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('notifications')}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
+                  onClick={() => setActiveTab('notifications')} data-tour="nav-alerts"
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-md text-[13px] font-semibold transition-all ease-apple ${
                     activeTab === 'notifications'
-                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
+                      ? 'bg-accent-500/15 text-accent-300'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Bell className="w-4 h-4" />
-                    <span>Proximity Alerts</span>
+                    <span>Alerts</span>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-accent-500 text-white text-[10px] font-black">
+                    <span className="px-1.5 py-0.5 rounded-full bg-accent-500 text-white text-[11px] font-semibold">
                       {unreadCount}
                     </span>
                   )}
                 </button>
 
                 <button
-                  onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
-                    activeTab === 'profile'
-                      ? 'bg-accent-500/20 text-accent-300 border border-accent-500/40 shadow-sm'
+                  onClick={() => setActiveTab(isBusinessMode ? 'business' : 'profile')} data-tour="nav-profile"
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-[13px] font-semibold transition-all ease-apple ${
+                    (activeTab === 'profile' || activeTab === 'business')
+                      ? 'bg-accent-500/15 text-accent-300'
                       : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                   }`}
                 >
@@ -550,7 +565,7 @@ export const AppShell: React.FC = () => {
                   ) : (
                     <User className="w-4 h-4" />
                   )}
-                  <span>{isBusinessMode ? 'Business Portal' : 'Resident Profile'}</span>
+                  <span>{isBusinessMode ? 'Business' : 'Profile'}</span>
                 </button>
               </nav>
             </div>
@@ -558,14 +573,14 @@ export const AppShell: React.FC = () => {
             {/* Bottom Consolidated Control Dock & User Profile */}
             <div className="space-y-3 [@media(max-height:760px)]:space-y-2 pt-5 [@media(max-height:760px)]:pt-3 border-t border-white/10">
               {/* Consolidated Preferences Capsule */}
-              <div className="p-3 rounded-2xl glass-card space-y-2.5 text-xs">
+              <div className="p-3 rounded-lg glass-card space-y-2.5 text-xs">
                 {/* Segmented Mode & Engine Controls in Compact Dual Grid */}
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
-                    onClick={() => setIsBusinessMode(!isBusinessMode)}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
+                    onClick={() => setActiveTab(isBusinessMode ? 'profile' : 'business')}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-bold transition-all ease-apple ${
                       isBusinessMode
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                        ? 'bg-amber-500/20 text-amber-300 border border-white/10 shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                     }`}
                     title="Toggle Merchant or Resident View"
@@ -576,9 +591,9 @@ export const AppShell: React.FC = () => {
 
                   <button
                     onClick={() => switchEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-bold transition-all ease-apple ${
                       mapEngine === 'pulse3d'
-                        ? 'bg-signal-500/20 text-signal-300 border border-signal-500/40 shadow-sm'
+                        ? 'bg-signal-500/20 text-signal-300 border border-white/10 shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                     }`}
                     title="Switch between the map and Pulse 3D"
@@ -591,7 +606,7 @@ export const AppShell: React.FC = () => {
                 {!isAuthenticated && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg bg-gradient-to-r from-accent-500/20 to-accent2-500/20 hover:from-accent-500/30 hover:to-accent2-500/30 text-accent-300 text-[10px] font-bold transition-all"
+                    className="w-full flex items-center justify-center gap-1 py-1 px-1.5 rounded-md bg-accent-500/15 hover:bg-accent-500/25 text-accent-300 text-[11px] font-bold transition-all ease-apple"
                     title="Sign In or Create Account"
                   >
                     <LogIn className="w-3 h-3" />
@@ -602,29 +617,29 @@ export const AppShell: React.FC = () => {
 
               {/* User Profile Footer Card */}
               <div
-                onClick={() => setActiveTab('profile')}
-                className="p-2 rounded-2xl glass-card-interactive flex items-center gap-2.5 cursor-pointer"
+                onClick={() => setActiveTab(isBusinessMode ? 'business' : 'profile')}
+                className="p-2 rounded-lg glass-card-interactive flex items-center gap-2.5 cursor-pointer"
               >
                 <img
                   src={userProfile.avatar}
                   alt={userProfile.username}
-                  className="w-9 h-9 rounded-xl object-cover border border-slate-700/60 shadow-sm"
+                  className="w-9 h-9 rounded-md object-cover border border-white/10 shadow-sm"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-white truncate">@{userProfile.username}</div>
-                  <div className="text-[10px] text-slate-300 flex items-center gap-1">
+                  <div className="text-[11px] text-slate-300 flex items-center gap-1">
                     <span className="text-amber-400 font-semibold">Rep {userProfile.reputation}</span>
-                    <span>• Tier 3 Scout</span>
+                    <span>· Tier 3</span>
                   </div>
                 </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowQuickSettings(true);
+                    setActiveTab('settings');
                   }}
                   aria-label="Open settings"
                   title="Settings"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <Settings className="w-4 h-4" />
                 </button>
@@ -638,12 +653,12 @@ export const AppShell: React.FC = () => {
             <header className="lg:hidden px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] [@media(max-height:500px)]:pb-1 [@media(max-height:500px)]:pt-[max(0.25rem,env(safe-area-inset-top))] shrink-0 glass-header flex items-center justify-between gap-2 z-30 relative">
               {/* Logo & Brand */}
               <div className="flex items-center gap-2 shrink-0">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-accent-500/30">
+                <div className="w-7 h-7 rounded-md bg-accent-500 flex items-center justify-center font-semibold text-sm text-white shadow-lg">
                   P
                 </div>
                 <div className="flex items-center gap-1.5 leading-none">
-                  <span className="hidden min-[420px]:inline font-extrabold text-sm tracking-tight text-white">PULSE</span>
-                  <span className="hidden min-[420px]:block w-1.5 h-1.5 rounded-full bg-accent-500 animate-pulse"></span>
+                  <span className="hidden min-[420px]:inline font-semibold text-sm tracking-tight text-white">PULSE</span>
+                  <span className="hidden min-[420px]:block w-1.5 h-1.5 rounded-full bg-accent-500"></span>
                 </div>
               </div>
 
@@ -651,7 +666,7 @@ export const AppShell: React.FC = () => {
               <div className="relative min-w-0">
                 <button
                   onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 max-w-full rounded-full glass-card hover:border-white/20 text-xs text-white shadow-sm transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 max-w-full rounded-full glass-card hover:border-white/10 text-xs text-white shadow-sm transition-all ease-apple"
                 >
                   <MapPin className="w-3.5 h-3.5 text-accent-400 shrink-0" />
                   <span className="font-semibold truncate max-w-[88px] min-[420px]:max-w-[110px] sm:max-w-[130px]">
@@ -660,10 +675,11 @@ export const AppShell: React.FC = () => {
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
 
+                <AnimatePresence>
                 {showLocationDropdown && (
-                  <div className="absolute top-10 right-0 sm:left-0 z-50 w-64 rounded-2xl glass-dropdown border border-white/15 p-2 shadow-2xl animate-fade-in text-xs">
-                    <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                      Select Exploration Hub
+                  <motion.div initial={{ opacity: 0, y: -6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }} transition={{ duration: 0.18, ease: EASE }} className="absolute top-10 right-0 sm:left-0 z-50 w-64 origin-top rounded-lg glass-dropdown border border-white/10 p-2 shadow-2xl text-xs">
+                    <div className="text-[11px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wide">
+                      City hubs
                     </div>
                     <LocationStatusLine className="px-2 pb-1.5" />
                     {PRESET_LOCATIONS.map((loc) => (
@@ -673,7 +689,7 @@ export const AppShell: React.FC = () => {
                           chooseHub(loc);
                           setShowLocationDropdown(false);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center justify-between ${
+                        className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between ${
                           currentLocation.name === loc.name
                             ? 'bg-accent-500/20 text-accent-300 font-bold'
                             : 'text-slate-300 hover:bg-slate-800'
@@ -691,31 +707,31 @@ export const AppShell: React.FC = () => {
                         setShowLocationDropdown(false);
                       }}
                       disabled={isLocating}
-                      className="w-full text-left px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
+                      className="w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-1.5 text-signal-300 hover:bg-slate-800 font-medium border-t border-white/5 pt-2"
                     >
                       <Crosshair className="w-3.5 h-3.5" />
-                      <span>{isLocating ? 'Locating...' : 'Use My Exact GPS'}</span>
+                      <span>{isLocating ? 'Locating...' : 'Use my location'}</span>
                     </button>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
 
               {/* Consolidated Right Controls: Score + Preferences + Auth */}
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <div
                   onClick={() => setActiveTab('discover')}
-                  className="cursor-pointer px-2.5 py-1 rounded-full bg-gradient-to-r from-accent-500/20 to-accent2-500/20 border border-accent-500/30 flex items-center gap-1"
+                  className="cursor-pointer px-2.5 py-1 rounded-full bg-accent-500/15 border border-white/10 flex items-center gap-1"
                   title="Current Zone Pulse Score"
                 >
-                  <span className="text-xs">⚡</span>
-                  <span className="text-xs font-black text-accent-300">{currentPulseScore}</span>
+                                    <span className="text-xs font-semibold text-accent-300">{currentPulseScore}</span>
                 </div>
 
                 {!isAuthenticated && (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
                     aria-label="Join or sign in"
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/30 text-[10px] font-bold shadow-sm transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-white/10 text-[11px] font-bold shadow-sm transition-all ease-apple"
                   >
                     <LogIn className="w-3 h-3" />
                     <span className="hidden min-[360px]:inline">Join</span>
@@ -740,11 +756,21 @@ export const AppShell: React.FC = () => {
 
       <LocationNotice onRetry={findMe} isLocating={isLocating} />
 
+      <AppTour />
+
       {/* Real-time Notification In-App Toast Banner */}
+      <AnimatePresence>
       {activeToast && (
-        <div className="fixed top-4 right-4 max-w-sm z-50 animate-slide-up">
-          <div className="p-3.5 rounded-2xl glass-panel border border-accent-500/40 shadow-2xl flex items-start gap-3 bg-slate-900/95">
-            <span className="text-xl shrink-0">🚨</span>
+        <motion.div
+          key={activeToast.id}
+          initial={{ opacity: 0, y: -18, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.98 }}
+          transition={{ duration: 0.32, ease: EASE }}
+          className="fixed top-[max(1rem,env(safe-area-inset-top))] right-4 left-4 sm:left-auto max-w-sm ml-auto z-50"
+        >
+          <div className="p-3.5 rounded-lg glass-panel border border-white/10 shadow-2xl flex items-start gap-3 bg-slate-900/95">
+            <Bell className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
             <div
               onClick={() => {
                 if (activeToast.momentId) {
@@ -755,7 +781,7 @@ export const AppShell: React.FC = () => {
               className="flex-1 cursor-pointer"
             >
               <div className="text-xs font-bold text-white leading-tight">{activeToast.title}</div>
-              <div className="text-[11px] text-slate-300 line-clamp-1 mt-0.5">{activeToast.message}</div>
+              <div className="text-xs text-slate-300 line-clamp-1 mt-0.5">{activeToast.message}</div>
             </div>
             <button
               onClick={dismissToast}
@@ -764,8 +790,9 @@ export const AppShell: React.FC = () => {
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       <CreateMomentModal
         isOpen={isCreateOpen}
@@ -782,143 +809,20 @@ export const AppShell: React.FC = () => {
         onClose={() => setActiveReportMomentId(null)}
       />
 
-      {activeCommunityId && (
-        <TemporaryCommunitiesList
-          selectedCommunityId={activeCommunityId}
-          onClose={() => setActiveCommunityId(null)}
-        />
-      )}
+      <TemporaryCommunitiesList
+        selectedCommunityId={activeCommunityId}
+        onClose={() => setActiveCommunityId(null)}
+      />
 
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
 
-      {isSurveyOpen && (
+      {activeTab === 'setup' && (
         <Suspense fallback={null}>
-          <OnboardingSurvey />
+          <SetupWizard />
         </Suspense>
-      )}
-
-      {/* Settings modal: opened only from the gear in the profile section (sidebar card, Profile page) */}
-      {showQuickSettings && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in">
-          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl glass-panel border border-white/15 shadow-2xl p-5 text-white space-y-4 animate-slide-up">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-signal-400" />
-                <h3 className="text-sm font-bold text-white">Settings</h3>
-              </div>
-              <button
-                onClick={() => setShowQuickSettings(false)}
-                className="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Setting 1: Map Engine */}
-            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-signal-400" /> Map View
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  {MAP_ENGINE_LABELS[mapEngine].long}
-                </div>
-              </div>
-              <button
-                onClick={() => switchEngine(mapEngine === 'map' ? 'pulse3d' : 'map')}
-                className="px-3 py-1.5 rounded-xl bg-signal-500/20 text-signal-300 border border-signal-500/30 text-xs font-bold"
-              >
-                {mapEngine === 'map' ? 'Walk in 3D' : 'Back to map'}
-              </button>
-            </div>
-
-            {/* Setting 2: Portal Role */}
-            <div className="flex items-center justify-between p-3 rounded-2xl glass-card">
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Briefcase className="w-3.5 h-3.5 text-amber-400" /> Portal Role
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  {isBusinessMode ? 'Merchant / Business Admin' : 'Resident & Explorer'}
-                </div>
-              </div>
-              <button
-                onClick={() => setIsBusinessMode(!isBusinessMode)}
-                className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold"
-              >
-                {isBusinessMode ? 'Merchant' : 'Resident'}
-              </button>
-            </div>
-
-            {/* Setting 3: Appearance (follows the browser unless overridden) */}
-            <div className="p-3 rounded-2xl glass-card space-y-2.5">
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5 text-accent-400" /> Appearance
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  {theme.preference === 'system'
-                    ? `Following your browser (${theme.resolved})`
-                    : `Always ${theme.preference}`}
-                </div>
-              </div>
-              <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-1.5">
-                {THEME_OPTIONS.map(({ value, label, Icon }) => (
-                  <button
-                    key={value}
-                    role="radio"
-                    aria-checked={theme.preference === value}
-                    onClick={() => theme.setPreference(value)}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all ${
-                      theme.preference === value
-                        ? 'bg-accent-500/20 text-accent-300 border-accent-500/40'
-                        : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Setting 4: PWA Install (if applicable) */}
-            {!isInstalled && (
-              <button
-                onClick={() => {
-                  setShowQuickSettings(false);
-                  promptToInstall();
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/40 text-xs font-bold transition-all"
-              >
-                <Download className="w-4 h-4" />
-                <span>Install Pulse App (PWA)</span>
-              </button>
-            )}
-
-            {/* Setting 5: Authentication */}
-            {!isAuthenticated ? (
-              <button
-                onClick={() => {
-                  setShowQuickSettings(false);
-                  setIsAuthModalOpen(true);
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 text-white font-bold text-xs shadow-lg shadow-accent-500/25"
-              >
-                <LogIn className="w-4 h-4" />
-                <span>Sign In / Create Account</span>
-              </button>
-            ) : (
-              <div className="pt-1 text-center text-xs text-slate-400">
-                Signed in as <span className="font-bold text-white">@{userProfile.username}</span>
-              </div>
-            )}
-          </div>
-        </div>
       )}
     </div>
   );
