@@ -691,7 +691,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     };
     window.addEventListener('deviceorientation', handleOrientation);
 
-    if (import.meta.env.DEV) {
+    if (process.env.NODE_ENV !== 'production') {
       Object.assign(container, {
         __pulse3d: { scene: pulseScene, rig, avatar, momentLayer, user, walkStep, applyCameraMode, teleportTo, quality, nav: { routeMetersRef, armedRef, navDestRef, navModeRef, simProgressRef } }
       });

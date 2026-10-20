@@ -957,7 +957,7 @@ export const PulseMap = forwardRef<PulseMapHandle, PulseMapProps>(
 
       mapRef.current = map;
       // Test hook for inspecting the map in dev builds
-      if (import.meta.env.DEV) (window as unknown as { __pulseMap?: maplibregl.Map }).__pulseMap = map;
+      if (process.env.NODE_ENV !== 'production') (window as unknown as { __pulseMap?: maplibregl.Map }).__pulseMap = map;
 
       // Navigation Controls
       if (showNavigationControl) {

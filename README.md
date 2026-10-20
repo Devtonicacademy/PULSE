@@ -9,7 +9,7 @@
 
 [![React 18](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Vite 6](https://img.shields.io/badge/Vite-6.2-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Installable-FF4757?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![Deployed on Railway](https://img.shields.io/badge/Railway-Live_Deploy-0B0D0E?logo=railway&logoColor=white)](https://pulse-production-2015.up.railway.app)
@@ -120,7 +120,7 @@ Once the user's location is known (GPS fix, or the active hub when GPS is denied
 
 ### Sign-in survey and the 3D avatar
 
-After sign-in, a four-step survey ([`OnboardingSurvey.tsx`](src/components/onboarding/OnboardingSurvey.tsx)) asks what the user wants to hear about, how and when they get around, how far to look and whether to send nearby alerts, then lets them build an avatar with a live 3D preview. Answers and the avatar are kept on the device per user (they can be reopened from the profile). Once the survey is finished **and** the user's location is known, the glowing orb in Pulse 3D is replaced by their avatar; the flat map shows a portrait of the same avatar.
+After sign-in, a six-step setup wizard at `/setup` ([`SetupWizard.tsx`](src/components/onboarding/SetupWizard.tsx)) walks through location, interests, routine, range and alerts, and avatar. It asks what the user wants to hear about, how and when they get around, how far to look and whether to send nearby alerts, then lets them build an avatar with a live 3D preview. Answers and the avatar are kept on the device per user (they can be reopened from the profile). Once the survey is finished **and** the user's location is known, the glowing orb in Pulse 3D is replaced by their avatar; the flat map shows a portrait of the same avatar.
 
 - The model is [`public/models/avatar.glb`](public/models/avatar.glb) (~60 KB with **Draco** compression, 4x smaller than raw), loaded with `GLTFLoader` + `DRACOLoader` (decoder in [`public/draco/`](public/draco)). Rebuild it with `node scripts/build-avatar-model.mjs`.
 - Customization is a small config ([`avatarConfig.ts`](src/components/avatar/avatarConfig.ts)): skin, hair style and color, top, bottoms, shoes, and extras (cap, glasses, headphones, backpack) with their own color. It recolors named materials and toggles named nodes, so it costs nothing to store or sync. The figure walks and idles procedurally.
@@ -173,13 +173,13 @@ PULSE is integrated with Google Cloud Firebase for real-time data sync and ident
   - `activityZones`, `businesses`, `businessPosts`: read-only for clients (managed from the Firebase console); the demo seeds are used when they are empty.
 - **Photos (Railway)**: the app's Node server (`server.js`, deployed on Railway) also serves a small photo API. The phone compresses the picture first (max 1600 px, WebP at 0.8, typically 50-400 kB), then `POST /api/photos` stores it in a Railway S3-compatible bucket and returns a `/photos/<uid>/<id>.webp` path that the moment keeps. The API checks the Firebase ID token (no service account needed), accepts only WebP/JPEG up to 700 kB by their real bytes, and allows 20 uploads per user per hour. Photos are served back through the same server with long-lived caching. Without the server (or while signed out) the paste-an-image-link option still works.
   - Server environment: `PHOTO_STORAGE=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, optional `S3_URL_STYLE` (`virtual-hosted` default, or `path`) and `FIREBASE_PROJECT_ID`. Without `PHOTO_STORAGE=s3` photos are written to `.photo-uploads/` (development only; Railway's disk is not persistent).
-  - Local development: run `PORT=4000 node server.js` next to `npm run dev`; Vite proxies `/api` and `/photos` to it. Against the Auth emulator also set `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`.
+  - Local development: `npm run dev` starts one server that runs Next.js and the photo/map/geo APIs together on port 3000. Against the Auth emulator also set `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`.
 - **Moderation**: a signed-in (non-guest) user can report a moment once; the report lands in `reports/{momentId}_{uid}` and the moment's `reportCount` moves with it. The **third distinct report hides the moment** (`hidden: true`) until a moderator reviews it; only the author still sees it. Moderators are accounts with a document in `admins/{uid}`: create it by hand in the Firebase console (Firestore > `admins` > add a document whose ID is the person's UID). They get a **Moderation queue** panel on their Profile tab with the reports behind each hidden moment and **Restore** / **Delete** buttons. Restoring resets the counter; the old reports stay, so the same people cannot re-hide it.
 - **Confirmed by N people nearby**: a "Verified" reaction made with a GPS fix close to an alert (about 1.5 km, checked by the security rules) also counts toward `confirmedNearby`, shown on alerts. The fix is rounded to about 100 m and only the user can read it.
 - **Alert notifications (this device only)**: from the Notifications tab the user can turn on OS notifications for new alerts inside their radius. They work while Pulse is open (a tab or the installed app), through the service worker. Real push while the app is closed needs a push server (Cloud Functions on the Blaze plan), which this project does not use.
-- **Rules tests**: `npm run test:rules` runs the security rules against the Firestore emulator (needs Java 11+). `npm run emulators` starts the Firestore + Auth emulators; run the app against them with `VITE_USE_FIREBASE_EMULATOR=true npm run dev`.
+- **Rules tests**: `npm run test:rules` runs the security rules against the Firestore emulator (needs Java 11+). `npm run emulators` starts the Firestore + Auth emulators; run the app against them with `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev`.
 - **Deploying**: nothing is deployed automatically. Before the new client works against the live project, deploy the rules and indexes (`firebase deploy --only firestore`). Moments created before the geohash field existed are not returned by nearby queries.
-- **Offline / Zero-Setup Fallback**: If `VITE_FIREBASE_API_KEY` is omitted, PULSE gracefully continues operating in local reactive demo mode without network exceptions or crashes.
+- **Offline / Zero-Setup Fallback**: If `NEXT_PUBLIC_FIREBASE_API_KEY` (or the older `VITE_FIREBASE_API_KEY`) is omitted, PULSE gracefully continues operating in local reactive demo mode without network exceptions or crashes.
 
 ---
 
@@ -297,13 +297,14 @@ cp .env.example .env
 # The map needs no token: it uses free OpenStreetMap tiles from OpenFreeMap.
 
 # Firebase Configuration (quizapp-project-c5e0e)
-VITE_FIREBASE_API_KEY=your-firebase-api-key
-VITE_FIREBASE_AUTH_DOMAIN=quizapp-project-c5e0e.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=quizapp-project-c5e0e
-VITE_FIREBASE_STORAGE_BUCKET=quizapp-project-c5e0e.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=489428029645
-VITE_FIREBASE_APP_ID=1:489428029645:web:8991f28257e3a2f83bd984
-VITE_FIREBASE_MEASUREMENT_ID=G-QWLVXQ9DBX
+# NEXT_PUBLIC_* names are preferred; the older VITE_* names still work
+NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=quizapp-project-c5e0e.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=quizapp-project-c5e0e
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=quizapp-project-c5e0e.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=489428029645
+NEXT_PUBLIC_FIREBASE_APP_ID=1:489428029645:web:8991f28257e3a2f83bd984
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-QWLVXQ9DBX
 ```
 
 > [!NOTE]
@@ -319,12 +320,13 @@ Open **`http://localhost:3000`** in your browser.
 ```bash
 npm run build
 ```
-The compiled, minified production assets will be output to the `dist/` folder.
+The Next.js production build is written to `.next/`.
 
-### 5. Preview Production Build
+### 5. Run the Production Build
 ```bash
-npm run preview
+npm start
 ```
+`npm start` (`node server.js`) serves the Next.js build together with the APIs. `npm run dev:emulator` runs dev against the Firebase emulators.
 
 ---
 
@@ -386,18 +388,18 @@ PULSE/
 │   │   └── geoUtils.ts                     # Haversine distance & privacy blur jitter
 │   ├── App.tsx                             # App entry point
 │   ├── index.css                           # Glassmorphic CSS design tokens & animations
-│   ├── main.tsx                            # Root mount & Service Worker registration
-│   └── vite-env.d.ts                       # Environment variable typings
+│   └── theme/                              # Accent tokens & light/dark theme
 ├── .firebaserc                             # Firebase project alias (quizapp-project-c5e0e)
 ├── firebase.json                           # Firebase hosting and Firestore config
 ├── firestore.rules                         # Security rules for moments, comments, users
 ├── .env                                    # Environment variables
 ├── .env.example                            # Example environment variables template
-├── index.html                              # HTML template with PWA meta tags
+├── app/                                    # Next.js App Router: layout (PWA meta, theme script), client root
+├── next.config.mjs                         # Next.js config (maps VITE_* env names to NEXT_PUBLIC_*)
+├── server.js                               # Express APIs + Next.js request handler
 ├── package.json                            # Dependencies & scripts
 ├── tailwind.config.js                      # Custom Pulse color tokens & animations
-├── tsconfig.json                           # TypeScript compiler settings
-└── vite.config.ts                          # Vite build configuration
+└── tsconfig.json                           # TypeScript compiler settings
 ```
 
 ---

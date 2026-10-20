@@ -1,10 +1,9 @@
 const CACHE_PREFIX = 'pulse-pwa-';
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
-const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
+const RUNTIME_CACHE = `${CACHE_PREFIX}runtime-v4`;
 const RUNTIME_CACHE_MAX_ENTRIES = 400;
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/icon.svg',
   '/icon-192.png',
@@ -59,11 +58,11 @@ function handleNavigation(event) {
     fetch(event.request)
       .then((response) => {
         if (response.ok) {
-          event.waitUntil(putInCache(CACHE_NAME, '/index.html', response.clone()));
+          event.waitUntil(putInCache(CACHE_NAME, '/', response.clone()));
         }
         return response;
       })
-      .catch(async () => (await caches.match('/index.html')) || Response.error())
+      .catch(async () => (await caches.match('/')) || Response.error())
   );
 }
 
