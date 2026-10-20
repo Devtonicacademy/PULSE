@@ -11,19 +11,21 @@ import {
 } from '../../services/photoUploadService';
 import { getApproximateAreaName } from '../../utils/geoUtils';
 import { LocationPicker } from './LocationPicker';
+import { ResponsiveSheet } from '../ui/ResponsiveSheet';
 import {
   Camera,
   Loader2,
   Crosshair,
   X,
-  Sparkles,
   MapPin,
   Clock,
   ShieldCheck,
   EyeOff,
   Image as ImageIcon,
   AlertCircle,
-  Check
+  Check,
+  Radio,
+  Send
 } from 'lucide-react';
 
 interface CreateMomentModalProps {
@@ -36,16 +38,15 @@ const CATEGORIES: {
   label: string;
   icon: string;
   desc: string;
-  color: string;
 }[] = [
-  { id: 'events', label: 'Events', icon: '🎉', desc: 'Concerts, parties, gatherings', color: 'from-purple-500/20 to-purple-600/30' },
-  { id: 'alerts', label: 'Alerts', icon: '🚨', desc: 'Traffic, road block, safety', color: 'from-accent-500/20 to-accent-600/30' },
-  { id: 'food_drinks', label: 'Food & Drinks', icon: '🍔', desc: 'Pop-ups, food trucks, tastings', color: 'from-accent2-500/20 to-accent2-600/30' },
-  { id: 'deals', label: 'Deals', icon: '🛍️', desc: 'Flash sales, limited offers', color: 'from-pink-500/20 to-pink-600/30' },
-  { id: 'activities', label: 'Activities', icon: '🏃', desc: 'Run clubs, games, workouts', color: 'from-emerald-500/20 to-emerald-600/30' },
-  { id: 'recommendations', label: 'Recommendations', icon: '💡', desc: 'Hidden spots, cafes, views', color: 'from-signal-500/20 to-signal-600/30' },
-  { id: 'lost_found', label: 'Lost & Found', icon: '🔍', desc: 'Lost pets, keys, items', color: 'from-blue-500/20 to-blue-600/30' },
-  { id: 'community', label: 'Community', icon: '💬', desc: 'Local talk, book clubs, news', color: 'from-indigo-500/20 to-indigo-600/30' }
+  { id: 'events', label: 'Events', icon: '🎉', desc: 'Concerts, parties, gatherings' },
+  { id: 'alerts', label: 'Alerts', icon: '🚨', desc: 'Traffic, road block, safety' },
+  { id: 'food_drinks', label: 'Food & Drinks', icon: '🍔', desc: 'Pop-ups, food trucks, tastings' },
+  { id: 'deals', label: 'Deals', icon: '🛍️', desc: 'Flash sales, limited offers' },
+  { id: 'activities', label: 'Activities', icon: '🏃', desc: 'Run clubs, games, workouts' },
+  { id: 'recommendations', label: 'Recommendations', icon: '💡', desc: 'Hidden spots, cafes, views' },
+  { id: 'lost_found', label: 'Lost & Found', icon: '🔍', desc: 'Lost pets, keys, items' },
+  { id: 'community', label: 'Community', icon: '💬', desc: 'Local talk, book clubs, news' }
 ];
 
 const SAMPLE_PHOTOS = [
@@ -56,7 +57,7 @@ const SAMPLE_PHOTOS = [
   { label: 'Traffic Alert', url: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80' }
 ];
 
-export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
+const CreateMomentContent: React.FC<CreateMomentModalProps> = ({
   isOpen,
   onClose
 }) => {
@@ -208,17 +209,16 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-      <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl p-5 text-white animate-slide-up">
+    <>
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-gradient-to-tr from-accent-500 to-accent2-500 text-white shadow-lg shadow-accent-500/20">
-              <Sparkles className="w-4 h-4" />
+            <div className="p-2 rounded-md bg-accent-500 text-white shadow-lg">
+              <Radio className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Broadcast Live Moment</h2>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 Share what is happening around you right now
               </p>
             </div>
@@ -232,20 +232,19 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
         </div>
 
         {/* Gamification Reward Banner */}
-        <div className="my-2 sm:my-3 px-3 py-1.5 sm:py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-2 text-xs">
-          <span className="text-amber-300 font-medium flex items-center gap-1.5 min-w-0">
-            <span>🏆</span>
+        <div className="my-2 sm:my-3 px-3 py-1.5 sm:py-2 rounded-md bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+          <span className="text-slate-200 flex items-center gap-1.5 min-w-0">
             <span className="truncate">
-              <strong>+15 rep</strong>
-              <span className="hidden sm:inline"> upon broadcast</span>
+              <strong className="font-medium">+15 rep</strong>
+              <span className="hidden sm:inline"> when you post</span>
             </span>
           </span>
-          <span className="text-[10px] text-slate-400 shrink-0">Rep {userProfile.reputation}</span>
+          <span className="text-[11px] text-slate-400 shrink-0">Rep {userProfile.reputation}</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-accent-500/20 border border-accent-500/30 text-accent-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-md bg-accent-500/20 border border-white/10 text-accent-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -264,14 +263,13 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                     type="button"
                     key={c.id}
                     onClick={() => setCategory(c.id)}
-                    className={`p-2 sm:p-2.5 rounded-xl border text-left transition-all flex items-center gap-2 sm:block ${
+                    className={`p-2.5 sm:p-3 rounded-md border text-left transition-colors ${
                       isSelected
-                        ? 'bg-accent-500/20 border-accent-500 text-white shadow-lg shadow-accent-500/15'
-                        : 'bg-slate-900/60 border-white/5 text-slate-300 hover:border-white/10'
+                        ? 'bg-white/10 border-white/30 text-white'
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
                     }`}
                   >
-                    <div className="text-lg sm:text-xl sm:mb-1 shrink-0">{c.icon}</div>
-                    <div className="text-xs font-bold leading-tight truncate">{c.label}</div>
+                    <div className="text-sm font-medium leading-tight">{c.label}</div>
                   </button>
                 );
               })}
@@ -290,7 +288,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               placeholder="e.g. Secret Taco Pop-up at Freedom Park"
               maxLength={100}
               required
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40"
+              className="w-full px-3.5 py-2.5 rounded-md bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-white/10 focus:ring-1 focus:ring-accent-500/40"
             />
           </div>
 
@@ -306,9 +304,9 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               placeholder="Give details: crowd size, vibes, entry conditions, parking or traffic status..."
               maxLength={400}
               required
-              className="w-full px-3.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/40"
+              className="w-full px-3.5 py-2 rounded-md bg-slate-900/80 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-white/10 focus:ring-1 focus:ring-accent-500/40"
             />
-            <div className="text-right text-[10px] text-slate-500 mt-0.5">
+            <div className="text-right text-[11px] text-slate-400 mt-0.5">
               {description.length}/400 characters
             </div>
           </div>
@@ -325,7 +323,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 type="button"
                 disabled={!uploadsAvailable || photoBusy}
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-signal-400/40 disabled:opacity-40 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md bg-slate-900/80 border border-white/10 text-xs font-bold text-slate-200 hover:border-white/10 disabled:opacity-40 transition-colors"
               >
                 <Camera className="w-3.5 h-3.5 text-signal-400" />
                 <span>Take photo</span>
@@ -334,33 +332,33 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 type="button"
                 disabled={!uploadsAvailable || photoBusy}
                 onClick={() => galleryInputRef.current?.click()}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-900/80 border border-white/10 text-[11px] font-bold text-slate-200 hover:border-signal-400/40 disabled:opacity-40 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md bg-slate-900/80 border border-white/10 text-xs font-bold text-slate-200 hover:border-white/10 disabled:opacity-40 transition-colors"
               >
                 <ImageIcon className="w-3.5 h-3.5 text-signal-400" />
                 <span>From gallery</span>
               </button>
             </div>
             {!uploadsAvailable && (
-              <p className="text-[10px] text-slate-500 mb-2">
+              <p className="text-[11px] text-slate-400 mb-2">
                 Sign in to upload your own photo, or pick a sample / paste an image link below.
               </p>
             )}
             {photo && (
-              <div className="flex items-center gap-3 p-2 mb-2 rounded-xl bg-slate-900/70 border border-white/10" data-testid="photo-status">
+              <div className="flex items-center gap-3 p-2 mb-2 rounded-md bg-slate-900/70 border border-white/10" data-testid="photo-status">
                 {photo.preview ? (
-                  <img src={photo.preview} alt="Your photo" className="w-14 h-14 rounded-lg object-cover shrink-0" />
+                  <img src={photo.preview} alt="Your photo" className="w-14 h-14 rounded-md object-cover shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                  <div className="w-14 h-14 rounded-md bg-slate-800 flex items-center justify-center shrink-0">
                     <Loader2 className="w-4 h-4 animate-spin text-signal-400" />
                   </div>
                 )}
-                <div className="flex-1 min-w-0 text-[11px]">
+                <div className="flex-1 min-w-0 text-xs">
                   {photo.status === 'compressing' && <span className="text-slate-300">Shrinking photo...</span>}
                   {photo.status === 'uploading' && <span className="text-slate-300">Uploading...</span>}
                   {photo.status === 'done' && <span className="text-emerald-400 font-semibold">Photo ready</span>}
                   {photo.status === 'error' && <span className="text-accent-300">{photo.message}</span>}
                   {photo.bytes !== undefined && (
-                    <div className="text-slate-500 mt-0.5">
+                    <div className="text-slate-400 mt-0.5">
                       {formatBytes(photo.bytes)} · {photo.width}×{photo.height}
                     </div>
                   )}
@@ -376,7 +374,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   type="button"
                   key={idx}
                   onClick={() => setPhotoUrl(photoUrl === p.url ? '' : p.url)}
-                  className={`relative w-16 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
+                  className={`relative w-16 h-12 rounded-md overflow-hidden shrink-0 border-2 transition-all ease-apple ${
                     photoUrl === p.url ? 'border-accent-500 scale-105' : 'border-transparent opacity-60 hover:opacity-100'
                   }`}
                 >
@@ -395,24 +393,24 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
               value={photoUrl}
               onChange={(e) => setPhotoUrl(e.target.value)}
               placeholder="Or paste any custom image URL..."
-              className="w-full mt-2 px-3 py-1.5 rounded-lg bg-slate-900/50 border border-white/5 text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none"
+              className="w-full mt-2 px-3 py-1.5 rounded-md bg-slate-900/50 border border-white/5 text-xs text-slate-300 placeholder-slate-400 focus:outline-none"
             />
           </div>
 
           {/* 5. Expiration & GPS Verification Settings */}
-          <div className="p-3 rounded-xl bg-slate-900/70 border border-white/10 space-y-3">
+          <div className="p-3 rounded-md bg-slate-900/70 border border-white/10 space-y-3">
             {/* Lifespan */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs text-slate-300">
-                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <Clock className="w-3.5 h-3.5 text-slate-300" />
                 <span>Moment Lifespan:</span>
               </div>
-              <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-lg">
+              <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-md">
                 <button
                   type="button"
                   onClick={() => setLifespanHours(24)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                    lifespanHours === 24 ? 'bg-amber-500 text-slate-950' : 'text-slate-400'
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                    lifespanHours === 24 ? 'bg-white/15 text-white' : 'text-slate-400'
                   }`}
                 >
                   24 Hours<span className="hidden sm:inline"> (Default)</span>
@@ -420,8 +418,8 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setLifespanHours(48)}
-                  className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                    lifespanHours === 48 ? 'bg-amber-500 text-slate-950' : 'text-slate-400'
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                    lifespanHours === 48 ? 'bg-white/15 text-white' : 'text-slate-400'
                   }`}
                 >
                   48 Hours
@@ -436,11 +434,11 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <MapPin className="w-3.5 h-3.5 text-signal-400" />
                   Location
                 </span>
-                <div className="flex bg-slate-900 p-0.5 rounded-lg border border-white/5">
+                <div className="flex bg-slate-900 p-0.5 rounded-md border border-white/5">
                   <button
                     type="button"
                     onClick={() => setPlaceMode('here')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                    className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
                       placeMode === 'here' ? 'bg-signal-500 text-slate-950' : 'text-slate-400'
                     }`}
                   >
@@ -449,7 +447,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setPlaceMode('pick')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                    className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
                       placeMode === 'pick' ? 'bg-signal-500 text-slate-950' : 'text-slate-400'
                     }`}
                   >
@@ -472,7 +470,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 GPS Verification:
               </span>
-              <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1 text-right" data-testid="gps-status">
+              <span className="text-xs font-medium text-emerald-400 flex items-center gap-1 text-right" data-testid="gps-status">
                 {placeMode === 'pick' && <>Spot chosen on the map</>}
                 {placeMode === 'here' && gpsStatus === 'locating' && (
                   <>
@@ -495,7 +493,7 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
                   <EyeOff className="w-3.5 h-3.5 text-signal-400" />
                   Privacy Location Blurring
                 </div>
-                <div className="text-[10px] text-slate-400">
+                <div className="text-[11px] text-slate-400">
                   Adds safe ±180m jitter; hides exact private home address
                 </div>
               </div>
@@ -518,16 +516,16 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
           {/* Submit Button */}
           <div className="pt-2 space-y-2">
             {currentUser ? (
-              <p className="text-[11px] text-emerald-300 text-center">
-                📡 Goes live to everyone within {radiusKm} km of this spot.
+              <p className="text-xs text-slate-400 text-center">
+                Visible to everyone within {radiusKm} km of this spot.
               </p>
             ) : (
-              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/30 text-[11px] text-amber-100">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-white/5 border border-white/10 text-xs text-slate-300">
                 <span>Not signed in: only this device will see this moment.</span>
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="px-2.5 py-1 rounded-md bg-amber-400 text-slate-950 font-bold shrink-0"
+                  className="px-2.5 py-1 rounded-md bg-accent-500 text-white font-medium shrink-0"
                 >
                   Sign in
                 </button>
@@ -536,14 +534,19 @@ export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 hover:from-accent-600 hover:to-accent2-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-accent-500/25 active:scale-98 transition-all"
+              className="w-full py-3 rounded-md bg-accent-500 hover:bg-accent-600 text-white font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-all ease-apple"
             >
-              <Sparkles className="w-4 h-4" />
+              <Send className="w-4 h-4" />
               <span>{currentUser ? 'Broadcast to Pulse Radar' : 'Save on this device'}</span>
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </>
   );
 };
+
+export const CreateMomentModal: React.FC<CreateMomentModalProps> = ({ isOpen, onClose }) => (
+  <ResponsiveSheet open={isOpen} onClose={onClose} label="Broadcast a moment" size="lg" className="p-5">
+    <CreateMomentContent isOpen onClose={onClose} />
+  </ResponsiveSheet>
+);

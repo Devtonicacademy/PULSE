@@ -7,7 +7,6 @@ import {
   Send,
   X,
   MessageSquare,
-  Sparkles,
   Radio,
   Flame
 } from 'lucide-react';
@@ -17,6 +16,7 @@ interface TemporaryCommunitiesListProps {
   selectedCommunityId?: string | null;
   onClose?: () => void;
 }
+import { ResponsiveSheet, useRetained } from '../ui/ResponsiveSheet';
 
 interface ChatMessage {
   id: string;
@@ -26,7 +26,7 @@ interface ChatMessage {
   avatar: string;
 }
 
-export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> = ({
+const CommunitiesContent: React.FC<TemporaryCommunitiesListProps> = ({
   selectedCommunityId,
   onClose
 }) => {
@@ -111,22 +111,21 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
   const currentChatMessages = messages[activeGroup.id] || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-xl h-[85dvh] max-h-[calc(100dvh-1rem)] flex flex-col rounded-3xl glass-panel border border-white/10 shadow-2xl text-white overflow-hidden">
+    <>
         {/* Top Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-slate-900/50">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-signal-500/20 text-signal-400 border border-signal-500/30">
-              <Radio className="w-4 h-4 animate-pulse" />
+            <div className="p-2 rounded-md bg-signal-500/20 text-signal-400 border border-white/10">
+              <Radio className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white">{activeGroup.name}</h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-signal-500/20 text-signal-300 border border-signal-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-signal-500/20 text-signal-300 border border-white/10">
                   Live Hub
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+              <p className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3 text-signal-400" /> {activeGroup.memberCount} members
                 </span>
@@ -153,9 +152,9 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
             <button
               key={c.id}
               onClick={() => setActiveCommunityId(c.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all ease-apple flex items-center gap-1.5 ${
                 c.id === activeGroup.id
-                  ? 'bg-signal-500 text-slate-950 shadow-md shadow-signal-500/20'
+                  ? 'bg-signal-500 text-slate-950 shadow-md'
                   : 'bg-slate-900 text-slate-400 hover:text-white'
               }`}
             >
@@ -167,8 +166,8 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
 
         {/* Ephemeral Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <div className="p-3 rounded-2xl bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
-            <Sparkles className="w-4 h-4 text-signal-400 mx-auto mb-1" />
+          <div className="p-3 rounded-lg bg-slate-900/40 border border-white/5 text-center text-xs text-slate-400">
+            <Clock className="w-4 h-4 text-signal-400 mx-auto mb-1" />
             <span>
               This is a temporary pop-up channel formed around <strong>{activeGroup.name}</strong>.
               All messages disappear once the moment expires.
@@ -178,7 +177,7 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
           {currentChatMessages.map((msg) => (
             <div
               key={msg.id}
-              className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-900/60 border border-white/5"
+              className="flex items-start gap-2.5 p-3 rounded-lg bg-slate-900/60 border border-white/5"
             >
               <img
                 src={msg.avatar}
@@ -188,7 +187,7 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-bold text-slate-200">@{msg.user}</span>
-                  <span className="text-[10px] text-slate-500">{msg.time}</span>
+                  <span className="text-[11px] text-slate-400">{msg.time}</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed break-words">{msg.text}</p>
               </div>
@@ -204,18 +203,26 @@ export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> =
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               placeholder={`Message everyone at ${activeGroup.name}...`}
-              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-signal-500"
+              className="flex-1 px-3.5 py-2.5 rounded-md bg-slate-900 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-signal-500"
             />
             <button
               type="submit"
               disabled={!inputVal.trim()}
-              className="p-2.5 rounded-xl bg-signal-500 hover:bg-signal-600 disabled:opacity-40 text-slate-950 font-bold transition-all shrink-0"
+              className="p-2.5 rounded-md bg-signal-500 hover:bg-signal-600 disabled:opacity-40 text-slate-950 font-bold transition-all ease-apple shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </>
+  );
+};
+
+export const TemporaryCommunitiesList: React.FC<TemporaryCommunitiesListProps> = ({ selectedCommunityId, onClose }) => {
+  const retained = useRetained(selectedCommunityId);
+  return (
+    <ResponsiveSheet open={!!selectedCommunityId} onClose={onClose ?? (() => undefined)} label="Pop-up hub chat" size="xl" scroll={false} className="h-[85dvh]">
+      {retained && <CommunitiesContent selectedCommunityId={retained} onClose={onClose} />}
+    </ResponsiveSheet>
   );
 };

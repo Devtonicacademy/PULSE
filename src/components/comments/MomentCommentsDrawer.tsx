@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePulse } from '../../context/PulseContext';
-import { X, MessageCircle, Send, Sparkles, ChevronDown } from 'lucide-react';
+import { X, MessageCircle, Send, ChevronDown } from 'lucide-react';
 import { Comment } from '../../types/pulse';
 import { CommentItem } from './CommentItem';
 import { announceTyping, stopTyping, subscribeTyping } from '../../services/typingService';
@@ -10,11 +10,12 @@ interface MomentCommentsDrawerProps {
   momentId: string | null;
   onClose: () => void;
 }
+import { ResponsiveSheet, useRetained } from '../ui/ResponsiveSheet';
 
 /** Threads with more replies than this start collapsed to the latest few */
 const COLLAPSED_REPLIES = 2;
 
-export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
+const CommentsContent: React.FC<MomentCommentsDrawerProps> = ({
   momentId,
   onClose
 }) => {
@@ -137,197 +138,165 @@ export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({
     });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <>
+      <header className="px-4 py-3.5 border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-white">Discussion</h2>
+          <p className="text-xs text-slate-400 truncate">{currentMoment ? currentMoment.title : 'Moment thread'}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close discussion"
+          className="p-1.5 -mr-1.5 rounded-md text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </header>
+
+      {/* Where this thread lives: shared and live, or just on this device */}
       <div
-        role="dialog"
-        aria-label="Live discussion"
-        className="w-full sm:max-w-lg h-[80dvh] max-h-[100dvh] flex flex-col rounded-t-3xl sm:rounded-3xl glass-panel border border-white/10 shadow-2xl text-white animate-slide-up"
+        className="px-4 py-2 text-xs text-slate-300 flex items-center gap-2 shrink-0 border-b border-white/10 bg-white/5"
+        role="status"
+        data-testid="discussion-status"
+        data-status={discussionStatus}
       >
-        {/* Header */}
-        <div className="p-4 border-b border-white/10 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-signal-400" />
-            <div>
-              <h3 className="text-sm font-bold text-white">Live Discussion</h3>
-              <p className="text-[11px] text-slate-300 truncate max-w-[240px]">
-                {currentMoment ? currentMoment.title : 'Moment thread'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close discussion"
-            className="p-1.5 rounded-full bg-slate-800 text-slate-300 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Where this thread lives: shared and live, or just on this device */}
-        <div
-          className={`px-4 py-1.5 text-[11px] flex items-center gap-2 shrink-0 border-b border-white/10 ${
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
             discussionStatus === 'live'
-              ? 'text-emerald-300 bg-emerald-500/10'
+              ? 'bg-emerald-400'
               : discussionStatus === 'offline'
-                ? 'text-rose-300 bg-rose-500/10'
-                : 'text-slate-300 bg-white/5'
+                ? 'bg-rose-400'
+                : discussionStatus === 'connecting'
+                  ? 'bg-amber-400'
+                  : 'bg-slate-400'
           }`}
-          role="status"
-          data-testid="discussion-status"
-          data-status={discussionStatus}
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              discussionStatus === 'live'
-                ? 'bg-emerald-400 animate-pulse'
-                : discussionStatus === 'offline'
-                  ? 'bg-rose-400'
-                  : discussionStatus === 'connecting'
-                    ? 'bg-amber-400 animate-pulse'
-                    : 'bg-slate-400'
-            }`}
-          />
-          <span>
-            {discussionStatus === 'live' && 'Live: everyone on this moment sees new comments instantly'}
-            {discussionStatus === 'connecting' && 'Connecting to the live discussion…'}
-            {discussionStatus === 'offline' && "Can't reach the live discussion right now. Reopen to retry."}
-            {discussionStatus === 'local' && 'Demo moment: this discussion is saved on this device only'}
-          </span>
-        </div>
+        />
+        <span>
+          {discussionStatus === 'live' && 'Live. New comments appear instantly.'}
+          {discussionStatus === 'connecting' && 'Connecting…'}
+          {discussionStatus === 'offline' && "Can't reach the discussion. Reopen to retry."}
+          {discussionStatus === 'local' && 'Demo moment. Comments stay on this device.'}
+        </span>
+      </div>
 
-        {/* Comments Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {topLevel.length === 0 ? (
-            <div className="text-center py-12 text-slate-300 text-xs">
-              <Sparkles className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-              <p className="font-semibold text-slate-200">No comments yet</p>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Be the first to share an update or ask a question!
-              </p>
-            </div>
-          ) : (
-            topLevel.map((c) => {
-              const replies = getReplies(c.id);
-              const collapsible = replies.length > COLLAPSED_REPLIES;
-              const expanded = !collapsible || expandedThreads.has(c.id);
-              const visibleReplies = expanded ? replies : replies.slice(-COLLAPSED_REPLIES);
-              const hiddenCount = replies.length - visibleReplies.length;
+      {/* Comments */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+        {topLevel.length === 0 ? (
+          <div className="text-center py-14">
+            <MessageCircle className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+            <p className="text-sm font-medium text-white">No comments yet</p>
+            <p className="text-sm text-slate-400 mt-1">Start the conversation.</p>
+          </div>
+        ) : (
+          topLevel.map((c) => {
+            const replies = getReplies(c.id);
+            const collapsible = replies.length > COLLAPSED_REPLIES;
+            const expanded = !collapsible || expandedThreads.has(c.id);
+            const visibleReplies = expanded ? replies : replies.slice(-COLLAPSED_REPLIES);
+            const hiddenCount = replies.length - visibleReplies.length;
 
-              return (
-                <div key={c.id} className="space-y-2">
-                  <CommentItem comment={c} onLike={toggleCommentLike} onReply={startReply} />
+            return (
+              <div key={c.id} className="space-y-3">
+                <CommentItem comment={c} onLike={toggleCommentLike} onReply={startReply} />
 
-                  {replies.length > 0 && (
-                    <div className="ml-4 pl-4 space-y-2 border-l-2 border-white/15">
-                      {collapsible && (
-                        <button
-                          type="button"
-                          onClick={() => toggleThread(c.id)}
-                          aria-expanded={expanded}
-                          className="flex items-center gap-1 text-[11px] font-semibold text-signal-300 hover:text-signal-200 transition-colors"
-                        >
-                          <ChevronDown
-                            className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
-                          />
-                          {expanded
-                            ? 'Hide earlier replies'
-                            : `View ${hiddenCount} earlier ${hiddenCount === 1 ? 'reply' : 'replies'}`}
-                        </button>
-                      )}
-                      {visibleReplies.map((reply) => (
-                        <CommentItem
-                          key={reply.id}
-                          comment={reply}
-                          isReply
-                          onLike={toggleCommentLike}
-                          onReply={startReply}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-          <div ref={listEndRef} />
-        </div>
+                {replies.length > 0 && (
+                  <div className="ml-4 pl-4 space-y-3 border-l border-white/10">
+                    {collapsible && (
+                      <button
+                        type="button"
+                        onClick={() => toggleThread(c.id)}
+                        aria-expanded={expanded}
+                        className="flex items-center gap-1 py-1 text-xs text-slate-300 hover:text-white transition-colors"
+                      >
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                        {expanded ? 'Hide earlier replies' : `View ${hiddenCount} earlier ${hiddenCount === 1 ? 'reply' : 'replies'}`}
+                      </button>
+                    )}
+                    {visibleReplies.map((reply) => (
+                      <CommentItem key={reply.id} comment={reply} isReply onLike={toggleCommentLike} onReply={startReply} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div ref={listEndRef} />
+      </div>
 
-        {/* Typing indicator: reserves its line so the list does not jump when it appears */}
-        <div
-          className="h-5 px-4 shrink-0 flex items-center gap-1.5 text-[11px] text-slate-300"
-          aria-live="polite"
-          data-testid="typing-indicator"
-        >
-          {typists.length > 0 && (
-            <>
-              <span className="flex items-end gap-0.5 h-2" aria-hidden>
-                {[0, 150, 300].map((delay) => (
-                  <span
-                    key={delay}
-                    className="w-1 h-1 rounded-full bg-signal-400 animate-bounce"
-                    style={{ animationDelay: `${delay}ms` }}
-                  />
-                ))}
-              </span>
-              <span>{typingLabel(typists.map((t) => t.userName))}</span>
-            </>
-          )}
-        </div>
+      {/* Typing indicator: reserves its line so the list does not jump when it appears */}
+      <div className="h-6 px-4 shrink-0 flex items-center gap-1.5 text-xs text-slate-400" aria-live="polite" data-testid="typing-indicator">
+        {typists.length > 0 && (
+          <>
+            <span className="flex items-end gap-0.5 h-2" aria-hidden>
+              {[0, 150, 300].map((delay) => (
+                <span key={delay} className="w-1 h-1 rounded-full bg-slate-400" style={{ animationDelay: `${delay}ms` }} />
+              ))}
+            </span>
+            <span>{typingLabel(typists.map((t) => t.userName))}</span>
+          </>
+        )}
+      </div>
 
-        {/* Input Bar */}
-        <form onSubmit={handleSend} className="p-3 border-t border-white/10 glass-panel shrink-0">
-          {mustSignIn && (
-            <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-lg bg-slate-800 text-[11px] text-slate-200">
-              <span>Join to take part in this live discussion.</span>
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="px-2.5 py-1 rounded-md bg-signal-500 text-slate-950 font-bold"
-              >
-                Sign in
-              </button>
-            </div>
-          )}
-          {replyToUser && (
-            <div className="flex items-center justify-between px-3 py-1.5 mb-2 rounded-lg bg-slate-800 text-[11px] text-signal-300">
-              <span>Replying to @{replyToUser}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  clearReply();
-                  setContent('');
-                  stopTyping(momentId, me);
-                }}
-                className="text-slate-300 hover:text-white"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={content}
-              onChange={(e) => handleChange(e.target.value)}
-              onBlur={() => stopTyping(momentId, me)}
-              maxLength={1000}
-              disabled={!canPost}
-              aria-label="Write a comment"
-              placeholder={`Comment as @${userProfile.username}...`}
-              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-signal-500"
-            />
-            <button
-              type="submit"
-              disabled={!content.trim() || !canPost}
-              aria-label="Send comment"
-              className="p-2.5 rounded-xl bg-signal-500 hover:bg-signal-600 disabled:opacity-40 text-slate-950 font-bold transition-all shrink-0"
-            >
-              <Send className="w-4 h-4" />
+      {/* Composer */}
+      <form onSubmit={handleSend} className="p-3 border-t border-white/10 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {mustSignIn && (
+          <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-md bg-white/5 border border-white/10 text-sm text-slate-200">
+            <span>Sign in to join this discussion.</span>
+            <button type="button" onClick={() => setIsAuthModalOpen(true)} className="px-3 py-1.5 rounded-md bg-accent-500 hover:bg-accent-600 text-white text-xs font-medium">
+              Sign in
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+        {replyToUser && (
+          <div className="flex items-center justify-between px-3 py-1.5 mb-2 rounded-md bg-white/5 border border-white/10 text-xs text-slate-300">
+            <span>Replying to @{replyToUser}</span>
+            <button
+              type="button"
+              onClick={() => {
+                clearReply();
+                setContent('');
+                stopTyping(momentId, me);
+              }}
+              className="text-slate-300 hover:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={content}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={() => stopTyping(momentId, me)}
+            maxLength={1000}
+            disabled={!canPost}
+            aria-label="Write a comment"
+            placeholder={`Comment as @${userProfile.username}`}
+            className="flex-1 px-3.5 py-2.5 rounded-md bg-white/5 border border-white/10 text-base sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:border-white/40 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={!content.trim() || !canPost}
+            aria-label="Send comment"
+            className="p-2.5 rounded-md bg-accent-500 hover:bg-accent-600 disabled:opacity-40 text-white transition-colors shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      </form>
+    </>
+  );
+};
+
+export const MomentCommentsDrawer: React.FC<MomentCommentsDrawerProps> = ({ momentId, onClose }) => {
+  const retained = useRetained(momentId);
+  return (
+    <ResponsiveSheet open={!!momentId} onClose={onClose} label="Live discussion" size="lg" scroll={false} className="h-[80dvh]">
+      {retained && <CommentsContent momentId={retained} onClose={onClose} />}
+    </ResponsiveSheet>
   );
 };

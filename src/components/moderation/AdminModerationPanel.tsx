@@ -47,11 +47,11 @@ export const AdminModerationPanel: React.FC = () => {
   };
 
   return (
-    <div className="rounded-3xl glass-panel border border-accent-500/30 p-4 space-y-3" data-testid="admin-panel">
+    <div className="rounded-xl glass-panel border border-white/10 p-4 space-y-3" data-testid="admin-panel">
       <div className="flex items-center gap-2">
         <ShieldAlert className="w-4 h-4 text-accent-400" />
         <h3 className="text-sm font-bold text-white">Moderation queue</h3>
-        <span className="ml-auto text-[10px] text-slate-400">Hidden after 3 reports</span>
+        <span className="ml-auto text-[11px] text-slate-400">Hidden after 3 reports</span>
       </div>
 
       {queue === null && (
@@ -62,17 +62,17 @@ export const AdminModerationPanel: React.FC = () => {
       {queue?.length === 0 && <p className="text-xs text-slate-400">Nothing waiting for review.</p>}
 
       {queue?.map((m) => (
-        <div key={m.id} className="p-3 rounded-2xl bg-slate-900/70 border border-white/10 space-y-2">
+        <div key={m.id} className="p-3 rounded-lg bg-slate-900/70 border border-white/10 space-y-2">
           <div>
             <div className="text-xs font-bold text-white break-words">{m.title}</div>
-            <div className="text-[11px] text-slate-400 break-words">{m.description}</div>
-            <div className="text-[10px] text-slate-500 mt-1">
+            <div className="text-xs text-slate-400 break-words">{m.description}</div>
+            <div className="text-[11px] text-slate-400 mt-1">
               by @{m.userName} · {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })} · {m.reportCount} reports
             </div>
           </div>
           <ul className="space-y-0.5">
             {(reports[m.id] ?? []).map((r) => (
-              <li key={r.id} className="text-[10px] text-slate-300">
+              <li key={r.id} className="text-[11px] text-slate-300">
                 <span className="text-accent-300 font-semibold">{REASON_LABELS[r.reason] ?? r.reason}</span>
                 {r.notes ? <span className="text-slate-400"> — {r.notes}</span> : null}
               </li>
@@ -82,14 +82,14 @@ export const AdminModerationPanel: React.FC = () => {
             <button
               disabled={busyId === m.id}
               onClick={() => act(m.id, 'restore')}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-emerald-500/15 border border-white/10 text-emerald-300 text-xs font-bold disabled:opacity-50"
             >
               <Check className="w-3.5 h-3.5" /> Restore
             </button>
             <button
               disabled={busyId === m.id}
               onClick={() => act(m.id, 'delete')}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl bg-accent-500/15 border border-accent-500/30 text-accent-300 text-[11px] font-bold disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-accent-500/15 border border-white/10 text-accent-300 text-xs font-bold disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>

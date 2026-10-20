@@ -141,16 +141,22 @@ export async function createAvatar(config: AvatarConfig): Promise<AvatarInstance
 
 const portraitCache = new Map<string, string>();
 
-/** Renders the avatar's upper body to a small PNG data URL, for the 2D map marker */
+// One offscreen renderer for every portrait: browsers cap live WebGL contexts, and a new one per
+// portrait is slow. Portraits are drawn at twice their display size so they stay sharp on Retina.
+let portraitRenderer: THREE.WebGLRenderer | null = null;
+const PORTRAIT_SCALE = 2;
+
+/** Renders the avatar's upper body to a PNG data URL (at 2x `size`), for the 2D map marker */
 export async function renderAvatarPortrait(config: AvatarConfig, size = 96): Promise<string> {
   const key = `${size}:${JSON.stringify(config)}`;
   const cached = portraitCache.get(key);
   if (cached) return cached;
 
   const avatar = await createAvatar(config);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-  renderer.setSize(size, size);
+  const renderer =
+    portraitRenderer ?? (portraitRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }));
   renderer.setPixelRatio(1);
+  renderer.setSize(size * PORTRAIT_SCALE, size * PORTRAIT_SCALE, false);
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, 1.7), avatar.object);
   const key1 = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -162,7 +168,6 @@ export async function renderAvatarPortrait(config: AvatarConfig, size = 96): Pro
   avatar.update(0, 0, 0);
   renderer.render(scene, camera);
   const url = renderer.domElement.toDataURL('image/png');
-  renderer.dispose();
   avatar.dispose();
   portraitCache.set(key, url);
   return url;

@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { EASE } from '../ui/ResponsiveSheet';
 import { usePulse } from '../../context/PulseContext';
 import { ReactionType, MomentCategory, Moment } from '../../types/pulse';
 import {
@@ -31,14 +33,14 @@ export const CATEGORY_META: Record<
   MomentCategory,
   { label: string; icon: string; badgeClass: string }
 > = {
-  events: { label: 'Event', icon: '🎉', badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-  alerts: { label: 'Alert', icon: '🚨', badgeClass: 'bg-accent-500/20 text-accent-300 border-accent-500/30' },
-  food_drinks: { label: 'Food & Drink', icon: '🍔', badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-  lost_found: { label: 'Lost & Found', icon: '🔍', badgeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-  recommendations: { label: 'Recommendation', icon: '💡', badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-  activities: { label: 'Activity', icon: '🏃', badgeClass: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
-  deals: { label: 'Deal', icon: '🛍️', badgeClass: 'bg-accent-500/20 text-accent-300 border-accent-500/30' },
-  community: { label: 'Community', icon: '💬', badgeClass: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' }
+  events: { label: 'Event', icon: '🎉', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  alerts: { label: 'Alert', icon: '🚨', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  food_drinks: { label: 'Food & Drink', icon: '🍔', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  lost_found: { label: 'Lost & Found', icon: '🔍', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  recommendations: { label: 'Recommendation', icon: '💡', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  activities: { label: 'Activity', icon: '🏃', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  deals: { label: 'Deal', icon: '🛍️', badgeClass: 'bg-white/10 text-slate-200 border-white/10' },
+  community: { label: 'Community', icon: '💬', badgeClass: 'bg-white/10 text-slate-200 border-white/10' }
 };
 
 export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
@@ -60,15 +62,15 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   // Render Zone Details when a zone hotspot polygon is clicked
   if (selectedZone && !selectedMoment) {
     return (
-      <div className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 animate-slide-up flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
-        <div className="glass-panel rounded-2xl p-4 sm:p-5 shadow-2xl text-white overflow-y-auto overscroll-contain min-h-0">
+      <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }} className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
+        <div className="glass-panel rounded-lg p-4 sm:p-5 shadow-2xl text-white overflow-y-auto overscroll-contain min-h-0">
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-500/20 text-accent-300 border border-accent-500/30 flex items-center gap-1">
-                  <Flame className="w-3.5 h-3.5 text-accent-400" /> Hotspot Zone
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-slate-200 border border-white/10 flex items-center gap-1">
+                  <Flame className="w-3.5 h-3.5 text-accent-400" /> Hotspot
                 </span>
-                <span className="text-xs text-slate-400">Activity Radius 2.5km</span>
+                <span className="text-xs text-slate-400">2.5 km radius</span>
               </div>
               <h2 className="text-xl font-bold text-white">{selectedZone.zoneName}</h2>
             </div>
@@ -81,17 +83,17 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
           </div>
 
           <div className="grid grid-cols-3 gap-2 py-3 border-y border-white/10 my-3">
-            <div className="text-center p-2 rounded-xl bg-slate-800/40">
-              <div className="text-2xl font-black text-accent-400">{selectedZone.activityScore}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">Pulse Score</div>
+            <div className="text-center p-2 rounded-md bg-white/5">
+              <div className="text-2xl font-semibold text-white">{selectedZone.activityScore}</div>
+              <div className="text-xs text-slate-400">Pulse score</div>
             </div>
-            <div className="text-center p-2 rounded-xl bg-slate-800/40">
-              <div className="text-2xl font-black text-amber-400">{selectedZone.momentCount}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">Active Moments</div>
+            <div className="text-center p-2 rounded-md bg-white/5">
+              <div className="text-2xl font-semibold text-white">{selectedZone.momentCount}</div>
+              <div className="text-xs text-slate-400">Moments</div>
             </div>
-            <div className="text-center p-2 rounded-xl bg-slate-800/40">
-              <div className="text-2xl font-black text-signal-400">{selectedZone.activeUsers}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-400">People Nearby</div>
+            <div className="text-center p-2 rounded-md bg-white/5">
+              <div className="text-2xl font-semibold text-white">{selectedZone.activeUsers}</div>
+              <div className="text-xs text-slate-400">People nearby</div>
             </div>
           </div>
 
@@ -99,12 +101,12 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
 
           <button
             onClick={() => setSelectedZone(null)}
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-accent-500 to-accent2-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg shadow-accent-500/20 active:scale-[0.98] transition-transform"
+            className="w-full py-2.5 rounded-md bg-accent-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform"
           >
-            <Navigation className="w-3.5 h-3.5" /> Explore Moments in this Zone
+            <Navigation className="w-3.5 h-3.5" /> Explore this area
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -118,21 +120,21 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
   return (
     // The sheet is sized to the map area (not the whole screen), so on a short phone its top is never hidden
     // under the header; the close button stays put while the content scrolls inside.
-    <div className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 animate-slide-up flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
-      <div className="relative glass-panel rounded-2xl overflow-hidden shadow-2xl text-white flex flex-col min-h-0">
+    <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }} className="absolute inset-x-2 bottom-2 sm:left-6 sm:right-auto sm:bottom-6 sm:max-w-md z-30 flex flex-col max-h-[calc(100%-1rem)] sm:max-h-[calc(100%-3rem)]">
+      <div className="relative glass-panel rounded-lg overflow-hidden shadow-2xl text-white flex flex-col min-h-0">
         <button
           onClick={() => setSelectedMoment(null)}
           aria-label="Close"
-          className="absolute top-2.5 right-2.5 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 active:scale-95 transition-colors"
+          className="absolute top-2.5 right-2.5 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-xl text-white hover:bg-black/80 active:scale-95 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
         {onBackToMap && (
           <button
             onClick={onBackToMap}
-            className="sm:hidden absolute top-2.5 left-2.5 z-20 h-9 px-3 flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-bold active:scale-95 transition-colors"
+            className="sm:hidden absolute top-2.5 left-2.5 z-20 h-9 px-3 flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-xl text-white text-xs font-bold active:scale-95 transition-colors"
           >
-            <MapIcon className="w-3.5 h-3.5 text-signal-400" />
+            <MapIcon className="w-3.5 h-3.5 text-slate-200" />
             <span>Back to map</span>
           </button>
         )}
@@ -152,15 +154,15 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
               <span
                 className={`px-2.5 py-1 rounded-full text-xs font-semibold border backdrop-blur-md flex items-center gap-1.5 ${catMeta.badgeClass}`}
               >
-                <span>{catMeta.icon}</span> {catMeta.label}
+                {catMeta.label}
               </span>
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-black/60 backdrop-blur-md text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-amber-400" />
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-black/40 backdrop-blur-xl text-slate-200 border border-white/10 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
                 {hoursLeft > 0 ? `Expires in ${hoursLeft}h` : 'Expiring soon'}
               </span>
               {selectedMoment.isBlurred && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-signal-950/80 text-signal-300 border border-signal-500/30">
-                  🛡️ Blurred Location (±180m)
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-black/40 text-slate-200 border border-white/10">
+                  Approximate location (±180 m)
                 </span>
               )}
             </div>
@@ -175,9 +177,9 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
                 <span
                   className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${catMeta.badgeClass} flex items-center gap-1`}
                 >
-                  <span>{catMeta.icon}</span> {catMeta.label}
+                  {catMeta.label}
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-slate-200 border border-white/10 flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {hoursLeft}h left
                 </span>
               </div>
@@ -190,10 +192,10 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
               <img
                 src={selectedMoment.userAvatar}
                 alt={selectedMoment.userName}
-                className="w-5 h-5 rounded-full object-cover border border-slate-700"
+                className="w-5 h-5 rounded-full object-cover border border-white/10"
               />
               <span className="font-semibold text-slate-200">@{selectedMoment.userName}</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] bg-slate-800 text-amber-400">
+              <span className="px-1.5 py-0.2 rounded text-[11px] bg-white/10 text-slate-300">
                 Rep {selectedMoment.userReputation}
               </span>
             </div>
@@ -211,8 +213,8 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
           </p>
 
           {/* Location details */}
-          <div className="flex items-center gap-2 text-xs text-slate-400 mb-4 bg-slate-800/40 p-2.5 rounded-xl border border-white/5">
-            <MapPin className="w-3.5 h-3.5 text-accent-400 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-4 bg-white/5 p-2.5 rounded-md border border-white/10">
+            <MapPin className="w-3.5 h-3.5 text-slate-300 shrink-0" />
             <span className="truncate">{selectedMoment.approxAddress}</span>
             {selectedMoment.distanceKm !== undefined && (
               <span className="ml-auto font-medium text-slate-200 shrink-0">
@@ -225,20 +227,20 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
 
           {/* Real-time Reactions Bar */}
           <div className="mb-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
-              <span>Community Pulse</span>
-              <span className="text-[10px] text-signal-400 flex items-center gap-1">
+            <div className="text-xs text-slate-400 mb-2 flex items-center justify-between">
+              <span>Reactions</span>
+              <span className="flex items-center gap-1">
                 <Eye className="w-3 h-3" /> {selectedMoment.viewsCount} views
               </span>
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {(
                 [
-                  { type: 'helpful', label: 'Helpful', emoji: '👍', count: selectedMoment.reactions.helpful },
-                  { type: 'trending', label: 'Trending', emoji: '🔥', count: selectedMoment.reactions.trending },
-                  { type: 'confirmed', label: 'Verified', emoji: '✅', count: selectedMoment.reactions.confirmed },
-                  { type: 'interested', label: 'Interested', emoji: '❤️', count: selectedMoment.reactions.interested },
-                  { type: 'going', label: 'Going', emoji: '🎉', count: selectedMoment.reactions.going }
+                  { type: 'helpful', label: 'Helpful', Icon: ThumbsUp, count: selectedMoment.reactions.helpful },
+                  { type: 'trending', label: 'Trending', Icon: Flame, count: selectedMoment.reactions.trending },
+                  { type: 'confirmed', label: 'Verified', Icon: CheckCircle2, count: selectedMoment.reactions.confirmed },
+                  { type: 'interested', label: 'Interested', Icon: Heart, count: selectedMoment.reactions.interested },
+                  { type: 'going', label: 'Going', Icon: PartyPopper, count: selectedMoment.reactions.going }
                 ] as const
               ).map((r) => {
                 const isActive = selectedMoment.userReaction === r.type;
@@ -246,15 +248,15 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
                   <button
                     key={r.type}
                     onClick={() => toggleReaction(selectedMoment.id, r.type)}
-                    className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all ${
+                    className={`flex flex-col items-center justify-center p-2 rounded-md transition-all ease-apple ${
                       isActive
-                        ? 'bg-accent-500/25 border-accent-500/50 scale-105 shadow-lg shadow-accent-500/20 text-white'
-                        : 'bg-slate-800/60 hover:bg-slate-800 border-white/5 text-slate-300'
+                        ? 'bg-white/10 border-white/30 text-white'
+                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300'
                     } border active:scale-95`}
                   >
-                    <span className="text-base sm:text-lg mb-0.5">{r.emoji}</span>
+                    <r.Icon className="w-4 h-4 mb-1" />
                     <span className="text-xs font-bold leading-none">{r.count}</span>
-                    <span className="text-[9px] text-slate-400 tracking-tighter truncate w-full text-center mt-1">
+                    <span className="text-[11px] text-slate-400 tracking-tighter truncate w-full text-center mt-1">
                       {r.label}
                     </span>
                   </button>
@@ -265,10 +267,10 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
 
           {selectedMoment.category === 'alerts' && selectedMoment.confirmedNearby !== undefined && (
             <div
-              className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-accent-500/10 border border-accent-500/25 text-xs text-accent-200"
+              className="mb-4 flex items-center gap-2 px-3 py-2 rounded-md bg-white/5 border border-white/10 text-xs text-slate-200"
               data-testid="confirmed-nearby"
             >
-              <CheckCircle2 className="w-4 h-4 text-accent-300 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-slate-300 shrink-0" />
               <span>
                 {selectedMoment.confirmedNearby > 0
                   ? `Confirmed by ${selectedMoment.confirmedNearby} ${selectedMoment.confirmedNearby === 1 ? 'person' : 'people'} nearby`
@@ -284,10 +286,10 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
                 onStartNavigation(selectedMoment);
                 setSelectedMoment(null);
               }}
-              className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-signal-500 to-blue-600 hover:from-signal-400 hover:to-blue-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-signal-500/25 active:scale-[0.98]"
+              className="w-full py-2.5 px-3 rounded-md bg-signal-500 hover:bg-signal-400 text-slate-950 font-semibold text-xs flex items-center justify-center gap-2 transition-all ease-apple shadow-lg active:scale-[0.98]"
             >
-              <Navigation className="w-4 h-4 fill-current" />
-              <span>Walk There in 3D (Street Cues & FPV)</span>
+              <Navigation className="w-4 h-4" />
+              <span>Walk there in 3D</span>
             </button>
           )}
 
@@ -295,9 +297,9 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
           <div className="flex items-center gap-2 pt-2 border-t border-white/10">
             <button
               onClick={() => onOpenComments(selectedMoment.id)}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-white text-xs font-medium flex items-center justify-center gap-2 transition-colors border border-white/5"
+              className="flex-1 py-2.5 px-3 rounded-md bg-white/5 hover:bg-white/10 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors border border-white/10"
             >
-              <MessageCircle className="w-4 h-4 text-signal-400" />
+              <MessageCircle className="w-4 h-4" />
               <span>Discussion ({selectedMoment.commentCount})</span>
             </button>
 
@@ -316,7 +318,7 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
                   alert('Moment summary copied to clipboard!');
                 }
               }}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 text-slate-300 transition-colors border border-white/5"
+              className="p-2.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 transition-colors border border-white/10"
               title="Share Moment"
             >
               <Share2 className="w-4 h-4" />
@@ -324,7 +326,7 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
 
             <button
               onClick={() => onOpenReport(selectedMoment.id)}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-accent-950/60 text-slate-400 hover:text-accent-400 transition-colors border border-white/5"
+              className="p-2.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/10"
               title="Report content"
             >
               <ShieldAlert className="w-4 h-4" />
@@ -333,6 +335,6 @@ export const HotspotBottomSheet: React.FC<HotspotBottomSheetProps> = ({
         </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };

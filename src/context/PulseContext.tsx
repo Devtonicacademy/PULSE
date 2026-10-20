@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { AppTab, pathForTab, tabForPath } from '../utils/routes';
 import {
   Moment,
   MomentCategory,
@@ -76,8 +78,8 @@ interface PulseContextType {
   isLocating: boolean;
 
   // Active Tab & Selection
-  activeTab: 'map' | 'discover' | 'create' | 'notifications' | 'profile';
-  setActiveTab: (tab: 'map' | 'discover' | 'create' | 'notifications' | 'profile') => void;
+  activeTab: AppTab;
+  setActiveTab: (tab: AppTab) => void;
   selectedCategory: FeedCategoryFilter;
   setSelectedCategory: (cat: FeedCategoryFilter) => void;
   searchQuery: string;
@@ -270,7 +272,19 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLocating, setIsLocating] = useState(false);
 
   // 2. Navigation & filter state
-  const [activeTab, setActiveTab] = useState<'map' | 'discover' | 'create' | 'notifications' | 'profile'>('map');
+  // The page lives in the URL (/, /discover, /alerts, /profile): refresh and back/forward keep it
+  const pathname = usePathname();
+  const router = useRouter();
+  const activeTab: AppTab = tabForPath(pathname);
+  const setActiveTab = useCallback(
+    (tab: AppTab) => {
+      const path = pathForTab(tab);
+      if (path && tabForPath(window.location.pathname) !== tab) {
+        router.push(path);
+      }
+    },
+    [router]
+  );
   const [selectedCategory, setSelectedCategory] = useState<FeedCategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   // Keep the picked moment as a reference only; the live copy is resolved below so
@@ -378,7 +392,9 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const avatar = loadStoredAvatar(id);
     setSurveyAnswers(answers);
     setAvatarConfig(answers ? avatar : null);
-    if (!answers && isAuthenticated && !surveyDismissedFor.current.has(id)) setIsSurveyOpen(true);
+    // Only prompt automatically on the map: a refresh or shared link to another page keeps that page
+    const onMap = window.location.pathname.replace(/\/+$/, '') === '';
+    if (!answers && isAuthenticated && onMap && !surveyDismissedFor.current.has(id)) setIsSurveyOpen(true);
     if (answers) setRadiusKm(answers.radiusKm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile.id, isAuthenticated]);
@@ -445,7 +461,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const notif: NotificationItem = {
           id: `alert-${m.id}`,
           type: 'alert',
-          title: `🚨 New alert ${where} from you`,
+          title: `New alert ${where} from you`,
           message: m.title,
           momentId: m.id,
           distanceKm: dist,
@@ -808,7 +824,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveMomentToFirebase(newMoment).then((result) => {
       if (result.ok) {
         refreshStats();
-        toast('📡 Broadcasting live', `Everyone within ${radiusKm} km of this spot can see it now.`);
+        toast('Broadcasting live', `Everyone within ${radiusKm} km of this spot can see it now.`);
       } else if (result.reason === 'offline') {
         toast('Saved on this device only', 'Sign in to broadcast moments so other people nearby can see them.');
       } else if (result.reason === 'denied') {
@@ -845,7 +861,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
       type: 'event',
-      title: '🎉 Moment Live!',
+      title: 'Moment Live!',
       message: `Your Moment "${newMoment.title}" is now broadcasting to everyone within ${radiusKm}km.`,
       momentId: newMoment.id,
       distanceKm: 0,
@@ -1004,14 +1020,14 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Demo moments and local-only sessions have no server to report to
     if (!isSynced || !remoteIdsRef.current.has(momentId)) {
-      toast('🛡️ Report Received', 'Thank you for keeping Pulse safe. This demo moment is local, so nothing was sent.');
+      toast('Report Received', 'Thank you for keeping Pulse safe. This demo moment is local, so nothing was sent.');
       return;
     }
 
     void saveReport(momentId, reason, notes).then((result) => {
       if (result.ok) {
         toast(
-          '🛡️ Report Received',
+          'Report Received',
           result.hidden
             ? 'Thanks. Enough people reported this moment that it is now hidden until a moderator reviews it.'
             : 'Thank you for keeping Pulse safe. A moderator will review it if others report it too.'
@@ -1055,7 +1071,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const notif: NotificationItem = {
       id: `notif-biz-${Date.now()}`,
       type: 'deal',
-      title: `⚡ Live Pin Broadcasting: ${post.title}`,
+      title: `Live Pin Broadcasting: ${post.title}`,
       message: `${biz.name}'s ${post.livePinType} is now highlighted on the Live Map!`,
       createdAt: new Date().toISOString(),
       isRead: false
@@ -1079,7 +1095,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const simulateIncomingMomentAlert = () => {
     const sampleScenarios = [
       {
-        title: '⚡ Secret Rooftop Acoustic Jam at Falomo Marina',
+        title: 'Secret Rooftop Acoustic Jam at Falomo Marina',
         description: 'Underground indie artists playing acoustic sets under warm string lights. Intimate crowd, craft cider available.',
         category: 'events' as MomentCategory,
         offsetLat: 0.003,
@@ -1087,7 +1103,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         photoUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=800&q=80'
       },
       {
-        title: '🚨 Rapid Road Repair & Detour on Adeola Odeku',
+        title: 'Rapid Road Repair & Detour on Adeola Odeku',
         description: 'Utility crews working on fiber optic cables. Single lane open, slow down when approaching.',
         category: 'alerts' as MomentCategory,
         offsetLat: -0.002,
@@ -1095,7 +1111,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         photoUrl: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=800&q=80'
       },
       {
-        title: '🍔 Pop-up Artisan Smash Burger Stand near Mall',
+        title: 'Pop-up Artisan Smash Burger Stand near Mall',
         description: 'Double wagyu smash patties, caramelized shallot jam, crispy rosemary fries. Open for the next 3 hours only!',
         category: 'food_drinks' as MomentCategory,
         offsetLat: 0.002,
@@ -1136,7 +1152,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const alertNotif: NotificationItem = {
       id: `sim-ws-${Date.now()}`,
       type: scenario.category === 'alerts' ? 'alert' : 'trending',
-      title: `⚡ Real-Time Broadcast (${dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km'})`,
+      title: `Real-Time Broadcast (${dist < 1 ? Math.round(dist * 1000) + 'm' : dist.toFixed(1) + 'km'})`,
       message: `${scenario.title} just broadcasted live nearby!`,
       momentId: newSimMoment.id,
       distanceKm: dist,
@@ -1184,7 +1200,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const notif: NotificationItem = {
         id: `auth-${Date.now()}`,
         type: 'reward',
-        title: '🎉 Welcome to Pulse!',
+        title: 'Welcome to Pulse!',
         message: `Your Scout profile @${profile.username} is now verified and active.`,
         createdAt: new Date().toISOString(),
         isRead: false
@@ -1239,7 +1255,7 @@ export const PulseProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const notif: NotificationItem = {
         id: `auth-${Date.now()}`,
         type: 'event',
-        title: '⚡ Guest Scout Active',
+        title: 'Guest Scout Active',
         message: `Exploring as @${profile.username}. You can link an email account anytime.`,
         createdAt: new Date().toISOString(),
         isRead: false

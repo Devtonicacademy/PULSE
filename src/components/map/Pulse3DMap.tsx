@@ -12,6 +12,7 @@ import { MomentLayer } from './pulse3d/MomentLayer';
 import { RouteLayer } from './pulse3d/RouteLayer';
 import {
   detectQuality,
+  pixelRatioLadder,
   DOWNGRADE_BLOOM_BELOW_FPS,
   DOWNGRADE_PIXELS_BELOW_FPS,
   DOWNGRADE_SAMPLE_SECONDS
@@ -564,6 +565,8 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     const pulseScene = new PulseScene(container, {
       maxPixelRatio: quality.maxPixelRatio,
       bloom: quality.bloom,
+      antialias: quality.antialias,
+      msaaSamples: quality.msaaSamples,
       maxTiles: quality.maxTiles,
       maxLoadRadius: quality.maxLoadRadius
     });
@@ -606,7 +609,10 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
     // Only sampled while visible (hidden tabs throttle to ~1 fps and would mislead us).
     let slowSeconds = 0;
     let lastSampledAt = 0;
-    let pixelsDowngraded = quality.maxPixelRatio <= 1;
+    // Resolution steps down gradually (2 -> 1.5 -> 1.25 -> 1) instead of dropping straight to 1
+    const ladder = pixelRatioLadder(quality.maxPixelRatio);
+    let rung = 0;
+    let pixelsDowngraded = ladder.length <= 1;
     const adaptQuality = (elapsed: number) => {
       if (elapsed - lastSampledAt < 1 || document.visibilityState !== 'visible') return;
       lastSampledAt = elapsed;
@@ -621,9 +627,10 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         pulseScene.setBloomEnabled(false);
         console.info(`[PULSE 3D] ${fps} fps: glow turned off to keep the map smooth`);
       } else {
-        pulseScene.setPixelRatio(1);
-        pixelsDowngraded = true;
-        console.info(`[PULSE 3D] ${fps} fps: rendering at lower resolution`);
+        rung += 1;
+        pulseScene.setPixelRatio(ladder[rung]);
+        pixelsDowngraded = rung >= ladder.length - 1;
+        console.info(`[PULSE 3D] ${fps} fps: resolution lowered to ${ladder[rung]}x`);
       }
     };
     let frame = 0;
@@ -777,7 +784,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
   return (
     <div
-      className={`relative w-full h-full min-h-[350px] overflow-hidden rounded-2xl bg-[#05070d] ${className}`}
+      className={`relative w-full h-full min-h-[350px] overflow-hidden rounded-lg bg-[#05070d] ${className}`}
       style={style}
     >
       {/* isolate: label z-indexes (depth sorting) must not compete with the HUD above */}
@@ -785,7 +792,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
       {status === 'loading' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl glass-hud text-xs text-signal-300">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md glass-hud text-xs text-signal-300">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading city…
           </div>
         </div>
@@ -793,7 +800,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
       {status === 'error' && (
         <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
-          <div className="max-w-xs text-center px-4 py-3 rounded-2xl glass-panel text-xs text-slate-300">
+          <div className="max-w-xs text-center px-4 py-3 rounded-lg glass-panel text-xs text-slate-300">
             3D map data could not be loaded. Go back to the map with the "Back to map" button.
           </div>
         </div>
@@ -801,7 +808,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
 
       {status === 'ready' && !hasData && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-hud text-[11px] text-slate-300 whitespace-nowrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-hud text-xs text-slate-300 whitespace-nowrap">
             <MapPinOff className="w-3.5 h-3.5 text-amber-400" /> No 3D data for this area yet
           </div>
         </div>
@@ -847,7 +854,7 @@ export const Pulse3DMap: React.FC<Pulse3DMapProps> = ({
         />
       )}
 
-      <div className="absolute bottom-1 right-2 z-10 text-[10px] text-slate-500 pointer-events-auto">
+      <div className="absolute bottom-1 right-2 z-10 text-[11px] text-slate-400 pointer-events-auto">
         ©{' '}
         <a
           href="https://www.openstreetmap.org/copyright"
